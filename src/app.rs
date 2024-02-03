@@ -3,6 +3,7 @@ use std::time::Duration;
 use gpui::*;
 
 use crate::{
+    query::Query,
     theme::Theme,
     workspace::{GlobalWorkspace, Workspace},
 };
@@ -55,6 +56,9 @@ pub fn run_app(app: gpui::App) {
             }
         })
         .detach();
+        cx.set_global(Query {
+            inner: String::from(""),
+        });
         Theme::init(cx);
         cx.open_window(window_options(), |cx| {
             Workspace::build(cx);

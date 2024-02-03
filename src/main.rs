@@ -3,6 +3,7 @@ use gpui::App;
 
 mod app;
 mod query;
+mod root;
 mod theme;
 mod workspace;
 

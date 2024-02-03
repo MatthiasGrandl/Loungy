@@ -1,30 +1,13 @@
 use gpui::*;
 
-use crate::{query::TextInput, theme::Theme};
+use crate::{
+    query::{Query, TextInput},
+    theme::Theme,
+};
 
-#[derive(Clone, IntoElement)]
-pub enum Component {
-    List { items: Vec<String> },
-    Text { text: String },
-    None,
-}
-
-impl RenderOnce for Component {
-    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        let theme = cx.global::<Theme>();
-        match self {
-            Component::List { items } => div().child("test"),
-            Component::Text { text } => div().child(text),
-            Component::None => div().child("empty"),
-        }
-        .p_4()
-    }
-}
-
-#[derive(Clone)]
 pub struct Workspace {
     query: TextInput,
-    pub component: Component,
+    //pub child: Component,
 }
 
 pub struct GlobalWorkspace {
@@ -35,7 +18,7 @@ impl Workspace {
     pub fn build(cx: &mut WindowContext) {
         let view = cx.new_view(|cx| Workspace {
             query: TextInput::new(cx, String::from("Hello, world!")),
-            component: Component::None,
+            //child: Component::new(cx),
         });
         cx.set_global(GlobalWorkspace { view });
     }
@@ -44,7 +27,7 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-
+        let query = cx.global::<Query>();
         div()
             .full()
             .flex()
@@ -52,7 +35,8 @@ impl Render for Workspace {
             .bg(theme.base)
             .text_color(theme.text)
             .child(self.query.clone())
-            .child(self.component.clone())
+            .child(div().child(query.inner.clone()).p_4())
+            //.child(self.child.clone())
             .child(div().mt_auto().bg(theme.mantle).w_full().h_10())
     }
 }

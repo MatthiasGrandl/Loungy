@@ -5,10 +5,7 @@ use std::{
 
 use gpui::*;
 
-use crate::{
-    theme::Theme,
-    workspace::{self, GlobalWorkspace, Workspace},
-};
+use crate::theme::Theme;
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
@@ -30,10 +27,15 @@ impl TextInput {
     }
 }
 
+pub struct Query {
+    pub inner: String,
+}
+
+impl Global for Query {}
+
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         cx.focus(&self.focus_handle);
-        let workspace = cx.global::<GlobalWorkspace>().view.clone();
 
         let theme = cx.global::<Theme>();
 
@@ -45,11 +47,6 @@ impl RenderOnce for TextInput {
                 eprintln!("Key down: {:?}", ev);
                 text_display_view.update(cx, |editor, cx| {
                     let keystroke = &ev.keystroke.key;
-                    workspace.update(cx, |workspace, _cx| {
-                        workspace.component = workspace::Component::Text {
-                            text: editor.text.clone(),
-                        };
-                    });
                     if ev.keystroke.modifiers.command {
                         match keystroke.as_str() {
                             "a" => {
@@ -108,8 +105,12 @@ impl RenderOnce for TextInput {
                                 if editor.selection.start == editor.selection.end
                                     && editor.selection.start > 0
                                 {
-                                    let i = editor.selection.start - 1;
-                                    editor.text.remove(i);
+                                    let mut start = editor.text[..editor.selection.start].chars();
+                                    start.next_back();
+                                    let start = start.as_str();
+                                    let i = start.len();
+                                    editor.text =
+                                        start.to_owned() + &editor.text[editor.selection.end..];
                                     editor.selection = i..i;
                                 } else {
                                     editor.text.replace_range(editor.selection.clone(), "");
@@ -130,7 +131,9 @@ impl RenderOnce for TextInput {
                             }
                         };
                     }
-
+                    cx.set_global(Query {
+                        inner: editor.text.clone(),
+                    });
                     cx.notify();
                 });
             })
