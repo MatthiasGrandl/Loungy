@@ -2,6 +2,7 @@ use gpui::*;
 
 use crate::{
     query::{Query, TextInput},
+    root::RootCommand,
     theme::Theme,
 };
 
@@ -27,7 +28,7 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let query = cx.global::<Query>();
+        let command = RootCommand {};
         div()
             .full()
             .flex()
@@ -35,7 +36,7 @@ impl Render for Workspace {
             .bg(theme.base)
             .text_color(theme.text)
             .child(self.query.clone())
-            .child(div().child(query.inner.clone()).p_4())
+            .child(div().child(command.clone()).p_2())
             //.child(self.child.clone())
             .child(div().mt_auto().bg(theme.mantle).w_full().h_10())
     }

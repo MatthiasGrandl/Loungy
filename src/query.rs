@@ -15,6 +15,9 @@ pub struct TextInput {
 
 impl TextInput {
     pub fn new(cx: &mut WindowContext, initial_text: String) -> Self {
+        cx.set_global(Query {
+            inner: String::from(initial_text.clone()),
+        });
         let i = initial_text.len();
         Self {
             text_display_view: cx.new_view(|_cx| TextDisplay {

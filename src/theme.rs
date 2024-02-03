@@ -77,7 +77,7 @@ impl Theme {
     }
 
     fn new() -> Self {
-        Self::from(catppuccin::Flavour::Mocha.colours())
+        Self::from(catppuccin::Flavour::Latte.colours())
     }
 }
 
