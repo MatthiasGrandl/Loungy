@@ -1,11 +1,14 @@
 use app::run_app;
-use gpui::*;
+use gpui::App;
 
 mod app;
 mod query;
 mod theme;
 mod workspace;
 
-fn main() {
-    run_app(App::new())
+#[tokio::main]
+async fn main() {
+    let app = App::new();
+
+    run_app(app)
 }

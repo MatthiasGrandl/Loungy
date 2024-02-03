@@ -1,8 +1,17 @@
+use std::time::Duration;
+
 use gpui::*;
 
-use crate::{theme::Theme, workspace::Workspace};
+use crate::{
+    theme::Theme,
+    workspace::{GlobalWorkspace, Workspace},
+};
+use global_hotkey::{
+    hotkey::{Code, HotKey, Modifiers},
+    GlobalHotKeyEvent, GlobalHotKeyManager,
+};
 
-pub fn run_app(app: gpui::App) {
+fn window_options() -> WindowOptions {
     let mut options = WindowOptions::default();
     let bounds: Bounds<GlobalPixels> = Bounds::new(
         Point {
@@ -20,10 +29,37 @@ pub fn run_app(app: gpui::App) {
     options.titlebar = None;
     options.is_movable = false;
     options.kind = WindowKind::PopUp;
+    options
+}
 
-    app.run(|cx: &mut AppContext| {
+pub fn run_app(app: gpui::App) {
+    let manager = GlobalHotKeyManager::new().unwrap();
+    let hotkey = HotKey::new(Some(Modifiers::all()), Code::Space);
+    manager.register(hotkey).unwrap();
+    let receiver = GlobalHotKeyEvent::receiver().clone();
+
+    app.run(move |cx: &mut AppContext| {
+        cx.spawn(|cx| async move {
+            eprintln!("Hotkey listener started");
+            loop {
+                if let Ok(event) = receiver.try_recv() {
+                    if event.state == global_hotkey::HotKeyState::Released {
+                        let _ = cx.open_window(window_options(), |cx| {
+                            let gw = cx.global::<GlobalWorkspace>();
+                            gw.view.clone()
+                        });
+                    }
+                }
+                //eprintln!("loop1");
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .detach();
         Theme::init(cx);
-
-        cx.open_window(options, |cx| Workspace::build(cx));
+        cx.open_window(window_options(), |cx| {
+            Workspace::build(cx);
+            let gw = cx.global::<GlobalWorkspace>();
+            gw.view.clone()
+        });
     });
 }

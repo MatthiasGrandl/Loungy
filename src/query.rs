@@ -5,7 +5,10 @@ use std::{
 
 use gpui::*;
 
-use crate::theme::Theme;
+use crate::{
+    theme::Theme,
+    workspace::{self, GlobalWorkspace, Workspace},
+};
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
@@ -30,6 +33,8 @@ impl TextInput {
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         cx.focus(&self.focus_handle);
+        let workspace = cx.global::<GlobalWorkspace>().view.clone();
+
         let theme = cx.global::<Theme>();
 
         let text_display_view = self.text_display_view.clone();
@@ -40,7 +45,11 @@ impl RenderOnce for TextInput {
                 eprintln!("Key down: {:?}", ev);
                 text_display_view.update(cx, |editor, cx| {
                     let keystroke = &ev.keystroke.key;
-
+                    workspace.update(cx, |workspace, _cx| {
+                        workspace.component = workspace::Component::Text {
+                            text: editor.text.clone(),
+                        };
+                    });
                     if ev.keystroke.modifiers.command {
                         match keystroke.as_str() {
                             "a" => {
@@ -113,6 +122,7 @@ impl RenderOnce for TextInput {
                                 editor.selection = i..i;
                             }
                             "escape" => {
+                                cx.blur();
                                 cx.hide();
                             }
                             keystroke_str => {
@@ -171,19 +181,27 @@ fn split_into_words(s: &str) -> Vec<Range<usize>> {
 
 impl Render for TextDisplay {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let text = self.text.clone();
-        let mut selection_style = HighlightStyle::default();
         let theme = cx.global::<Theme>();
+        let mut text = self.text.clone();
+        let mut selection_style = HighlightStyle::default();
         let mut color = theme.lavender;
         color.fade_out(0.8);
         selection_style.background_color = Some(color);
 
-        let sel = self.selection.clone();
-        let highlights = vec![(sel, selection_style)];
         let word_ranges = split_into_words(text.as_str());
         let word_ranges_clone = word_ranges.clone();
+
+        let sel = self.selection.clone();
+        let mut highlights = vec![(sel, selection_style)];
+
         let mut style = TextStyle::default();
         style.color = theme.text;
+        if text.len() == 0 {
+            text = "Type here...".to_string();
+            style.color = theme.subtext0;
+            highlights = vec![];
+        }
+
         let styled_text = StyledText::new(text + " ").with_highlights(&style, highlights);
         let view = cx.view().clone();
         let clicked = self.word_click.clone();
