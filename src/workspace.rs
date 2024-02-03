@@ -22,13 +22,15 @@ impl Workspace {
             //child: Component::new(cx),
         });
         cx.set_global(GlobalWorkspace { view });
+        let command = RootCommand::new();
+        cx.set_global(command);
     }
 }
 
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let command = RootCommand {};
+        let command = cx.global::<RootCommand>();
         div()
             .full()
             .flex()

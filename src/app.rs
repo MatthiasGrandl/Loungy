@@ -1,9 +1,10 @@
-use std::time::Duration;
+use std::{io::Read, time::Duration};
 
 use gpui::*;
 
 use crate::{
-    query::Query,
+    keymap::register,
+    query::{self, Query},
     theme::Theme,
     workspace::{GlobalWorkspace, Workspace},
 };
@@ -57,6 +58,7 @@ pub fn run_app(app: gpui::App) {
         })
         .detach();
         Theme::init(cx);
+        register(cx);
         cx.open_window(window_options(), |cx| {
             Workspace::build(cx);
             let gw = cx.global::<GlobalWorkspace>();
