@@ -54,10 +54,7 @@ impl RenderOnce for Img {
         };
         let img = match self.src {
             ImgSource::Icon(icon) => img(""),
-            ImgSource::Base(src) => {
-                eprintln!("img {:#?}", src);
-                img(src)
-            }
+            ImgSource::Base(src) => img(src).w_8().h_8(),
         };
         let img = match self.size {
             ImgSize::Small => img.w_4().h_4(),
