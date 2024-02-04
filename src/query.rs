@@ -222,7 +222,6 @@ impl RenderOnce for TextInput {
     }
 }
 
-#[derive(Clone)]
 pub struct TextDisplay {}
 
 impl Render for TextDisplay {

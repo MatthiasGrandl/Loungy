@@ -5,56 +5,18 @@ use crate::{
     theme::Theme,
 };
 
-#[derive(IntoElement, Clone)]
-pub struct RootCommand {
+pub struct List {
     selected: usize,
+    items: Vec<String>,
 }
 
-impl RootCommand {
-    pub fn new(cx: &mut WindowContext) -> Self {
-        cx.update_global::<Query, _>(|query, cx| {
-            cx.subscribe(&query.inner, |_subscriber, emitter: &QueryEvent, cx| {
-                match emitter {
-                    QueryEvent::Input { text: _ } => {
-                        cx.update_global::<RootCommand, _>(|this, _| {
-                            this.selected = 0;
-                        });
-                    }
-                    QueryEvent::Movement(QueryMovement::Up) => {
-                        cx.update_global::<RootCommand, _>(|this, _| {
-                            if this.selected > 0 {
-                                this.selected -= 1;
-                            }
-                        });
-                    }
-                    QueryEvent::Movement(QueryMovement::Down) => {
-                        cx.update_global::<RootCommand, _>(|this, _| {
-                            this.selected += 1;
-                        });
-                    }
-                }
-                cx.refresh();
-            })
-            .detach();
-        });
-        Self { selected: 0 }
-    }
-}
-
-impl Global for RootCommand {}
-
-impl RenderOnce for RootCommand {
-    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        let query = cx.global::<Query>();
+impl Render for List {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-
-        let selected = cx.global::<RootCommand>().selected;
-
-        let text = query.inner.read(cx).text.clone();
-
+        let selected = self.selected;
         let mut bg_hover = theme.mantle;
         bg_hover.fade_out(0.5);
-        let children = text.split_whitespace().enumerate().map(|(i, s)| {
+        let items = self.items.iter().enumerate().map(|(i, s)| {
             if i == selected {
                 div().border_color(theme.crust).bg(theme.mantle)
             } else {
@@ -65,6 +27,62 @@ impl RenderOnce for RootCommand {
             .rounded_xl()
             .child(String::from(s))
         });
-        div().children(children)
+        div().children(items)
+    }
+}
+
+#[derive(IntoElement, Clone)]
+pub struct RootCommand {
+    view: View<List>,
+}
+
+impl RootCommand {
+    pub fn new(cx: &mut WindowContext) -> Self {
+        let view = cx.new_view(|_cx| List {
+            selected: 0,
+            items: vec![],
+        });
+        let clone = view.clone();
+        cx.update_global::<Query, _>(|query, cx| {
+            cx.subscribe(
+                &query.inner,
+                move |_subscriber, emitter: &QueryEvent, cx| {
+                    let clone = clone.clone();
+                    match emitter {
+                        QueryEvent::Input { text } => {
+                            clone.update(cx, |this, cx| {
+                                this.selected = 0;
+                                this.items = text.split_whitespace().map(String::from).collect();
+                                cx.notify();
+                            });
+                        }
+                        QueryEvent::Movement(QueryMovement::Up) => {
+                            clone.update(cx, |this, cx| {
+                                if this.selected > 0 {
+                                    this.selected -= 1;
+                                    cx.notify();
+                                }
+                            });
+                        }
+                        QueryEvent::Movement(QueryMovement::Down) => {
+                            clone.update(cx, |this, cx| {
+                                this.selected += 1;
+                                cx.notify();
+                            });
+                        }
+                    }
+                },
+            )
+            .detach();
+        });
+        Self { view }
+    }
+}
+
+impl Global for RootCommand {}
+
+impl RenderOnce for RootCommand {
+    fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
+        self.view
     }
 }
