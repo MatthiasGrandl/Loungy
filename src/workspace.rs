@@ -22,7 +22,7 @@ impl Workspace {
             //child: Component::new(cx),
         });
         cx.set_global(GlobalWorkspace { view });
-        let command = RootCommand::new();
+        let command = RootCommand::new(cx);
         cx.set_global(command);
     }
 }
