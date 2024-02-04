@@ -18,8 +18,23 @@ pub struct TextInput {
 
 impl TextInput {
     pub fn new(cx: &mut WindowContext, initial_text: String) -> Self {
-        QueryModel::init(initial_text, cx);
-        let view = cx.new_view(|_cx| TextDisplay {});
+        QueryModel::init(initial_text.clone(), cx);
+        let view = cx.new_view(move |cx| {
+            let view = TextDisplay {};
+            cx.update_global::<Query, _>(|query, cx| {
+                cx.subscribe(
+                    &query.inner,
+                    |_subscriber, _emitter, event, cx| match event {
+                        QueryEvent::Input { text: _ } => {
+                            cx.notify();
+                        }
+                        _ => {}
+                    },
+                )
+                .detach();
+            });
+            view
+        });
         Self {
             focus_handle: cx.focus_handle(),
             view,
@@ -45,7 +60,7 @@ impl QueryModel {
         cx.subscribe(
             &model,
             |subscriber, emitter: &QueryEvent, cx| match emitter {
-                QueryEvent::Input { text } => {
+                QueryEvent::Input { text: _ } => {
                     subscriber.update(cx, |editor, _cx| {
                         editor.word_click = (0, 0);
                     });
@@ -55,6 +70,14 @@ impl QueryModel {
         )
         .detach();
         cx.set_global(Query { inner: model });
+    }
+    pub fn reset(&mut self, cx: &mut ModelContext<Self>) {
+        self.text = "".to_string();
+        self.selection = 0..0;
+        cx.notify();
+        cx.emit(QueryEvent::Input {
+            text: self.text.clone(),
+        });
     }
     pub fn word_ranges(&self) -> Vec<Range<usize>> {
         let mut words = Vec::new();

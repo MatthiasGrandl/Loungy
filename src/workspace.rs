@@ -34,11 +34,21 @@ impl Render for Workspace {
             .flex()
             .flex_col()
             .bg(theme.base)
+            //.rounded_xl()
+            //.border_2()
+            //.border_color(theme.crust)
             .text_color(theme.text)
             .child(self.query.clone())
             .child(div().child(self.command.clone()).p_2())
-            //.child(self.child.clone())
-            .child(div().mt_auto().bg(theme.mantle).w_full().h_10())
+            .child(
+                div()
+                    .mt_auto()
+                    .bg(theme.mantle)
+                    .w_full()
+                    .h_8()
+                    .border_t_1()
+                    .border_color(theme.crust),
+            )
     }
 }
 

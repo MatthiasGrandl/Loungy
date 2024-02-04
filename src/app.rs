@@ -1,10 +1,9 @@
-use std::{io::Read, time::Duration};
+use std::time::Duration;
 
 use gpui::*;
 
 use crate::{
     keymap::register,
-    query::{self, Query},
     theme::Theme,
     workspace::{GlobalWorkspace, Workspace},
 };
