@@ -16,8 +16,8 @@ nucleo = "0.3.0"
 parking_lot = "0.12.1"
 serde = "1.0.195"
 serde_json = "1.0.111"
-tokio = { version = "1.36.0", features = ["full"] }
 swift-rs = "1.0.6"
 numbat = "1.9.0"
 numbat-exchange-rates = "0.4.0"
 whoami = { version = "1.4.1", default-features = false }
+smol = "2.0.0"

@@ -1,3 +1,4 @@
+use smol::Timer;
 use std::{thread, time::Duration};
 
 use gpui::*;
@@ -53,7 +54,7 @@ pub fn run_app(app: gpui::App) {
                         }
                     }
                     //eprintln!("tick");
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    Timer::after(Duration::from_millis(50)).await;
                     //eprintln!("tock");
                 }
             })

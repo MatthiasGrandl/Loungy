@@ -12,8 +12,7 @@ mod query;
 mod theme;
 mod workspace;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let app = App::new();
 
     run_app(app)
