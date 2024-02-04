@@ -8,39 +8,36 @@ use crate::{
 #[derive(IntoElement, Clone)]
 pub struct RootCommand {
     selected: usize,
-    model: Model<QueryModel>,
 }
 
 impl RootCommand {
     pub fn new(cx: &mut WindowContext) -> Self {
-        let query = cx.global::<Query>();
-        cx.subscribe(&query.inner, |_subscriber, emitter: &QueryEvent, cx| {
-            match emitter {
-                QueryEvent::Input { text: _ } => {
-                    cx.update_global::<RootCommand, _>(|this, _| {
-                        this.selected = 0;
-                    });
+        cx.update_global::<Query, _>(|query, cx| {
+            cx.subscribe(&query.inner, |_subscriber, emitter: &QueryEvent, cx| {
+                match emitter {
+                    QueryEvent::Input { text: _ } => {
+                        cx.update_global::<RootCommand, _>(|this, _| {
+                            this.selected = 0;
+                        });
+                    }
+                    QueryEvent::Movement(QueryMovement::Up) => {
+                        cx.update_global::<RootCommand, _>(|this, _| {
+                            if this.selected > 0 {
+                                this.selected -= 1;
+                            }
+                        });
+                    }
+                    QueryEvent::Movement(QueryMovement::Down) => {
+                        cx.update_global::<RootCommand, _>(|this, _| {
+                            this.selected += 1;
+                        });
+                    }
                 }
-                QueryEvent::Movement(QueryMovement::Up) => {
-                    cx.update_global::<RootCommand, _>(|this, _| {
-                        if this.selected > 0 {
-                            this.selected -= 1;
-                        }
-                    });
-                }
-                QueryEvent::Movement(QueryMovement::Down) => {
-                    cx.update_global::<RootCommand, _>(|this, _| {
-                        this.selected += 1;
-                    });
-                }
-            }
-            cx.refresh();
-        })
-        .detach();
-        Self {
-            selected: 0,
-            model: query.inner.clone(),
-        }
+                cx.refresh();
+            })
+            .detach();
+        });
+        Self { selected: 0 }
     }
 }
 
@@ -48,11 +45,12 @@ impl Global for RootCommand {}
 
 impl RenderOnce for RootCommand {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        let text = self.model.read(cx).text.clone();
-
+        let query = cx.global::<Query>();
         let theme = cx.global::<Theme>();
 
         let selected = cx.global::<RootCommand>().selected;
+
+        let text = query.inner.read(cx).text.clone();
 
         let mut bg_hover = theme.mantle;
         bg_hover.fade_out(0.5);
