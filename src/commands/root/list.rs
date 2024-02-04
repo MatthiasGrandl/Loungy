@@ -12,6 +12,8 @@ use crate::{
     workspace::Query,
 };
 
+use super::numbat::Numbat;
+
 static LIST: LazyMutex<Vec<Item>> = LazyMutex::new(Vec::<Item>::new);
 
 #[repr(C)]
@@ -110,7 +112,19 @@ impl Render for Root {
 fn list_items(list: &View<List>, query: &str, cx: &mut ViewContext<Root>) {
     list.update(cx, |this, cx| {
         let items = LIST.lock().clone();
-        this.items = fuzzy_match(query.as_ref(), items, false);
+        let mut items = fuzzy_match(query, items, false);
+        if items.len() == 0 {
+            if let Some(calc) = Numbat::init(query) {
+                items.push(Item::new(
+                    Vec::<String>::new(),
+                    cx.new_view(|_cx| calc).into(),
+                    None,
+                    Vec::<Action>::new(),
+                    None,
+                ));
+            }
+        }
+        this.items = items;
         cx.notify();
     });
 }
