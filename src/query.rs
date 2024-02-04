@@ -107,6 +107,7 @@ impl TextModel {
 pub enum TextEvent {
     Input { text: String },
     Movement(TextMovement),
+    Submit {},
 }
 pub enum TextMovement {
     Up,
@@ -205,9 +206,14 @@ impl RenderOnce for TextInput {
                                 }
                             }
                             "enter" => {
-                                editor.text.insert(editor.selection.start, '\n');
-                                let i = editor.selection.start + 1;
-                                editor.selection = i..i;
+                                if ev.keystroke.modifiers.shift {
+                                    editor.text.insert(editor.selection.start, '\n');
+                                    let i = editor.selection.start + 1;
+                                    editor.selection = i..i;
+                                } else {
+                                    cx.emit(TextEvent::Submit {});
+                                    return;
+                                }
                             }
                             "escape" => {
                                 cx.hide();

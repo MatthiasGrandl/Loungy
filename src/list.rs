@@ -196,6 +196,7 @@ impl RenderOnce for Item {
 
 pub struct List {
     selected: usize,
+    skip: usize,
     pub items: Vec<Item>,
 }
 
@@ -206,7 +207,7 @@ impl Render for List {
                 .clone()
                 .into_iter()
                 .enumerate()
-                .skip(self.selected)
+                .skip(self.skip)
                 .map(|(i, mut item)| {
                     item.selected = i == self.selected;
                     item
@@ -219,6 +220,7 @@ impl List {
     pub fn new(cx: &mut WindowContext) -> View<Self> {
         let view = cx.new_view(|_cx| Self {
             selected: 0,
+            skip: 0,
             items: vec![],
         });
         let clone = view.clone();
@@ -229,6 +231,7 @@ impl List {
                     TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
                             this.selected = 0;
+                            this.skip = 0;
                             cx.notify();
                         });
                     }
@@ -236,6 +239,11 @@ impl List {
                         clone.update(cx, |this, cx| {
                             if this.selected > 0 {
                                 this.selected -= 1;
+                                this.skip = if this.skip > this.selected {
+                                    this.selected
+                                } else {
+                                    this.skip
+                                };
                                 cx.notify();
                             }
                         });
@@ -243,9 +251,15 @@ impl List {
                     TextEvent::Movement(TextMovement::Down) => {
                         clone.update(cx, |this, cx| {
                             this.selected += 1;
+                            this.skip = if this.selected > 7 {
+                                this.selected - 7
+                            } else {
+                                0
+                            };
                             cx.notify();
                         });
                     }
+                    _ => {}
                 }
             })
             .detach();

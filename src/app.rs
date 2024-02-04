@@ -53,9 +53,7 @@ pub fn run_app(app: gpui::App) {
                             });
                         }
                     }
-                    //eprintln!("tick");
                     Timer::after(Duration::from_millis(50)).await;
-                    //eprintln!("tock");
                 }
             })
             .detach();
