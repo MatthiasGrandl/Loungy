@@ -40,6 +40,7 @@ pub struct TextModel {
     pub text: String,
     pub selection: Range<usize>,
     pub word_click: (usize, u16),
+    pub placeholder: String,
 }
 
 impl TextModel {
@@ -49,6 +50,7 @@ impl TextModel {
             text,
             selection: i..i,
             word_click: (0, 0),
+            placeholder: "Type here...".to_string(),
         };
         let model = cx.new_model(|_cx| m);
         cx.subscribe(
@@ -220,6 +222,7 @@ impl RenderOnce for TextInput {
                     });
                 });
             })
+            .text_lg()
             .p_4()
             .w_full()
             .border_b_1()
@@ -250,7 +253,7 @@ impl Render for TextDisplay {
         let mut style = TextStyle::default();
         style.color = theme.text;
         if text.len() == 0 {
-            text = "Type here...".to_string();
+            text = self.model.read(cx).placeholder.to_string();
             style.color = theme.subtext0;
             highlights = vec![];
         }

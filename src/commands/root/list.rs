@@ -75,7 +75,7 @@ fn update(cx: &mut WindowContext) {
                             Some(Img::new(
                                 ImgSource::Base(ImageSource::File(Arc::new(icon_path))),
                                 ImgMask::None,
-                                ImgSize::Large,
+                                ImgSize::Medium,
                             )),
                             name.clone(),
                             None,
@@ -102,27 +102,37 @@ pub struct Root {
 }
 
 impl Render for Root {
-    fn render(&mut self, _cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         self.list.clone()
     }
 }
 
+fn list_items(list: &View<List>, query: &str, cx: &mut ViewContext<Root>) {
+    list.update(cx, |this, cx| {
+        let items = LIST.lock().clone();
+        this.items = fuzzy_match(query.as_ref(), items, false);
+        cx.notify();
+    });
+}
+
 impl Root {
-    pub fn build(cx: &mut gpui::WindowContext) -> gpui::View<Self> {
+    pub fn build(cx: &mut WindowContext) -> View<Self> {
         update(cx);
         cx.new_view(|cx| {
             let list = List::new(cx);
             let clone = list.clone();
             cx.update_global::<Query, _>(|query, cx| {
+                query.inner.update(cx, |model, cx| {
+                    model.reset(cx);
+                    model.placeholder = "Search apps and commands...".to_string();
+                    cx.notify();
+                });
+                list_items(&clone, "", cx);
                 cx.subscribe(
                     &query.inner,
                     move |_subscriber, _emitter, event, cx| match event {
                         TextEvent::Input { text } => {
-                            clone.update(cx, |this, cx| {
-                                let items = LIST.lock().clone();
-                                this.items = fuzzy_match(text, items, false);
-                                cx.notify();
-                            });
+                            list_items(&clone, text.as_str(), cx);
                         }
                         _ => {}
                     },
