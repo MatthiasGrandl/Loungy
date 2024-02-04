@@ -1,7 +1,0 @@
-{
-  "context": "query",
-  "bindings": {
-    "up": "menu::MoveUp",
-    "down": "menu::MoveDown"
-  }
-}

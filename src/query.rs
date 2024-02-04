@@ -5,10 +5,15 @@ use std::{
 
 use gpui::*;
 
-use crate::{
-    keymap::query::{Input, MoveDown, MoveUp},
-    theme::Theme,
-};
+use crate::theme::Theme;
+
+use self::actions::{Input, MoveDown, MoveUp};
+
+pub mod actions {
+    use gpui::actions;
+
+    actions!(gpui, [MoveUp, MoveDown, Input]);
+}
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
@@ -48,7 +53,6 @@ impl RenderOnce for TextInput {
         let text_display_view = self.text_display_view.clone();
 
         div()
-            .key_context("query")
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
                 //eprintln!("Key down: {:?}", ev);
@@ -88,6 +92,14 @@ impl RenderOnce for TextInput {
                         editor.selection = i..i;
                     } else {
                         match keystroke.as_str() {
+                            "up" => {
+                                cx.dispatch_action(Box::new(MoveUp));
+                                return;
+                            }
+                            "down" => {
+                                cx.dispatch_action(Box::new(MoveDown));
+                                return;
+                            }
                             "left" => {
                                 if editor.selection.start > 0 {
                                     let i = if editor.selection.start == editor.selection.end {
@@ -134,7 +146,7 @@ impl RenderOnce for TextInput {
                                 cx.hide();
                             }
                             keystroke_str => {
-                                //eprintln!("Unhandled keystroke {keystroke_str}")
+                                eprintln!("Unhandled keystroke {keystroke_str}")
                             }
                         };
                     }

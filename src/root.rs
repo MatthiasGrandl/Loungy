@@ -3,8 +3,10 @@ use std::any::TypeId;
 use gpui::*;
 
 use crate::{
-    keymap::query::{Input, MoveDown, MoveUp},
-    query::Query,
+    query::{
+        actions::{Input, MoveDown, MoveUp},
+        Query,
+    },
     theme::Theme,
 };
 
@@ -45,7 +47,13 @@ impl RenderOnce for RootCommand {
             cx.refresh();
         });
         cx.on_action(TypeId::of::<Input>(), move |_action, phase, cx| {
-            eprintln!("Input");
+            if phase == DispatchPhase::Capture {
+                return;
+            }
+            cx.update_global::<RootCommand, _>(|this, _| {
+                this.selected = 0;
+            });
+            cx.refresh();
         });
         let theme = cx.global::<Theme>();
         let query = cx.global::<Query>();
@@ -55,18 +63,15 @@ impl RenderOnce for RootCommand {
         let mut bg_hover = theme.mantle;
         bg_hover.fade_out(0.5);
         let children = query.inner.split_whitespace().enumerate().map(|(i, s)| {
-            let (bg, bg_hover) = if i == selected {
-                (theme.mantle, theme.mantle)
+            if i == selected {
+                div().border_color(theme.crust).bg(theme.mantle)
             } else {
-                (transparent_black(), bg_hover)
-            };
-            div()
-                .p_2()
-                .bg(bg)
-                .hover(|s| s.bg(bg_hover).border_color(theme.crust))
-                .border_1()
-                .rounded_xl()
-                .child(String::from(s))
+                div().hover(|s| s.bg(bg_hover))
+            }
+            .p_2()
+            .border_1()
+            .rounded_xl()
+            .child(String::from(s))
         });
         div().children(children)
     }
