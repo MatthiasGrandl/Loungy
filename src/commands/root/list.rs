@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use swift_rs::{swift, SRObject, SRString};
 
 use gpui::*;
 
 use crate::{
     lazy::LazyMutex,
-    list::{Action, Item, List, ListItem},
+    list::{Accessory, Action, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
     query::TextEvent,
@@ -70,8 +70,17 @@ fn update(cx: &mut WindowContext) {
                 icon_path.push(format!("{}.png", bundle_id.clone()));
                 let app = Item::new(
                     vec![name.clone()],
-                    cx.new_view(|_cx| ListItem {
-                        title: name.clone(),
+                    cx.new_view(|_cx| {
+                        ListItem::new(
+                            Some(Img::new(
+                                ImgSource::Base(ImageSource::File(Arc::new(icon_path))),
+                                ImgMask::None,
+                                ImgSize::Large,
+                            )),
+                            name.clone(),
+                            None,
+                            vec![Accessory::new(tag, None)],
+                        )
                     })
                     .into(),
                     None,

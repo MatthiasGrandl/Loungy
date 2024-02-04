@@ -1,19 +1,148 @@
-use gpui::*;
+use std::path::PathBuf;
+
+use gpui::{ImageSource, *};
 
 use crate::{
+    icon::Icon,
     query::{TextEvent, TextMovement},
     theme::Theme,
     workspace::Query,
 };
 
 #[derive(Clone)]
+pub enum ImgMask {
+    Circle,
+    Rounded,
+    None,
+}
+
+#[derive(Clone)]
+pub enum ImgSource {
+    Base(ImageSource),
+    Icon(Icon),
+}
+
+#[derive(Clone)]
+pub enum ImgSize {
+    Small,
+    Medium,
+    Large,
+}
+
+#[derive(Clone, IntoElement)]
+pub struct Img {
+    src: ImgSource,
+    mask: ImgMask,
+    size: ImgSize,
+}
+
+impl Img {
+    pub fn new(src: ImgSource, mask: ImgMask, size: ImgSize) -> Self {
+        Self { src, mask, size }
+    }
+}
+
+impl RenderOnce for Img {
+    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let el = div();
+
+        let el = match self.mask {
+            ImgMask::Circle => el.rounded_full().bg(theme.mantle),
+            ImgMask::Rounded => el.rounded_lg().bg(theme.mantle),
+            ImgMask::None => el,
+        };
+        let img = match self.src {
+            ImgSource::Icon(icon) => img(""),
+            ImgSource::Base(src) => {
+                eprintln!("img {:#?}", src);
+                img(src)
+            }
+        };
+        let img = match self.size {
+            ImgSize::Small => img.w_4().h_4(),
+            ImgSize::Medium => img.w_6().h_6(),
+            ImgSize::Large => img.w_8().w_8(),
+        };
+
+        el.child(img)
+    }
+}
+
+#[derive(Clone, IntoElement)]
+pub struct Accessory {
+    tag: String,
+    img: Option<Img>,
+}
+
+impl Accessory {
+    pub fn new(tag: impl ToString, img: Option<Img>) -> Self {
+        Self {
+            tag: tag.to_string(),
+            img,
+        }
+    }
+}
+
+impl RenderOnce for Accessory {
+    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let el = div()
+            .flex()
+            .items_center()
+            .text_xs()
+            .text_color(theme.subtext0);
+        let el = if let Some(img) = self.img {
+            el.child(img).mr_1()
+        } else {
+            el
+        };
+        el.child(self.tag)
+    }
+}
+
+#[derive(Clone)]
 pub struct ListItem {
-    pub title: String,
+    title: String,
+    subtitle: Option<String>,
+    img: Option<Img>,
+    accessories: Vec<Accessory>,
+}
+
+impl ListItem {
+    pub fn new(
+        img: Option<Img>,
+        title: impl ToString,
+        subtitle: Option<String>,
+        accessories: Vec<Accessory>,
+    ) -> Self {
+        Self {
+            title: title.to_string(),
+            subtitle,
+            img,
+            accessories,
+        }
+    }
 }
 
 impl Render for ListItem {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div().child(self.title.clone())
+        let el = if let Some(img) = &self.img {
+            div().child(div().mr_4().child(img.clone()))
+        } else {
+            div()
+        }
+        .flex()
+        .w_full()
+        .items_center()
+        .text_sm();
+        let el = if let Some(subtitle) = &self.subtitle {
+            el.child(subtitle.clone())
+        } else {
+            el
+        };
+        el.child(self.title.clone())
+            .child(div().ml_auto().children(self.accessories.clone()))
     }
 }
 
@@ -75,7 +204,7 @@ pub struct List {
 
 impl Render for List {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div().flex_1().children(
+        div().w_full().children(
             self.items
                 .clone()
                 .into_iter()

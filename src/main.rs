@@ -3,6 +3,7 @@ use gpui::App;
 
 mod app;
 mod commands;
+mod icon;
 mod lazy;
 mod list;
 mod nucleo;

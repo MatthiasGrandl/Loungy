@@ -1,3 +1,5 @@
+use std::{path::PathBuf, sync::Arc};
+
 use gpui::*;
 
 use crate::{
@@ -14,7 +16,7 @@ pub struct Workspace {
 impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
         let view = cx.new_view(|cx| {
-            let query = TextInput::new(cx, String::from("Hello, world!"));
+            let query = TextInput::new(cx, String::from(""));
             cx.set_global::<Query>(Query {
                 inner: query.model.clone(),
             });
@@ -69,7 +71,8 @@ impl Render for Workspace {
                     .w_full()
                     .border_t_1()
                     .border_color(theme.crust)
-                    .p_2()
+                    .px_4()
+                    .py_2()
                     .flex()
                     .child(
                         div()
