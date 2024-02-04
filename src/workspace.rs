@@ -64,9 +64,42 @@ impl Render for Workspace {
                     .mt_auto()
                     .bg(theme.mantle)
                     .w_full()
-                    .h_8()
                     .border_t_1()
-                    .border_color(theme.crust),
+                    .border_color(theme.crust)
+                    .p_2()
+                    .flex()
+                    .child(
+                        div()
+                            .mr_2()
+                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                                Theme::change(catppuccin::Flavour::Latte, cx);
+                            })
+                            .child("Latte"),
+                    )
+                    .child(
+                        div()
+                            .mr_2()
+                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                                Theme::change(catppuccin::Flavour::Mocha, cx);
+                            })
+                            .child("Mocha"),
+                    )
+                    .child(
+                        div()
+                            .mr_2()
+                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                                Theme::change(catppuccin::Flavour::Frappe, cx);
+                            })
+                            .child("Frappe"),
+                    )
+                    .child(
+                        div()
+                            .mr_2()
+                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                                Theme::change(catppuccin::Flavour::Macchiato, cx);
+                            })
+                            .child("Macchiato"),
+                    ),
             )
     }
 }

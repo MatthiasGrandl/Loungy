@@ -76,6 +76,11 @@ impl Theme {
         cx.set_global(Theme::new())
     }
 
+    pub fn change(flavor: catppuccin::Flavour, cx: &mut WindowContext) {
+        cx.set_global(Self::from(flavor.colours()));
+        cx.refresh();
+    }
+
     fn new() -> Self {
         Self::from(catppuccin::Flavour::Mocha.colours())
     }
