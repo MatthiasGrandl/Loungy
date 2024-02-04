@@ -4,52 +4,46 @@ use gpui::*;
 
 use crate::theme::Theme;
 
-pub mod actions {
-    use gpui::actions;
-
-    actions!(gpui, [MoveUp, MoveDown, Input]);
-}
-
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
     focus_handle: FocusHandle,
     view: View<TextDisplay>,
+    pub model: Model<TextModel>,
 }
 
 impl TextInput {
     pub fn new(cx: &mut WindowContext, initial_text: String) -> Self {
-        QueryModel::init(initial_text.clone(), cx);
+        let model = TextModel::init(initial_text.clone(), cx);
+        let clone = model.clone();
         let view = cx.new_view(move |cx| {
-            let view = TextDisplay {};
-            cx.update_global::<Query, _>(|query, cx| {
-                cx.subscribe(
-                    &query.inner,
-                    |_subscriber, _emitter, event, cx| match event {
-                        QueryEvent::Input { text: _ } => {
-                            cx.notify();
-                        }
-                        _ => {}
-                    },
-                )
-                .detach();
-            });
+            let view = TextDisplay {
+                model: clone.clone(),
+            };
+            cx.subscribe(&clone, |_subscriber, _emitter, event, cx| match event {
+                TextEvent::Input { text: _ } => {
+                    cx.notify();
+                }
+                _ => {}
+            })
+            .detach();
             view
         });
         Self {
             focus_handle: cx.focus_handle(),
             view,
+            model,
         }
     }
 }
 
-pub struct QueryModel {
+pub struct TextModel {
     pub text: String,
     pub selection: Range<usize>,
     pub word_click: (usize, u16),
 }
 
-impl QueryModel {
-    pub fn init(text: String, cx: &mut WindowContext) {
+impl TextModel {
+    pub fn init(text: String, cx: &mut WindowContext) -> Model<Self> {
         let i = text.len();
         let m = Self {
             text,
@@ -59,8 +53,8 @@ impl QueryModel {
         let model = cx.new_model(|_cx| m);
         cx.subscribe(
             &model,
-            |subscriber, emitter: &QueryEvent, cx| match emitter {
-                QueryEvent::Input { text: _ } => {
+            |subscriber, emitter: &TextEvent, cx| match emitter {
+                TextEvent::Input { text: _ } => {
                     subscriber.update(cx, |editor, _cx| {
                         editor.word_click = (0, 0);
                     });
@@ -69,13 +63,13 @@ impl QueryModel {
             },
         )
         .detach();
-        cx.set_global(Query { inner: model });
+        model
     }
     pub fn reset(&mut self, cx: &mut ModelContext<Self>) {
         self.text = "".to_string();
         self.selection = 0..0;
         cx.notify();
-        cx.emit(QueryEvent::Input {
+        cx.emit(TextEvent::Input {
             text: self.text.clone(),
         });
     }
@@ -108,22 +102,16 @@ impl QueryModel {
     }
 }
 
-pub enum QueryEvent {
+pub enum TextEvent {
     Input { text: String },
-    Movement(QueryMovement),
+    Movement(TextMovement),
 }
-pub enum QueryMovement {
+pub enum TextMovement {
     Up,
     Down,
 }
 
-impl EventEmitter<QueryEvent> for QueryModel {}
-
-pub struct Query {
-    pub inner: Model<QueryModel>,
-}
-
-impl Global for Query {}
+impl EventEmitter<TextEvent> for TextModel {}
 
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
@@ -134,104 +122,101 @@ impl RenderOnce for TextInput {
         div()
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
-                cx.update_global::<Query, _>(|query, cx| {
-                    query.inner.update(cx, |editor, cx| {
-                        let keystroke = &ev.keystroke.key;
-                        if ev.keystroke.modifiers.command {
-                            match keystroke.as_str() {
-                                "a" => {
-                                    editor.selection = 0..editor.text.len();
+                self.model.update(cx, |editor, cx| {
+                    let keystroke = &ev.keystroke.key;
+                    if ev.keystroke.modifiers.command {
+                        match keystroke.as_str() {
+                            "a" => {
+                                editor.selection = 0..editor.text.len();
+                            }
+                            "c" => {
+                                let selected_text =
+                                    editor.text[editor.selection.clone()].to_string();
+                                cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                            }
+                            "v" => {
+                                let clipboard = cx.read_from_clipboard();
+                                if let Some(clipboard) = clipboard {
+                                    let text = clipboard.text();
+                                    editor.text.replace_range(editor.selection.clone(), &text);
+                                    let i = editor.selection.start + text.len();
+                                    editor.selection = i..i;
                                 }
-                                "c" => {
-                                    let selected_text =
-                                        editor.text[editor.selection.clone()].to_string();
-                                    cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                            }
+                            "x" => {
+                                let selected_text =
+                                    editor.text[editor.selection.clone()].to_string();
+                                cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                                editor.text.replace_range(editor.selection.clone(), "");
+                                editor.selection.end = editor.selection.start;
+                            }
+                            _ => {}
+                        }
+                    } else if let Some(ime_key) = &ev.keystroke.ime_key {
+                        editor.text.replace_range(editor.selection.clone(), ime_key);
+                        let i = editor.selection.start + ime_key.len();
+                        editor.selection = i..i;
+                    } else {
+                        match keystroke.as_str() {
+                            "up" => {
+                                cx.emit(TextEvent::Movement(TextMovement::Up));
+                                return;
+                            }
+                            "down" => {
+                                cx.emit(TextEvent::Movement(TextMovement::Down));
+                                return;
+                            }
+                            "left" => {
+                                if editor.selection.start > 0 {
+                                    let i = if editor.selection.start == editor.selection.end {
+                                        editor.selection.start - 1
+                                    } else {
+                                        editor.selection.start
+                                    };
+                                    editor.selection = i..i;
                                 }
-                                "v" => {
-                                    let clipboard = cx.read_from_clipboard();
-                                    if let Some(clipboard) = clipboard {
-                                        let text = clipboard.text();
-                                        editor.text.replace_range(editor.selection.clone(), &text);
-                                        let i = editor.selection.start + text.len();
-                                        editor.selection = i..i;
-                                    }
+                            }
+                            "right" => {
+                                if editor.selection.end < editor.text.len() {
+                                    let i = if editor.selection.start == editor.selection.end {
+                                        editor.selection.end + 1
+                                    } else {
+                                        editor.selection.end
+                                    };
+                                    editor.selection = i..i;
                                 }
-                                "x" => {
-                                    let selected_text =
-                                        editor.text[editor.selection.clone()].to_string();
-                                    cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                            }
+                            "backspace" => {
+                                if editor.selection.start == editor.selection.end
+                                    && editor.selection.start > 0
+                                {
+                                    let mut start = editor.text[..editor.selection.start].chars();
+                                    start.next_back();
+                                    let start = start.as_str();
+                                    let i = start.len();
+                                    editor.text =
+                                        start.to_owned() + &editor.text[editor.selection.end..];
+                                    editor.selection = i..i;
+                                } else {
                                     editor.text.replace_range(editor.selection.clone(), "");
                                     editor.selection.end = editor.selection.start;
                                 }
-                                _ => {}
                             }
-                        } else if let Some(ime_key) = &ev.keystroke.ime_key {
-                            editor.text.replace_range(editor.selection.clone(), ime_key);
-                            let i = editor.selection.start + ime_key.len();
-                            editor.selection = i..i;
-                        } else {
-                            match keystroke.as_str() {
-                                "up" => {
-                                    cx.emit(QueryEvent::Movement(QueryMovement::Up));
-                                    return;
-                                }
-                                "down" => {
-                                    cx.emit(QueryEvent::Movement(QueryMovement::Down));
-                                    return;
-                                }
-                                "left" => {
-                                    if editor.selection.start > 0 {
-                                        let i = if editor.selection.start == editor.selection.end {
-                                            editor.selection.start - 1
-                                        } else {
-                                            editor.selection.start
-                                        };
-                                        editor.selection = i..i;
-                                    }
-                                }
-                                "right" => {
-                                    if editor.selection.end < editor.text.len() {
-                                        let i = if editor.selection.start == editor.selection.end {
-                                            editor.selection.end + 1
-                                        } else {
-                                            editor.selection.end
-                                        };
-                                        editor.selection = i..i;
-                                    }
-                                }
-                                "backspace" => {
-                                    if editor.selection.start == editor.selection.end
-                                        && editor.selection.start > 0
-                                    {
-                                        let mut start =
-                                            editor.text[..editor.selection.start].chars();
-                                        start.next_back();
-                                        let start = start.as_str();
-                                        let i = start.len();
-                                        editor.text =
-                                            start.to_owned() + &editor.text[editor.selection.end..];
-                                        editor.selection = i..i;
-                                    } else {
-                                        editor.text.replace_range(editor.selection.clone(), "");
-                                        editor.selection.end = editor.selection.start;
-                                    }
-                                }
-                                "enter" => {
-                                    editor.text.insert(editor.selection.start, '\n');
-                                    let i = editor.selection.start + 1;
-                                    editor.selection = i..i;
-                                }
-                                "escape" => {
-                                    cx.hide();
-                                }
-                                keystroke_str => {
-                                    eprintln!("Unhandled keystroke {keystroke_str}")
-                                }
-                            };
-                        }
-                        cx.emit(QueryEvent::Input {
-                            text: editor.text.clone(),
-                        });
+                            "enter" => {
+                                editor.text.insert(editor.selection.start, '\n');
+                                let i = editor.selection.start + 1;
+                                editor.selection = i..i;
+                            }
+                            "escape" => {
+                                cx.hide();
+                            }
+                            keystroke_str => {
+                                eprintln!("Unhandled keystroke {keystroke_str}")
+                            }
+                        };
+                    }
+                    cx.emit(TextEvent::Input {
+                        text: editor.text.clone(),
                     });
                 });
             })
@@ -245,20 +230,21 @@ impl RenderOnce for TextInput {
     }
 }
 
-pub struct TextDisplay {}
+pub struct TextDisplay {
+    model: Model<TextModel>,
+}
 
 impl Render for TextDisplay {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let query = cx.global::<Query>();
 
-        let mut text = query.inner.read(cx).text.clone();
+        let mut text = self.model.read(cx).text.clone();
         let mut selection_style = HighlightStyle::default();
         let mut color = theme.lavender;
         color.fade_out(0.8);
         selection_style.background_color = Some(color);
 
-        let sel = query.inner.read(cx).selection.clone();
+        let sel = self.model.read(cx).selection.clone();
         let mut highlights = vec![(sel, selection_style)];
 
         let mut style = TextStyle::default();
@@ -270,35 +256,33 @@ impl Render for TextDisplay {
         }
 
         let styled_text = StyledText::new(text + " ").with_highlights(&style, highlights);
-
+        let clone = self.model.clone();
         InteractiveText::new("text", styled_text).on_click(
-            query.inner.read(cx).word_ranges(),
+            self.model.read(cx).word_ranges(),
             move |ev, cx| {
-                cx.update_global::<Query, _>(|query, cx| {
-                    query.inner.update(cx, |editor, cx| {
-                        let (index, mut count) = editor.word_click;
-                        if index == ev {
-                            count += 1;
-                        } else {
-                            count = 1;
+                clone.update(cx, |editor, cx| {
+                    let (index, mut count) = editor.word_click;
+                    if index == ev {
+                        count += 1;
+                    } else {
+                        count = 1;
+                    }
+                    match count {
+                        2 => {
+                            let word_ranges = editor.word_ranges();
+                            editor.selection = word_ranges.get(ev).unwrap().clone();
                         }
-                        match count {
-                            2 => {
-                                let word_ranges = editor.word_ranges();
-                                editor.selection = word_ranges.get(ev).unwrap().clone();
-                            }
-                            3 => {
-                                // Should select the line
-                            }
-                            4 => {
-                                count = 0;
-                                editor.selection = 0..editor.text.len();
-                            }
-                            _ => {}
+                        3 => {
+                            // Should select the line
                         }
-                        editor.word_click = (ev, count);
-                        cx.notify();
-                    });
+                        4 => {
+                            count = 0;
+                            editor.selection = 0..editor.text.len();
+                        }
+                        _ => {}
+                    }
+                    editor.word_click = (ev, count);
+                    cx.notify();
                 });
             },
         )

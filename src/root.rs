@@ -1,8 +1,9 @@
 use gpui::*;
 
 use crate::{
-    query::{Query, QueryEvent, QueryModel, QueryMovement},
+    query::{TextEvent, TextModel, TextMovement},
     theme::Theme,
+    workspace::Query,
 };
 
 pub struct List {
@@ -40,17 +41,17 @@ impl List {
         });
         let clone = view.clone();
         cx.update_global::<Query, _>(|query, cx| {
-            cx.subscribe(&query.inner, move |subscriber, emitter: &QueryEvent, cx| {
+            cx.subscribe(&query.inner, move |subscriber, emitter: &TextEvent, cx| {
                 let clone = clone.clone();
                 match emitter {
-                    QueryEvent::Input { text } => {
+                    TextEvent::Input { text } => {
                         clone.update(cx, |this, cx| {
                             this.selected = 0;
                             this.items = text.split_whitespace().map(String::from).collect();
                             cx.notify();
                         });
                     }
-                    QueryEvent::Movement(QueryMovement::Up) => {
+                    TextEvent::Movement(TextMovement::Up) => {
                         clone.update(cx, |this, cx| {
                             if this.selected > 0 {
                                 this.selected -= 1;
@@ -62,7 +63,7 @@ impl List {
                             }
                         });
                     }
-                    QueryEvent::Movement(QueryMovement::Down) => {
+                    TextEvent::Movement(TextMovement::Down) => {
                         clone.update(cx, |this, cx| {
                             this.selected += 1;
                             cx.notify();

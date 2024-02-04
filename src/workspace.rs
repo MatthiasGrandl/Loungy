@@ -1,6 +1,10 @@
 use gpui::*;
 
-use crate::{query::TextInput, root::List, theme::Theme};
+use crate::{
+    query::{TextInput, TextModel},
+    root::List,
+    theme::Theme,
+};
 
 pub struct Workspace {
     query: TextInput,
@@ -8,19 +12,27 @@ pub struct Workspace {
     //pub child: Component,
 }
 
-pub struct GlobalWorkspace {
-    pub view: View<Workspace>,
-}
-
 impl Workspace {
-    pub fn build(cx: &mut WindowContext) {
-        let view = cx.new_view(|cx| Workspace {
-            query: TextInput::new(cx, String::from("Hello, world!")),
-            command: List::new(cx),
+    pub fn build(cx: &mut WindowContext) -> View<Self> {
+        let view = cx.new_view(|cx| {
+            let query = TextInput::new(cx, String::from("Hello, world!"));
+            cx.set_global::<Query>(Query {
+                inner: query.model.clone(),
+            });
+            Workspace {
+                query,
+                command: List::new(cx),
+            }
         });
-        cx.set_global(GlobalWorkspace { view });
+        view
     }
 }
+
+pub struct Query {
+    pub inner: Model<TextModel>,
+}
+
+impl Global for Query {}
 
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
@@ -47,5 +59,3 @@ impl Render for Workspace {
             )
     }
 }
-
-impl Global for GlobalWorkspace {}
