@@ -59,7 +59,16 @@ impl Render for Workspace {
             //.border_2()
             //.border_color(theme.crust)
             .text_color(theme.text)
-            .child(self.query.clone())
+            .child(
+                div()
+                    .child(self.query.clone())
+                    .text_lg()
+                    .px_4()
+                    .py_3()
+                    .w_full()
+                    .border_b_1()
+                    .border_color(theme.mantle),
+            )
             .child(div().child(self.state.read(cx).root.clone()).p_2())
             .child(
                 div()

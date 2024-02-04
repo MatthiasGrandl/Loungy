@@ -222,12 +222,6 @@ impl RenderOnce for TextInput {
                     });
                 });
             })
-            .text_lg()
-            .p_4()
-            .w_full()
-            .border_b_1()
-            .border_color(theme.mantle)
-            .text_color(theme.text)
             //.focus(|style| style.border_color(theme.lavender))
             .child(self.view)
     }
