@@ -1,8 +1,8 @@
 use gpui::*;
 
 use crate::{
+    list::List,
     query::{TextInput, TextModel},
-    root::List,
     theme::Theme,
 };
 
@@ -61,7 +61,10 @@ impl Render for Workspace {
             .child(div().child(self.state.read(cx).root.clone()).p_2())
             .child(
                 div()
-                    .mt_auto()
+                    .absolute()
+                    .bottom_0()
+                    .left_0()
+                    .right_0()
                     .bg(theme.mantle)
                     .w_full()
                     .border_t_1()

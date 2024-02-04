@@ -2,8 +2,8 @@ use app::run_app;
 use gpui::App;
 
 mod app;
+mod list;
 mod query;
-mod root;
 mod theme;
 mod workspace;
 
