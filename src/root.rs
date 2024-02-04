@@ -3,7 +3,7 @@ use gpui::*;
 use crate::{
     query::{TextEvent, TextModel, TextMovement},
     theme::Theme,
-    workspace::Query,
+    workspace::{Query, State},
 };
 
 pub struct List {
@@ -50,6 +50,13 @@ impl List {
                             this.items = text.split_whitespace().map(String::from).collect();
                             cx.notify();
                         });
+                        // To update the root component of the workspace
+                        // let test: AnyView = cx.new_view(|_cx| Test {}).into();
+                        // cx.update_global::<State, _>(|state, cx| {
+                        //     state.inner.update(cx, |state, _cx| {
+                        //         state.root = test;
+                        //     });
+                        // });
                     }
                     TextEvent::Movement(TextMovement::Up) => {
                         clone.update(cx, |this, cx| {
@@ -74,5 +81,12 @@ impl List {
             .detach();
         });
         view
+    }
+}
+
+pub struct Test {}
+impl Render for Test {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div().child("SNERZ!!!")
     }
 }

@@ -8,8 +8,7 @@ use crate::{
 
 pub struct Workspace {
     query: TextInput,
-    command: View<List>,
-    //pub child: Component,
+    state: Model<StateModel>,
 }
 
 impl Workspace {
@@ -19,10 +18,12 @@ impl Workspace {
             cx.set_global::<Query>(Query {
                 inner: query.model.clone(),
             });
-            Workspace {
-                query,
-                command: List::new(cx),
-            }
+            let root: AnyView = List::new(cx).into();
+            let state = cx.new_model(|_cx| StateModel { root });
+            cx.set_global::<State>(State {
+                inner: state.clone(),
+            });
+            Workspace { query, state }
         });
         view
     }
@@ -33,6 +34,16 @@ pub struct Query {
 }
 
 impl Global for Query {}
+
+pub struct StateModel {
+    pub root: AnyView,
+}
+
+pub struct State {
+    pub inner: Model<StateModel>,
+}
+
+impl Global for State {}
 
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
@@ -47,7 +58,7 @@ impl Render for Workspace {
             //.border_color(theme.crust)
             .text_color(theme.text)
             .child(self.query.clone())
-            .child(div().child(self.command.clone()).p_2())
+            .child(div().child(self.state.read(cx).root.clone()).p_2())
             .child(
                 div()
                     .mt_auto()

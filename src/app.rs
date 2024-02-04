@@ -52,10 +52,12 @@ pub fn run_app(app: gpui::App) {
                         }
                     }
                     eprintln!("tick");
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    eprintln!("tock");
                 }
             })
             .detach();
+
             Workspace::build(cx)
         });
     });
