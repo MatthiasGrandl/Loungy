@@ -79,8 +79,6 @@ impl RootCommand {
     }
 }
 
-impl Global for RootCommand {}
-
 impl RenderOnce for RootCommand {
     fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
         self.view
