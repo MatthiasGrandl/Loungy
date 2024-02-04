@@ -1,14 +1,10 @@
 use gpui::*;
 
-use crate::{
-    query::{Query, TextInput},
-    root::RootCommand,
-    theme::Theme,
-};
+use crate::{query::TextInput, root::List, theme::Theme};
 
 pub struct Workspace {
     query: TextInput,
-    command: RootCommand,
+    command: View<List>,
     //pub child: Component,
 }
 
@@ -20,7 +16,7 @@ impl Workspace {
     pub fn build(cx: &mut WindowContext) {
         let view = cx.new_view(|cx| Workspace {
             query: TextInput::new(cx, String::from("Hello, world!")),
-            command: RootCommand::new(cx),
+            command: List::new(cx),
         });
         cx.set_global(GlobalWorkspace { view });
     }

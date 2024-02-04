@@ -32,14 +32,9 @@ impl Render for List {
     }
 }
 
-#[derive(IntoElement, Clone)]
-pub struct RootCommand {
-    view: View<List>,
-}
-
-impl RootCommand {
-    pub fn new(cx: &mut WindowContext) -> Self {
-        let view = cx.new_view(|_cx| List {
+impl List {
+    pub fn new(cx: &mut WindowContext) -> View<Self> {
+        let view = cx.new_view(|_cx| Self {
             selected: 0,
             items: vec![],
         });
@@ -77,12 +72,6 @@ impl RootCommand {
             })
             .detach();
         });
-        Self { view }
-    }
-}
-
-impl RenderOnce for RootCommand {
-    fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
-        self.view
+        view
     }
 }
