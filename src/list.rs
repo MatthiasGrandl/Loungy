@@ -6,19 +6,53 @@ use crate::{
     workspace::Query,
 };
 
-#[derive(IntoElement, Clone)]
+#[derive(Clone)]
 pub struct ListItem {
-    text: String,
-    selected: bool,
+    pub title: String,
 }
 
-impl ListItem {
-    pub fn new(text: String, selected: bool) -> Self {
-        Self { text, selected }
+impl Render for ListItem {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div().child(self.title.clone())
     }
 }
 
-impl RenderOnce for ListItem {
+#[derive(Clone)]
+pub struct Action {
+    label: String,
+}
+
+#[derive(IntoElement, Clone)]
+pub struct Item {
+    pub keywords: Vec<String>,
+    component: AnyView,
+    preview: Option<AnyView>,
+    actions: Vec<Action>,
+    pub weight: Option<u16>,
+    selected: bool,
+}
+
+impl Item {
+    pub fn new(
+        keywords: Vec<impl ToString>,
+        component: AnyView,
+        preview: Option<AnyView>,
+        actions: Vec<Action>,
+        weight: Option<u16>,
+        selected: bool,
+    ) -> Self {
+        Self {
+            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
+            component,
+            preview,
+            actions,
+            weight,
+            selected,
+        }
+    }
+}
+
+impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
         let mut bg_hover = theme.mantle;
@@ -31,17 +65,17 @@ impl RenderOnce for ListItem {
         .p_2()
         .border_1()
         .rounded_xl()
-        .child(self.text)
+        .child(self.component)
     }
 }
 
 pub struct List {
     selected: usize,
-    items: Vec<ListItem>,
+    pub items: Vec<Item>,
 }
 
 impl Render for List {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         div().flex_1().children(
             self.items
                 .clone()
@@ -50,7 +84,7 @@ impl Render for List {
                 .skip(self.selected)
                 .map(|(i, mut item)| {
                     item.selected = i == self.selected;
-                    item.clone()
+                    item
                 }),
         )
     }
@@ -64,25 +98,14 @@ impl List {
         });
         let clone = view.clone();
         cx.update_global::<Query, _>(|query, cx| {
-            cx.subscribe(&query.inner, move |subscriber, emitter: &TextEvent, cx| {
+            cx.subscribe(&query.inner, move |_subscriber, emitter: &TextEvent, cx| {
                 let clone = clone.clone();
                 match emitter {
-                    TextEvent::Input { text } => {
+                    TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
                             this.selected = 0;
-                            this.items = text
-                                .split_whitespace()
-                                .map(|s| ListItem::new(s.to_string(), false))
-                                .collect();
                             cx.notify();
                         });
-                        // To update the root component of the workspace
-                        // let test: AnyView = cx.new_view(|_cx| Test {}).into();
-                        // cx.update_global::<State, _>(|state, cx| {
-                        //     state.inner.update(cx, |state, _cx| {
-                        //         state.root = test;
-                        //     });
-                        // });
                     }
                     TextEvent::Movement(TextMovement::Up) => {
                         clone.update(cx, |this, cx| {
@@ -103,12 +126,5 @@ impl List {
             .detach();
         });
         view
-    }
-}
-
-pub struct Test {}
-impl Render for Test {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div().child("SNERZ!!!")
     }
 }

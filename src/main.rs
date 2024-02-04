@@ -2,7 +2,10 @@ use app::run_app;
 use gpui::App;
 
 mod app;
+mod commands;
+mod lazy;
 mod list;
+mod nucleo;
 mod query;
 mod theme;
 mod workspace;

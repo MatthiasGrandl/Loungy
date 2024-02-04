@@ -1277,6 +1277,8 @@ dependencies = [
  "catppuccin",
  "global-hotkey",
  "gpui 0.1.0 (git+https://github.com/zed-industries/zed)",
+ "nucleo",
+ "parking_lot 0.12.1",
  "serde",
  "serde_json",
  "tokio",
@@ -1784,6 +1786,27 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "nucleo"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9c28316df514918915799651c5a1cc8f1dd33a9294e1cc22f27fd19453fd62c"
+dependencies = [
+ "nucleo-matcher",
+ "parking_lot 0.12.1",
+ "rayon",
+]
+
+[[package]]
+name = "nucleo-matcher"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25040628aa03c6c5e99690990b2493f5a8043e9144ad9a68c933fe4f82f2654d"
+dependencies = [
+ "memchr",
+ "unicode-segmentation",
 ]
 
 [[package]]

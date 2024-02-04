@@ -51,9 +51,9 @@ pub fn run_app(app: gpui::App) {
                             });
                         }
                     }
-                    eprintln!("tick");
+                    //eprintln!("tick");
                     tokio::time::sleep(Duration::from_millis(50)).await;
-                    eprintln!("tock");
+                    //eprintln!("tock");
                 }
             })
             .detach();

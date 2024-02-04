@@ -1,7 +1,7 @@
 use gpui::*;
 
 use crate::{
-    list::List,
+    commands::root::Root,
     query::{TextInput, TextModel},
     theme::Theme,
 };
@@ -18,7 +18,7 @@ impl Workspace {
             cx.set_global::<Query>(Query {
                 inner: query.model.clone(),
             });
-            let root: AnyView = List::new(cx).into();
+            let root: AnyView = Root::build(cx).into();
             let state = cx.new_model(|_cx| StateModel { root });
             cx.set_global::<State>(State {
                 inner: state.clone(),
