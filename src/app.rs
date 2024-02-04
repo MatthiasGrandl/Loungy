@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 
 use gpui::*;
 
-use crate::{theme::Theme, workspace::Workspace};
+use crate::{paths::Paths, theme::Theme, workspace::Workspace};
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
@@ -41,6 +41,7 @@ pub fn run_app(app: gpui::App) {
     app.run(move |cx: &mut AppContext| {
         cx.set_global(Window {});
         Theme::init(cx);
+        Paths::init(cx);
         cx.open_window(window_options(), |cx| {
             cx.spawn(|mut cx| async move {
                 loop {

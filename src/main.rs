@@ -6,6 +6,7 @@ mod commands;
 mod lazy;
 mod list;
 mod nucleo;
+mod paths;
 mod query;
 mod theme;
 mod workspace;

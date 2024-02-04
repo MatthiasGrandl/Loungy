@@ -39,7 +39,6 @@ impl Item {
         preview: Option<AnyView>,
         actions: Vec<Action>,
         weight: Option<u16>,
-        selected: bool,
     ) -> Self {
         Self {
             keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
@@ -47,7 +46,7 @@ impl Item {
             preview,
             actions,
             weight,
-            selected,
+            selected: false,
         }
     }
 }

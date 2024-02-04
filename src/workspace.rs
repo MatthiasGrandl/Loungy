@@ -1,7 +1,7 @@
 use gpui::*;
 
 use crate::{
-    commands::root::Root,
+    commands::root::list::Root,
     query::{TextInput, TextModel},
     theme::Theme,
 };
