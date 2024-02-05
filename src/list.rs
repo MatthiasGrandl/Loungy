@@ -143,7 +143,7 @@ impl Render for ListItem {
     }
 }
 
-pub trait CloneableFn: Fn() -> () {
+pub trait CloneableFn: Fn(&WindowContext) -> () {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
         Self: 'a;
@@ -151,7 +151,7 @@ pub trait CloneableFn: Fn() -> () {
 
 impl<F> CloneableFn for F
 where
-    F: Fn() -> () + Clone,
+    F: Fn(&WindowContext) -> () + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
@@ -320,7 +320,7 @@ impl List {
                     }
                     TextEvent::Submit {} => {
                         clone.update(cx, |this, cx| {
-                            (this.items[this.selected].actions[0].action)();
+                            (this.items[this.selected].actions[0].action)(cx);
                         });
                     }
                     _ => {}

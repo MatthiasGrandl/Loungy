@@ -129,9 +129,8 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                         ),
                         "Copy",
                         None,
-                        Box::new(|| {
-                            eprintln!("test");
-                            //cx.write_to_clipboard(ClipboardItem::new(result));
+                        Box::new(|cx| {
+                            cx.write_to_clipboard(ClipboardItem::new("".to_string()));
                         }),
                     )],
                     None,
