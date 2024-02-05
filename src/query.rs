@@ -15,6 +15,9 @@ impl TextInput {
     pub fn new(cx: &mut WindowContext, initial_text: String) -> Self {
         let model = TextModel::init(initial_text.clone(), cx);
         let clone = model.clone();
+
+        let focus_handle = cx.focus_handle();
+        let fh = focus_handle.clone();
         let view = cx.new_view(move |cx| {
             let view = TextDisplay {
                 model: clone.clone(),
@@ -26,10 +29,14 @@ impl TextInput {
                 _ => {}
             })
             .detach();
+            cx.on_blur(&fh, |_, cx| {
+                cx.hide();
+            })
+            .detach();
             view
         });
         Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle,
             view,
             model,
         }
@@ -119,8 +126,6 @@ impl EventEmitter<TextEvent> for TextModel {}
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         cx.focus(&self.focus_handle);
-
-        let theme = cx.global::<Theme>();
 
         div()
             .track_focus(&self.focus_handle)

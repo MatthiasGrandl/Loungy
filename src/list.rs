@@ -320,7 +320,9 @@ impl List {
                     }
                     TextEvent::Submit {} => {
                         clone.update(cx, |this, cx| {
-                            (this.items[this.selected].actions[0].action)(cx);
+                            if let Some(action) = this.items[this.selected].actions.get(0) {
+                                (action.action)(cx);
+                            };
                         });
                     }
                     _ => {}
