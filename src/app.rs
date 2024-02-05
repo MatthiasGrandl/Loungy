@@ -35,7 +35,11 @@ impl Global for Window {}
 
 pub fn run_app(app: gpui::App) {
     let manager = GlobalHotKeyManager::new().unwrap();
-    let hotkey = HotKey::new(Some(Modifiers::all()), Code::Space);
+    let mut mods = Modifiers::empty();
+    mods.set(Modifiers::CONTROL, true);
+    mods.set(Modifiers::ALT, true);
+    mods.set(Modifiers::META, true);
+    let hotkey = HotKey::new(Some(mods), Code::Space);
     manager.register(hotkey).unwrap();
     let receiver = GlobalHotKeyEvent::receiver().clone();
 

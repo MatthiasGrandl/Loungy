@@ -1,5 +1,3 @@
-use std::{path::PathBuf, sync::Arc};
-
 use gpui::*;
 
 use crate::{
@@ -88,7 +86,7 @@ impl Render for Workspace {
                     .child(
                         div()
                             .mr_2()
-                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
                                 Theme::change(catppuccin::Flavour::Latte, cx);
                             })
                             .child("Latte"),
@@ -96,7 +94,7 @@ impl Render for Workspace {
                     .child(
                         div()
                             .mr_2()
-                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
                                 Theme::change(catppuccin::Flavour::Mocha, cx);
                             })
                             .child("Mocha"),
@@ -104,7 +102,7 @@ impl Render for Workspace {
                     .child(
                         div()
                             .mr_2()
-                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
                                 Theme::change(catppuccin::Flavour::Frappe, cx);
                             })
                             .child("Frappe"),
@@ -112,7 +110,7 @@ impl Render for Workspace {
                     .child(
                         div()
                             .mr_2()
-                            .on_mouse_down(MouseButton::Left, |ev, cx| {
+                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
                                 Theme::change(catppuccin::Flavour::Macchiato, cx);
                             })
                             .child("Macchiato"),

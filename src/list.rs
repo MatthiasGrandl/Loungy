@@ -46,20 +46,30 @@ impl RenderOnce for Img {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
         let el = div();
-
         let el = match self.mask {
             ImgMask::Circle => el.rounded_full().bg(theme.mantle),
             ImgMask::Rounded => el.rounded_lg().bg(theme.mantle),
             ImgMask::None => el,
         };
         let img = match self.src {
-            ImgSource::Icon(icon) => img(""),
-            ImgSource::Base(src) => img(src).w_8().h_8(),
-        };
-        let img = match self.size {
-            ImgSize::Small => img.w_4().h_4(),
-            ImgSize::Medium => img.w_6().h_6(),
-            ImgSize::Large => img.w_8().w_8(),
+            ImgSource::Icon(icon) => {
+                let svg = svg().path(icon.path());
+                let svg = match self.size {
+                    ImgSize::Small => svg.size_4(),
+                    ImgSize::Medium => svg.size_6(),
+                    ImgSize::Large => svg.size_8(),
+                };
+                svg.into_any_element()
+            }
+            ImgSource::Base(src) => {
+                let img = img(src);
+                let img = match self.size {
+                    ImgSize::Small => img.size_4(),
+                    ImgSize::Medium => img.size_6(),
+                    ImgSize::Large => img.size_8(),
+                };
+                img.into_any_element()
+            }
         };
 
         el.child(img)

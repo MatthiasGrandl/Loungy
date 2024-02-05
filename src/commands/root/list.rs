@@ -87,11 +87,11 @@ fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
                     None,
                     vec![Action::new(
                         crate::list::Img::new(
-                            ImgSource::Icon(Icon::Copy),
+                            ImgSource::Icon(Icon::ArrowUpRightFromSquare),
                             ImgMask::Rounded,
                             ImgSize::Medium,
                         ),
-                        "Copy",
+                        format!("Open {}", tag),
                         None,
                         Box::new(move |_| {
                             let id = id.clone();
@@ -151,6 +151,7 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                         None,
                         Box::new(move |cx| {
                             cx.write_to_clipboard(ClipboardItem::new(result.to_string()));
+                            cx.hide();
                         }),
                     )],
                     None,
