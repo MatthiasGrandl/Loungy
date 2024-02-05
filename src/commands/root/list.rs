@@ -68,6 +68,7 @@ fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
                 };
                 let mut icon_path = cache_dir.clone();
                 icon_path.push(format!("{}.png", bundle_id.clone()));
+                let id = bundle_id.clone();
                 let app = Item::new(
                     vec![name.clone()],
                     cx.new_view(|_cx| {
@@ -84,7 +85,26 @@ fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
                     })
                     .into(),
                     None,
-                    Vec::<Action>::new(),
+                    vec![Action::new(
+                        crate::list::Img::new(
+                            ImgSource::Icon(Icon::Copy),
+                            ImgMask::Rounded,
+                            ImgSize::Medium,
+                        ),
+                        "Copy",
+                        None,
+                        Box::new(move |_| {
+                            let id = id.clone();
+                            let mut command = std::process::Command::new("open");
+                            if ex {
+                                command.arg(format!("x-apple.systempreferences:{}", id));
+                            } else {
+                                command.arg("-b");
+                                command.arg(id);
+                            }
+                            let _ = command.spawn();
+                        }),
+                    )],
                     None,
                 );
                 apps.insert(bundle_id, app);
