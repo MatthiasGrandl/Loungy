@@ -110,6 +110,10 @@ impl Render for Root {
     }
 }
 
+fn copy(cx: &WindowContext) {
+    cx.write_to_clipboard(ClipboardItem::new("nsörbelz".to_string()));
+}
+
 fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut ViewContext<Root>) {
     list.update(cx, |this, cx| {
         let items = model.read(cx).items.clone();
@@ -129,9 +133,7 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                         ),
                         "Copy",
                         None,
-                        Box::new(|cx| {
-                            cx.write_to_clipboard(ClipboardItem::new("".to_string()));
-                        }),
+                        copy,
                     )],
                     None,
                 ));
