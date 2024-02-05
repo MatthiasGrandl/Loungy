@@ -143,11 +143,35 @@ impl Render for ListItem {
     }
 }
 
+pub trait CloneableFn: Fn(&WindowContext) -> () {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
+    where
+        Self: 'a;
+}
+
+impl<F> CloneableFn for F
+where
+    F: Fn(&WindowContext) -> () + Clone,
+{
+    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
+    where
+        Self: 'a,
+    {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + CloneableFn> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
 #[derive(Clone)]
 pub struct Action {
     label: String,
     shortcut: Option<Keystroke>,
-    action: fn(&WindowContext),
+    action: Box<dyn CloneableFn>,
     image: Img,
 }
 
@@ -156,7 +180,7 @@ impl Action {
         image: Img,
         label: impl ToString,
         shortcut: Option<Keystroke>,
-        action: fn(&WindowContext),
+        action: Box<dyn CloneableFn>,
     ) -> Self {
         Self {
             label: label.to_string(),
