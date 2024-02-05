@@ -7,6 +7,7 @@ use numbat::{
 };
 
 use crate::{
+    icon::Icon,
     lazy::LazyMutex,
     theme::{self, Theme},
 };
@@ -86,7 +87,8 @@ impl Render for Numbat {
         let theme = cx.global::<Theme>();
         div()
             .flex()
-            .text_2xl()
+            .text_xl()
+            .font_weight(FontWeight::SEMIBOLD)
             .relative()
             .child(
                 div()
@@ -117,8 +119,12 @@ impl Render for Numbat {
                     .items_center()
                     .justify_center()
                     .inset_0()
-                    .text_color(theme.surface0)
-                    .child("->"),
+                    .child(
+                        svg()
+                            .path(Icon::MoveRight.path())
+                            .size_12()
+                            .text_color(theme.surface0),
+                    ),
             )
     }
 }

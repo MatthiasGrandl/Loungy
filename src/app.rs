@@ -1,5 +1,4 @@
-use smol::Timer;
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 use gpui::*;
 
@@ -57,7 +56,9 @@ pub fn run_app(app: gpui::App) {
                             });
                         }
                     }
-                    Timer::after(Duration::from_millis(50)).await;
+                    cx.background_executor()
+                        .timer(Duration::from_millis(50))
+                        .await;
                 }
             })
             .detach();
