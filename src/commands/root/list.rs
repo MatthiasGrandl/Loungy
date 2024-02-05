@@ -159,6 +159,7 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                 ));
             }
         }
+        this.active = true;
         this.items = items;
         cx.notify();
     });
@@ -173,6 +174,7 @@ impl Root {
         let app_model = cx.new_model(|_cx| AppModel {
             items: Vec::with_capacity(500),
         });
+        eprintln!("{:p}", &app_model);
         update(&app_model, cx);
         cx.new_view(|cx| {
             let list = List::new(cx);

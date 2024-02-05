@@ -6,11 +6,7 @@ use numbat::{
     Context,
 };
 
-use crate::{
-    icon::Icon,
-    lazy::LazyMutex,
-    theme::{self, Theme},
-};
+use crate::{icon::Icon, lazy::LazyMutex, theme::Theme};
 
 struct Ctx {
     ctx: Context,

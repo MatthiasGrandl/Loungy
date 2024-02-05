@@ -2,7 +2,12 @@ use std::time::Duration;
 
 use gpui::*;
 
-use crate::{assets::Assets, paths::Paths, theme::Theme, workspace::Workspace};
+use crate::{
+    assets::Assets,
+    paths::Paths,
+    theme::Theme,
+    workspace::{Query, Workspace},
+};
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
@@ -45,14 +50,16 @@ pub fn run_app(app: gpui::App) {
         cx.set_global(Window {});
         Theme::init(cx);
         Paths::init(cx);
-        eprintln!("{:#?}", cx.asset_source().load("icons/rocket.svg"));
         cx.open_window(window_options(), |cx| {
             cx.spawn(|mut cx| async move {
                 loop {
                     if let Ok(event) = receiver.try_recv() {
                         if event.state == global_hotkey::HotKeyState::Released {
-                            _ = cx.update_global::<Window, _>(|_, cx| {
+                            _ = cx.update_global::<Query, _>(|query, cx| {
                                 cx.activate_window();
+                                query.inner.update(cx, |model, cx| {
+                                    model.select_all(cx);
+                                });
                             });
                         }
                     }

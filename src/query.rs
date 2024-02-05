@@ -82,6 +82,13 @@ impl TextModel {
             text: self.text.clone(),
         });
     }
+    pub fn select_all(&mut self, cx: &mut ModelContext<Self>) {
+        self.selection = 0..self.text.len();
+        cx.notify();
+        cx.emit(TextEvent::Input {
+            text: self.text.clone(),
+        });
+    }
     pub fn word_ranges(&self) -> Vec<Range<usize>> {
         let mut words = Vec::new();
         let mut last_was_boundary = true;

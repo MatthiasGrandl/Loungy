@@ -1,10 +1,8 @@
-use std::path::PathBuf;
-
 use gpui::{ImageSource, *};
 
 use crate::{
     icon::Icon,
-    query::{self, TextEvent, TextMovement},
+    query::{TextEvent, TextMovement},
     theme::Theme,
     workspace::Query,
 };
@@ -250,6 +248,7 @@ impl RenderOnce for Item {
 pub struct List {
     selected: usize,
     skip: usize,
+    pub active: bool,
     pub items: Vec<Item>,
 }
 
@@ -286,6 +285,7 @@ impl Render for List {
 impl List {
     pub fn new(cx: &mut WindowContext) -> View<Self> {
         let view = cx.new_view(|_cx| Self {
+            active: false,
             selected: 0,
             skip: 0,
             items: vec![],
@@ -297,6 +297,9 @@ impl List {
                 match emitter {
                     TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
+                            if !this.active {
+                                return;
+                            }
                             this.selected = 0;
                             this.skip = 0;
                             cx.notify();
@@ -304,6 +307,9 @@ impl List {
                     }
                     TextEvent::Movement(TextMovement::Up) => {
                         clone.update(cx, |this, cx| {
+                            if !this.active {
+                                return;
+                            }
                             if this.selected > 0 {
                                 this.selected -= 1;
                                 this.skip = if this.skip > this.selected {
@@ -317,6 +323,9 @@ impl List {
                     }
                     TextEvent::Movement(TextMovement::Down) => {
                         clone.update(cx, |this, cx| {
+                            if !this.active {
+                                return;
+                            }
                             if this.selected < this.items.len() - 1 {
                                 this.selected += 1;
                                 this.skip = if this.selected > 7 {
@@ -330,6 +339,9 @@ impl List {
                     }
                     TextEvent::Submit {} => {
                         clone.update(cx, |this, cx| {
+                            if !this.active {
+                                return;
+                            }
                             if let Some(action) = this.items[this.selected].actions.get(0) {
                                 (action.action)(cx);
                             };
