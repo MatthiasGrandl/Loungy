@@ -28,7 +28,7 @@ static CTX: LazyMutex<Ctx> = LazyMutex::new(Ctx::default);
 
 #[derive(Clone)]
 pub struct Numbat {
-    result: Option<String>,
+    pub result: Option<String>,
     unit: Option<String>,
     type_id: Option<String>,
     equation: String,

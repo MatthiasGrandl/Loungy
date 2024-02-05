@@ -4,7 +4,7 @@ use swift_rs::{swift, SRObject, SRString};
 use gpui::*;
 
 use crate::{
-    lazy::LazyMutex,
+    icon::Icon,
     list::{Accessory, Action, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
@@ -14,8 +14,6 @@ use crate::{
 
 use super::numbat::Numbat;
 
-static LIST: LazyMutex<Vec<Item>> = LazyMutex::new(Vec::<Item>::new);
-
 #[repr(C)]
 pub(super) struct AppData {
     pub(super) id: SRString,
@@ -24,7 +22,7 @@ pub(super) struct AppData {
 
 swift!(pub(super) fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppData>>);
 
-fn update(cx: &mut WindowContext) {
+fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
     let cache_dir = cx.global::<Paths>().cache.clone();
     fs::create_dir_all(cache_dir.clone()).unwrap();
 
@@ -96,7 +94,10 @@ fn update(cx: &mut WindowContext) {
     let mut apps: Vec<Item> = apps.values().cloned().collect();
     apps.sort_unstable_by_key(|a| a.keywords[0].clone());
 
-    *LIST.lock() = apps;
+    model.update(cx, |model, cx| {
+        model.items = apps;
+        cx.notify();
+    });
 }
 
 pub struct Root {
@@ -109,17 +110,30 @@ impl Render for Root {
     }
 }
 
-fn list_items(list: &View<List>, query: &str, cx: &mut ViewContext<Root>) {
+fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut ViewContext<Root>) {
     list.update(cx, |this, cx| {
-        let items = LIST.lock().clone();
+        let items = model.read(cx).items.clone();
         let mut items = fuzzy_match(query, items, false);
         if items.len() == 0 {
             if let Some(calc) = Numbat::init(query) {
+                let result = calc.clone().result.unwrap();
                 items.push(Item::new(
                     Vec::<String>::new(),
                     cx.new_view(|_cx| calc).into(),
                     None,
-                    Vec::<Action>::new(),
+                    vec![Action::new(
+                        crate::list::Img::new(
+                            ImgSource::Icon(Icon::Copy),
+                            ImgMask::Rounded,
+                            ImgSize::Medium,
+                        ),
+                        "Copy",
+                        None,
+                        Box::new(|| {
+                            eprintln!("test");
+                            //cx.write_to_clipboard(ClipboardItem::new(result));
+                        }),
+                    )],
                     None,
                 ));
             }
@@ -129,9 +143,16 @@ fn list_items(list: &View<List>, query: &str, cx: &mut ViewContext<Root>) {
     });
 }
 
+struct AppModel {
+    items: Vec<Item>,
+}
+
 impl Root {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
-        update(cx);
+        let app_model = cx.new_model(|_cx| AppModel {
+            items: Vec::with_capacity(500),
+        });
+        update(&app_model, cx);
         cx.new_view(|cx| {
             let list = List::new(cx);
             let clone = list.clone();
@@ -141,12 +162,12 @@ impl Root {
                     model.placeholder = "Search apps and commands...".to_string();
                     cx.notify();
                 });
-                list_items(&clone, "", cx);
+                list_items(&clone, &app_model, "", cx);
                 cx.subscribe(
                     &query.inner,
                     move |_subscriber, _emitter, event, cx| match event {
                         TextEvent::Input { text } => {
-                            list_items(&clone, text.as_str(), cx);
+                            list_items(&clone, &app_model, text.as_str(), cx);
                         }
                         _ => {}
                     },

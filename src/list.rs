@@ -143,9 +143,52 @@ impl Render for ListItem {
     }
 }
 
+pub trait CloneableFn: Fn() -> () {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
+    where
+        Self: 'a;
+}
+
+impl<F> CloneableFn for F
+where
+    F: Fn() -> () + Clone,
+{
+    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
+    where
+        Self: 'a,
+    {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + CloneableFn> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
 #[derive(Clone)]
 pub struct Action {
     label: String,
+    shortcut: Option<Keystroke>,
+    action: Box<dyn CloneableFn>,
+    image: Img,
+}
+
+impl Action {
+    pub fn new(
+        image: Img,
+        label: impl ToString,
+        shortcut: Option<Keystroke>,
+        action: Box<dyn CloneableFn>,
+    ) -> Self {
+        Self {
+            label: label.to_string(),
+            shortcut,
+            action,
+            image,
+        }
+    }
 }
 
 #[derive(IntoElement, Clone)]
@@ -201,12 +244,12 @@ pub struct List {
 }
 
 impl Render for List {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         div()
             .w_full()
             .on_scroll_wheel(|ev, cx| {
                 cx.update_global::<Query, _>(|query, cx| {
-                    query.inner.update(cx, |model, cx| {
+                    query.inner.update(cx, |_model, cx| {
                         let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
                         if y > 10.0 {
                             cx.emit(TextEvent::Movement(TextMovement::Up));
@@ -273,6 +316,11 @@ impl List {
                                 };
                                 cx.notify();
                             }
+                        });
+                    }
+                    TextEvent::Submit {} => {
+                        clone.update(cx, |this, cx| {
+                            (this.items[this.selected].actions[0].action)();
                         });
                     }
                     _ => {}
