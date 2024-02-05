@@ -1,53 +1,26 @@
 use gpui::*;
 
-use crate::{
-    commands::root::list::Root,
-    query::{TextInput, TextModel},
-    theme::Theme,
-};
+use crate::state::StateModel;
+use crate::theme::Theme;
 
 pub struct Workspace {
-    query: TextInput,
-    state: Model<StateModel>,
+    state: StateModel,
 }
 
 impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
         let view = cx.new_view(|cx| {
-            let query = TextInput::new(cx, String::from(""));
-            cx.set_global::<Query>(Query {
-                inner: query.model.clone(),
-            });
-            let root: AnyView = Root::build(cx).into();
-            let state = cx.new_model(|_cx| StateModel { root });
-            cx.set_global::<State>(State {
-                inner: state.clone(),
-            });
-            Workspace { query, state }
+            let state = StateModel::init(cx);
+            Workspace { state }
         });
         view
     }
 }
 
-pub struct Query {
-    pub inner: Model<TextModel>,
-}
-
-impl Global for Query {}
-
-pub struct StateModel {
-    pub root: AnyView,
-}
-
-pub struct State {
-    pub inner: Model<StateModel>,
-}
-
-impl Global for State {}
-
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
+        let item = self.state.inner.read(cx).stack.last().unwrap();
         div()
             .full()
             .flex()
@@ -59,7 +32,7 @@ impl Render for Workspace {
             .text_color(theme.text)
             .child(
                 div()
-                    .child(self.query.clone())
+                    .child(item.query.clone())
                     .text_lg()
                     .px_4()
                     .py_3()
@@ -67,7 +40,7 @@ impl Render for Workspace {
                     .border_b_1()
                     .border_color(theme.mantle),
             )
-            .child(div().child(self.state.read(cx).root.clone()).p_2())
+            .child(div().child(item.view.clone()).p_2())
             .child(
                 div()
                     .absolute()

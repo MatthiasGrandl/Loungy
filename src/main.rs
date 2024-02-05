@@ -10,6 +10,7 @@ mod list;
 mod nucleo;
 mod paths;
 mod query;
+mod state;
 mod theme;
 mod workspace;
 

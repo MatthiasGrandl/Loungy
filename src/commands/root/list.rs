@@ -8,8 +8,8 @@ use crate::{
     list::{Accessory, Action, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
-    query::TextEvent,
-    workspace::Query,
+    query::{TextEvent, TextModel},
+    state::StateViewBuilder,
 };
 
 use super::numbat::Numbat;
@@ -159,7 +159,6 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                 ));
             }
         }
-        this.active = true;
         this.items = items;
         cx.notify();
     });
@@ -169,35 +168,27 @@ struct AppModel {
     items: Vec<Item>,
 }
 
-impl Root {
-    pub fn build(cx: &mut WindowContext) -> View<Self> {
+pub struct RootBuilder;
+
+impl StateViewBuilder for RootBuilder {
+    fn build(&self, query: &Model<TextModel>, cx: &mut WindowContext) -> AnyView {
         let app_model = cx.new_model(|_cx| AppModel {
             items: Vec::with_capacity(500),
         });
-        eprintln!("{:p}", &app_model);
         update(&app_model, cx);
         cx.new_view(|cx| {
-            let list = List::new(cx);
+            let list = List::new(query, cx);
+            list_items(&list, &app_model, "", cx);
             let clone = list.clone();
-            cx.update_global::<Query, _>(|query, cx| {
-                query.inner.update(cx, |model, cx| {
-                    model.reset(cx);
-                    model.placeholder = "Search apps and commands...".to_string();
-                    cx.notify();
-                });
-                list_items(&clone, &app_model, "", cx);
-                cx.subscribe(
-                    &query.inner,
-                    move |_subscriber, _emitter, event, cx| match event {
-                        TextEvent::Input { text } => {
-                            list_items(&clone, &app_model, text.as_str(), cx);
-                        }
-                        _ => {}
-                    },
-                )
-                .detach();
-            });
+            cx.subscribe(query, move |_subscriber, _emitter, event, cx| match event {
+                TextEvent::Input { text } => {
+                    list_items(&clone, &app_model, text.as_str(), cx);
+                }
+                _ => {}
+            })
+            .detach();
             Root { list }
         })
+        .into()
     }
 }
