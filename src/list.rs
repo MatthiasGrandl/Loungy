@@ -4,7 +4,7 @@ use gpui::{ImageSource, *};
 
 use crate::{
     icon::Icon,
-    query::{TextEvent, TextMovement},
+    query::{self, TextEvent, TextMovement},
     theme::Theme,
     workspace::Query,
 };
@@ -201,18 +201,32 @@ pub struct List {
 }
 
 impl Render for List {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div().w_full().children(
-            self.items
-                .clone()
-                .into_iter()
-                .enumerate()
-                .skip(self.skip)
-                .map(|(i, mut item)| {
-                    item.selected = i == self.selected;
-                    item
-                }),
-        )
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div()
+            .w_full()
+            .on_scroll_wheel(|ev, cx| {
+                cx.update_global::<Query, _>(|query, cx| {
+                    query.inner.update(cx, |model, cx| {
+                        let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
+                        if y > 10.0 {
+                            cx.emit(TextEvent::Movement(TextMovement::Up));
+                        } else if y < -10.0 {
+                            cx.emit(TextEvent::Movement(TextMovement::Down));
+                        }
+                    });
+                });
+            })
+            .children(
+                self.items
+                    .clone()
+                    .into_iter()
+                    .enumerate()
+                    .skip(self.skip)
+                    .map(|(i, mut item)| {
+                        item.selected = i == self.selected;
+                        item
+                    }),
+            )
     }
 }
 
@@ -250,13 +264,15 @@ impl List {
                     }
                     TextEvent::Movement(TextMovement::Down) => {
                         clone.update(cx, |this, cx| {
-                            this.selected += 1;
-                            this.skip = if this.selected > 7 {
-                                this.selected - 7
-                            } else {
-                                0
-                            };
-                            cx.notify();
+                            if this.selected < this.items.len() - 1 {
+                                this.selected += 1;
+                                this.skip = if this.selected > 7 {
+                                    this.selected - 7
+                                } else {
+                                    0
+                                };
+                                cx.notify();
+                            }
                         });
                     }
                     _ => {}

@@ -27,8 +27,6 @@ pub fn fuzzy_match<T: Score>(pattern: &str, items: Vec<T>, path: bool) -> Vec<T>
         .filter_map(|item| item.score(&pattern, &mut buf, &mut matcher))
         .collect();
     items.sort_by_key(|(_, score)| Reverse(*score));
-    //truncate items to 100 items
-    items.truncate(100);
     items.into_iter().map(|item| item.0).collect()
 }
 

@@ -82,6 +82,8 @@ impl Render for Workspace {
                     .border_color(theme.crust)
                     .px_4()
                     .py_2()
+                    .text_color(theme.subtext0)
+                    .text_xs()
                     .flex()
                     .child(
                         div()
