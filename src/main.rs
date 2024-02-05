@@ -2,6 +2,7 @@ use app::run_app;
 use gpui::App;
 
 mod app;
+mod assets;
 mod commands;
 mod icon;
 mod lazy;

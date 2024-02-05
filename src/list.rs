@@ -53,7 +53,7 @@ impl RenderOnce for Img {
         };
         let img = match self.src {
             ImgSource::Icon(icon) => {
-                let svg = svg().path(icon.path());
+                let svg = svg().path(icon.path()).text_color(theme.text);
                 let svg = match self.size {
                     ImgSize::Small => svg.size_4(),
                     ImgSize::Medium => svg.size_6(),

@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 
 use gpui::*;
 
-use crate::{paths::Paths, theme::Theme, workspace::Workspace};
+use crate::{assets::Assets, paths::Paths, theme::Theme, workspace::Workspace};
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
@@ -42,11 +42,11 @@ pub fn run_app(app: gpui::App) {
     let hotkey = HotKey::new(Some(mods), Code::Space);
     manager.register(hotkey).unwrap();
     let receiver = GlobalHotKeyEvent::receiver().clone();
-
-    app.run(move |cx: &mut AppContext| {
+    app.with_assets(Assets).run(move |cx: &mut AppContext| {
         cx.set_global(Window {});
         Theme::init(cx);
         Paths::init(cx);
+        eprintln!("{:#?}", cx.asset_source().load("icons/rocket.svg"));
         cx.open_window(window_options(), |cx| {
             cx.spawn(|mut cx| async move {
                 loop {

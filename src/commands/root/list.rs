@@ -93,7 +93,8 @@ fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
                         ),
                         format!("Open {}", tag),
                         None,
-                        Box::new(move |_| {
+                        Box::new(move |cx| {
+                            cx.hide();
                             let id = id.clone();
                             let mut command = std::process::Command::new("open");
                             if ex {

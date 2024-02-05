@@ -1364,6 +1364,7 @@ dependencies = [
 name = "gpui"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "catppuccin",
  "global-hotkey",
  "gpui 0.1.0 (git+https://github.com/zed-industries/zed)",
@@ -1371,6 +1372,7 @@ dependencies = [
  "numbat",
  "numbat-exchange-rates",
  "parking_lot 0.12.1",
+ "rust-embed",
  "serde",
  "serde_json",
  "smol 2.0.0",

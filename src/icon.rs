@@ -19,7 +19,7 @@ fn to_kebap(s: &str) -> String {
 impl Icon {
     pub fn path(&self) -> SharedString {
         let name = to_kebap(self.to_string().as_str());
-        SharedString::from(format!("/Users/matthias/gpui/assets/icons/{}.svg", name))
+        SharedString::from(format!("icons/{}.svg", name))
     }
 }
 
