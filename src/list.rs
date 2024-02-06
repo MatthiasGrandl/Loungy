@@ -201,12 +201,14 @@ pub struct List {
     selected: usize,
     skip: usize,
     query: Model<TextModel>,
+    actions: ActionsModel,
     pub items: Vec<Item>,
 }
 
 impl Render for List {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let model = self.query.clone();
+        self.selection_change(&self.actions, cx);
         div()
             .w_full()
             .on_scroll_wheel(move |ev, cx| {
@@ -239,18 +241,16 @@ impl List {
         actions: &ActionsModel,
         cx: &mut WindowContext,
     ) -> View<Self> {
-        let actions = actions.clone();
         let list = Self {
             selected: 0,
             skip: 0,
             query: query.clone(),
             items: vec![],
+            actions: actions.clone(),
         };
-        let view = cx.new_view(|cx| {
-            list.selection_change(&actions, cx);
-            list
-        });
+        let view = cx.new_view(|_| list);
         let clone = view.clone();
+        let actions = actions.clone();
 
         cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
             let clone = clone.clone();

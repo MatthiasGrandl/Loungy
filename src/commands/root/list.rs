@@ -131,13 +131,7 @@ impl Render for Root {
     }
 }
 
-fn list_items(
-    list: &View<List>,
-    model: &Model<AppModel>,
-    query: &str,
-    actions: &ActionsModel,
-    cx: &mut ViewContext<Root>,
-) {
+fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut ViewContext<Root>) {
     list.update(cx, |this, cx| {
         let items = model.read(cx).items.clone();
         let mut items = fuzzy_match(query, items, false);
@@ -166,7 +160,6 @@ fn list_items(
             }
         }
         this.items = items;
-        this.selection_change(actions, cx);
         cx.notify();
     });
 }
@@ -188,14 +181,13 @@ impl StateView for RootBuilder {
             items: Vec::with_capacity(500),
         });
         update(&app_model, cx);
-        let actions = actions.clone();
         cx.new_view(|cx| {
             let list = List::new(query, &actions, cx);
-            list_items(&list, &app_model, "", &actions, cx);
+            list_items(&list, &app_model, "", cx);
             let clone = list.clone();
             cx.subscribe(query, move |_subscriber, _emitter, event, cx| match event {
                 TextEvent::Input { text } => {
-                    list_items(&clone, &app_model, text.as_str(), &actions, cx);
+                    list_items(&clone, &app_model, text.as_str(), cx);
                 }
                 _ => {}
             })
