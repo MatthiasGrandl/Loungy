@@ -33,6 +33,11 @@ impl TextInput {
         }
         return false;
     }
+    pub fn reset(&self, cx: &mut WindowContext) {
+        self.view.update(cx, |editor, cx| {
+            editor.reset(cx);
+        });
+    }
 }
 
 pub struct TextView {
@@ -225,6 +230,7 @@ impl RenderOnce for TextInput {
                             text: editor.text.clone(),
                         });
                     }
+                    cx.notify();
                 });
             })
             //.focus(|style| style.border_color(theme.lavender))

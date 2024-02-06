@@ -231,7 +231,7 @@ pub struct Actions {
 }
 
 impl Actions {
-    fn compute(&mut self, toggle: Box<dyn CloneableFn>) {
+    fn compute(&mut self, toggle: Box<dyn CloneableFn>, cx: &mut ViewContext<Self>) {
         let mut combined = self.local.clone();
         combined.append(&mut self.global);
         // if there are actions, make the first action the default action
@@ -264,13 +264,16 @@ impl Actions {
             ))
         }
         self.combined = combined;
+        // TODO: why does this not work?
+        //self.list_actions("", cx);
+        cx.notify();
     }
     fn popup(&mut self, cx: &mut ViewContext<Self>) -> Div {
         if !self.show {
             return div();
         }
         let theme = cx.global::<theme::Theme>();
-        let query = self.query.as_ref().unwrap().clone();
+        let query = self.query.clone().unwrap();
         div()
             .absolute()
             .bottom_10()
@@ -285,7 +288,7 @@ impl Actions {
             .shadow_lg()
             .flex()
             .flex_col()
-            .child(div().child(self.list.as_ref().unwrap().clone()).p_2())
+            .child(div().child(self.list.clone().unwrap()).p_2())
             .child(
                 div()
                     .child(query)
@@ -296,6 +299,33 @@ impl Actions {
                     .border_color(theme.mantle)
                     .text_base(),
             )
+    }
+    fn list_actions(&self, text: &str, cx: &mut ViewContext<Self>) {
+        let items: Vec<Item> = self
+            .combined
+            .clone()
+            .into_iter()
+            .filter_map(|item| {
+                if item.hide {
+                    return None;
+                }
+                let action = item.clone();
+                Some(Item::new(
+                    vec![item.label.clone()],
+                    cx.new_view(|_| ListItem::new(None, item.label, None, Vec::<Accessory>::new()))
+                        .into(),
+                    None,
+                    vec![action],
+                    None,
+                ))
+            })
+            .collect();
+
+        let items = fuzzy_match(text, items, false);
+        self.list.clone().unwrap().update(cx, |this, cx| {
+            this.items = items;
+            cx.notify();
+        });
     }
 }
 
@@ -339,6 +369,8 @@ impl ActionsModel {
         let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
             clone.update(cx, |model, cx| {
                 model.show = !model.show;
+                model.query.clone().unwrap().reset(cx);
+                model.list_actions("", cx);
                 cx.notify();
             });
         });
@@ -348,9 +380,8 @@ impl ActionsModel {
         };
         let query = TextInput::new(&model, cx);
         let list = List::new(&query, &model, cx);
-        let list_clone = list.clone();
         inner.update(cx, |this, cx| {
-            let list = list.clone();
+            this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
                     TextEvent::Blur => {
@@ -365,39 +396,7 @@ impl ActionsModel {
                         _ => {}
                     },
                     TextEvent::Input { text } => {
-                        let items: Vec<Item> = this
-                            .combined
-                            .clone()
-                            .into_iter()
-                            .filter_map(|item| {
-                                if item.hide {
-                                    return None;
-                                }
-                                let mut action = item.clone();
-                                action.hide = true;
-                                Some(Item::new(
-                                    vec![item.label.clone()],
-                                    cx.new_view(|_| {
-                                        ListItem::new(
-                                            None,
-                                            item.label,
-                                            None,
-                                            Vec::<Accessory>::new(),
-                                        )
-                                    })
-                                    .into(),
-                                    None,
-                                    vec![action],
-                                    None,
-                                ))
-                            })
-                            .collect();
-                        let items = fuzzy_match(text, items, false);
-                        list.update(cx, |this, cx| {
-                            this.items = items;
-                            cx.notify();
-                        });
-                        cx.notify();
+                        this.list_actions(text, cx);
                     }
                     _ => {}
                 }
@@ -406,7 +405,7 @@ impl ActionsModel {
             .detach();
 
             this.query = Some(query);
-            this.list = Some(list_clone);
+
             cx.notify();
         });
         model
@@ -415,16 +414,14 @@ impl ActionsModel {
         let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
             model.global = actions;
-            model.compute(toggle);
-            cx.notify();
+            model.compute(toggle, cx);
         });
     }
     pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
         let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
             model.local = actions;
-            model.compute(toggle);
-            cx.notify();
+            model.compute(toggle, cx);
         });
     }
     pub fn get(&self, cx: &mut WindowContext) -> Vec<Action> {
