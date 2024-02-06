@@ -245,6 +245,24 @@ impl Actions {
         }
         self.combined = combined;
     }
+    fn popup(&mut self, cx: &mut ViewContext<Self>) -> Div {
+        if !self.show {
+            return div();
+        }
+        let theme = cx.global::<theme::Theme>();
+        div()
+            .absolute()
+            .bottom_10()
+            .right_0()
+            .z_index(1000)
+            .w_64()
+            .min_h_32()
+            .bg(theme.base)
+            .rounded_xl()
+            .border_1()
+            .border_color(theme.crust)
+            .shadow_lg()
+    }
 }
 
 impl Render for Actions {
@@ -259,6 +277,7 @@ impl Render for Actions {
                 .child(div().child(action.clone()).text_color(theme.text))
                 .child(div().h_2_3().w(Pixels(2.0)).bg(theme.surface0).mx_2())
                 .child(open)
+                .child(self.popup(cx))
         } else {
             div()
         }
