@@ -141,14 +141,18 @@ impl Render for ListItem {
         .flex()
         .w_full()
         .items_center()
-        .text_sm();
+        .text_sm()
+        .child(
+            div()
+                .child(self.title.clone())
+                .font_weight(FontWeight::MEDIUM),
+        );
         let el = if let Some(subtitle) = &self.subtitle {
             el.child(subtitle.clone())
         } else {
             el
         };
-        el.child(self.title.clone())
-            .child(div().ml_auto().children(self.accessories.clone()))
+        el.child(div().ml_auto().children(self.accessories.clone()))
     }
 }
 
@@ -203,6 +207,7 @@ pub struct List {
     skip: usize,
     actions: ActionsModel,
     pub items: Vec<Item>,
+    query: TextInput,
 }
 
 impl Render for List {
@@ -237,6 +242,9 @@ impl Render for List {
 
 impl List {
     pub fn up(&mut self, cx: &mut ViewContext<Self>) {
+        if !self.query.has_focus(cx) {
+            return;
+        }
         if self.selected > 0 {
             self.selected -= 1;
             self.skip = if self.skip > self.selected {
@@ -248,6 +256,9 @@ impl List {
         }
     }
     pub fn down(&mut self, cx: &mut ViewContext<Self>) {
+        if !self.query.has_focus(cx) {
+            return;
+        }
         if self.selected < self.items.len() - 1 {
             self.selected += 1;
             self.skip = if self.selected > 7 {
@@ -257,6 +268,7 @@ impl List {
             };
             cx.notify();
         }
+        eprintln!("{}", self.selected);
     }
     pub fn new(query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> View<Self> {
         let list = Self {
@@ -264,13 +276,14 @@ impl List {
             skip: 0,
             items: vec![],
             actions: actions.clone(),
+            query: query.clone(),
         };
         let view = cx.new_view(|_| list);
         let clone = view.clone();
 
-        cx.subscribe(&query.view, move |_subscriber, emitter: &TextEvent, cx| {
-            let clone = clone.clone();
-            match emitter {
+        cx.subscribe(
+            &query.view,
+            move |_subscriber, emitter: &TextEvent, cx| match emitter {
                 TextEvent::Input { text: _ } => {
                     clone.update(cx, |this, cx| {
                         this.selected = 0;
@@ -292,8 +305,8 @@ impl List {
                     _ => {}
                 },
                 _ => {}
-            }
-        })
+            },
+        )
         .detach();
         view
     }

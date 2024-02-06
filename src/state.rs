@@ -3,7 +3,8 @@ use gpui::*;
 use crate::{
     commands::root::list::RootBuilder,
     icon::Icon,
-    list::{Img, ImgMask, ImgSize, ImgSource},
+    list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
+    nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     theme,
 };
@@ -58,7 +59,7 @@ pub struct StateModel {
 impl StateModel {
     pub fn init(cx: &mut WindowContext) -> Self {
         let item = StateItem::init(RootBuilder {}, cx);
-        let state = cx.new_model(|cx| State { stack: vec![item] });
+        let state = cx.new_model(|_| State { stack: vec![item] });
         Self { inner: state }
     }
     pub fn pop(&self, cx: &mut WindowContext) {
@@ -223,6 +224,7 @@ pub struct Actions {
     combined: Vec<Action>,
     show: bool,
     query: Option<TextInput>,
+    list: Option<View<List>>,
 }
 
 impl Actions {
@@ -271,7 +273,7 @@ impl Actions {
             .right_0()
             .z_index(1000)
             .w_80()
-            .min_h_32()
+            .max_h_48()
             .bg(theme.base)
             .rounded_xl()
             .border_1()
@@ -279,14 +281,11 @@ impl Actions {
             .shadow_lg()
             .flex()
             .flex_col()
-            .children(self.combined.clone())
+            .child(div().child(self.list.as_ref().unwrap().clone()).p_2())
             .child(
                 div()
                     .child(query)
-                    .absolute()
-                    .bottom_0()
-                    .left_0()
-                    .right_0()
+                    .mt_auto()
                     .py_2()
                     .px_4()
                     .border_t_1()
@@ -330,6 +329,7 @@ impl ActionsModel {
             combined: Vec::new(),
             show: false,
             query: None,
+            list: None,
         });
         let clone = inner.clone();
         let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
@@ -343,8 +343,11 @@ impl ActionsModel {
             toggle,
         };
         let query = TextInput::new(&model, cx);
+        let list = List::new(&query, &model, cx);
+        let list_clone = list.clone();
         inner.update(cx, |this, cx| {
-            cx.subscribe(&query.view, |this, _, event, cx| {
+            let list = list.clone();
+            cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
                     TextEvent::Blur => {
                         this.show = false;
@@ -357,6 +360,37 @@ impl ActionsModel {
                         }
                         _ => {}
                     },
+                    TextEvent::Input { text } => {
+                        let items: Vec<Item> = this
+                            .combined
+                            .clone()
+                            .into_iter()
+                            .map(|item| {
+                                let action = item.clone();
+                                Item::new(
+                                    vec![item.label.clone()],
+                                    cx.new_view(|_| {
+                                        ListItem::new(
+                                            None,
+                                            item.label,
+                                            None,
+                                            Vec::<Accessory>::new(),
+                                        )
+                                    })
+                                    .into(),
+                                    None,
+                                    vec![action],
+                                    None,
+                                )
+                            })
+                            .collect();
+                        let items = fuzzy_match(text, items, false);
+                        list.update(cx, |this, cx| {
+                            this.items = items;
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
                     _ => {}
                 }
                 cx.notify();
@@ -364,6 +398,7 @@ impl ActionsModel {
             .detach();
 
             this.query = Some(query);
+            this.list = Some(list_clone);
             cx.notify();
         });
         model

@@ -27,6 +27,12 @@ impl TextInput {
             cx.notify();
         });
     }
+    pub fn has_focus(&self, cx: &WindowContext) -> bool {
+        if let Some(fh) = cx.focused() {
+            return fh.eq(&self.focus_handle);
+        }
+        return false;
+    }
 }
 
 pub struct TextView {
@@ -213,9 +219,7 @@ impl RenderOnce for TextInput {
                                     editor.selection = i..i;
                                 }
                             }
-                            keystroke_str => {
-                                eprintln!("Unhandled keystroke {keystroke_str}")
-                            }
+                            _ => {}
                         };
                     }
                     cx.emit(TextEvent::Input {
