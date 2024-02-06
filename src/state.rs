@@ -203,6 +203,7 @@ pub struct Actions {
     local: Vec<Action>,
     combined: Vec<Action>,
     show: bool,
+    query: Option<TextInput>,
 }
 
 impl Actions {
@@ -244,18 +245,30 @@ impl Actions {
             return div();
         }
         let theme = cx.global::<theme::Theme>();
+        let query = self.query.as_ref().unwrap().clone();
         div()
             .absolute()
             .bottom_10()
             .right_0()
             .z_index(1000)
-            .w_64()
+            .w_80()
             .min_h_32()
             .bg(theme.base)
             .rounded_xl()
-            .border_1()
+            .border_2()
             .border_color(theme.crust)
             .shadow_lg()
+            .child(
+                div()
+                    .child(query)
+                    .absolute()
+                    .bottom_0()
+                    .left_0()
+                    .right_0()
+                    .p_2()
+                    .border_t_1()
+                    .border_color(theme.crust),
+            )
     }
 }
 
@@ -287,11 +300,12 @@ pub struct ActionsModel {
 
 impl ActionsModel {
     pub fn init(cx: &mut WindowContext) -> Self {
-        let inner = cx.new_view(|cx| Actions {
+        let inner = cx.new_view(|_| Actions {
             global: Vec::new(),
             local: Vec::new(),
             combined: Vec::new(),
             show: false,
+            query: None,
         });
         let clone = inner.clone();
         let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
@@ -300,7 +314,20 @@ impl ActionsModel {
                 cx.notify();
             });
         });
-        Self { inner, toggle }
+        let model = Self {
+            inner: inner.clone(),
+            toggle,
+        };
+        let query = TextInput::new(&model, cx);
+        inner.update(cx, |this, cx| {
+            cx.subscribe(&query.view, |_, _, _, cx| {
+                cx.notify();
+            })
+            .detach();
+            this.query = Some(query);
+            cx.notify();
+        });
+        model
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
         let toggle = self.toggle.clone();

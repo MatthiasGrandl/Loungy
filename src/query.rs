@@ -45,10 +45,10 @@ impl TextView {
             placeholder: "Type here...".to_string(),
         };
         let view = cx.new_view(|cx| {
-            cx.on_blur(focus_handle, |_, cx| {
-                cx.hide();
-            })
-            .detach();
+            // cx.on_blur(focus_handle, |_, cx| {
+            //     cx.hide();
+            // })
+            // .detach();
             m
         });
         cx.subscribe(&view, |subscriber, emitter: &TextEvent, cx| match emitter {
