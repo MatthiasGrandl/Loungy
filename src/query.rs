@@ -129,6 +129,7 @@ impl EventEmitter<TextEvent> for TextView {}
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         cx.focus(&self.focus_handle);
+        //let theme = cx.global::<Theme>();
         let clone = self.view.clone();
         div()
             .track_focus(&self.focus_handle)
@@ -233,6 +234,10 @@ impl RenderOnce for TextInput {
                     cx.notify();
                 });
             })
+            .rounded_xl()
+            .p_2()
+            //.border_2()
+            //.border_color(transparent_black())
             //.focus(|style| style.border_color(theme.lavender))
             .child(clone)
     }

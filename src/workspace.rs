@@ -35,8 +35,7 @@ impl Render for Workspace {
                 div()
                     .child(item.query.clone())
                     .text_lg()
-                    .px_4()
-                    .py_3()
+                    .p_2()
                     .w_full()
                     .border_b_1()
                     .border_color(theme.mantle),

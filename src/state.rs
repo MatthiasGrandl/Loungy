@@ -293,8 +293,7 @@ impl Actions {
                 div()
                     .child(query)
                     .mt_auto()
-                    .py_2()
-                    .px_4()
+                    .px_2()
                     .border_t_1()
                     .border_color(theme.mantle)
                     .text_base(),
