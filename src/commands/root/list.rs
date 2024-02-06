@@ -5,11 +5,11 @@ use gpui::*;
 
 use crate::{
     icon::Icon,
-    list::{Accessory, Action, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
+    list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextModel},
-    state::StateViewBuilder,
+    state::{Action, ActionsModel, StateView},
 };
 
 use super::numbat::Numbat;
@@ -131,7 +131,13 @@ impl Render for Root {
     }
 }
 
-fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut ViewContext<Root>) {
+fn list_items(
+    list: &View<List>,
+    model: &Model<AppModel>,
+    query: &str,
+    actions: &ActionsModel,
+    cx: &mut ViewContext<Root>,
+) {
     list.update(cx, |this, cx| {
         let items = model.read(cx).items.clone();
         let mut items = fuzzy_match(query, items, false);
@@ -160,6 +166,7 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
             }
         }
         this.items = items;
+        this.selection_change(actions, cx);
         cx.notify();
     });
 }
@@ -170,19 +177,25 @@ struct AppModel {
 
 pub struct RootBuilder;
 
-impl StateViewBuilder for RootBuilder {
-    fn build(&self, query: &Model<TextModel>, cx: &mut WindowContext) -> AnyView {
+impl StateView for RootBuilder {
+    fn build(
+        &self,
+        query: &Model<TextModel>,
+        actions: &ActionsModel,
+        cx: &mut WindowContext,
+    ) -> AnyView {
         let app_model = cx.new_model(|_cx| AppModel {
             items: Vec::with_capacity(500),
         });
         update(&app_model, cx);
+        let actions = actions.clone();
         cx.new_view(|cx| {
-            let list = List::new(query, cx);
-            list_items(&list, &app_model, "", cx);
+            let list = List::new(query, &actions, cx);
+            list_items(&list, &app_model, "", &actions, cx);
             let clone = list.clone();
             cx.subscribe(query, move |_subscriber, _emitter, event, cx| match event {
                 TextEvent::Input { text } => {
-                    list_items(&clone, &app_model, text.as_str(), cx);
+                    list_items(&clone, &app_model, text.as_str(), &actions, cx);
                 }
                 _ => {}
             })

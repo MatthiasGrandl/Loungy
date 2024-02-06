@@ -3,6 +3,7 @@ use gpui::{ImageSource, *};
 use crate::{
     icon::Icon,
     query::{TextEvent, TextModel, TextMovement},
+    state::{Action, ActionsModel},
     theme::Theme,
 };
 
@@ -150,54 +151,6 @@ impl Render for ListItem {
     }
 }
 
-pub trait CloneableFn: Fn(&WindowContext) -> () {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
-    where
-        Self: 'a;
-}
-
-impl<F> CloneableFn for F
-where
-    F: Fn(&WindowContext) -> () + Clone,
-{
-    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + CloneableFn> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
-}
-
-#[derive(Clone)]
-pub struct Action {
-    label: String,
-    shortcut: Option<Keystroke>,
-    action: Box<dyn CloneableFn>,
-    image: Img,
-}
-
-impl Action {
-    pub fn new(
-        image: Img,
-        label: impl ToString,
-        shortcut: Option<Keystroke>,
-        action: Box<dyn CloneableFn>,
-    ) -> Self {
-        Self {
-            label: label.to_string(),
-            shortcut,
-            action,
-            image,
-        }
-    }
-}
-
 #[derive(IntoElement, Clone)]
 pub struct Item {
     pub keywords: Vec<String>,
@@ -257,7 +210,7 @@ impl Render for List {
         div()
             .w_full()
             .on_scroll_wheel(move |ev, cx| {
-                &model.update(cx, |_model, cx| {
+                let _ = &model.update(cx, |_model, cx| {
                     let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
                     if y > 10.0 {
                         cx.emit(TextEvent::Movement(TextMovement::Up));
@@ -281,14 +234,24 @@ impl Render for List {
 }
 
 impl List {
-    pub fn new(query: &Model<TextModel>, cx: &mut WindowContext) -> View<Self> {
-        let view = cx.new_view(|_cx| Self {
+    pub fn new(
+        query: &Model<TextModel>,
+        actions: &ActionsModel,
+        cx: &mut WindowContext,
+    ) -> View<Self> {
+        let actions = actions.clone();
+        let list = Self {
             selected: 0,
             skip: 0,
             query: query.clone(),
             items: vec![],
+        };
+        let view = cx.new_view(|cx| {
+            list.selection_change(&actions, cx);
+            list
         });
         let clone = view.clone();
+
         cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
             let clone = clone.clone();
             match emitter {
@@ -296,6 +259,7 @@ impl List {
                     clone.update(cx, |this, cx| {
                         this.selected = 0;
                         this.skip = 0;
+                        this.selection_change(&actions, cx);
                         cx.notify();
                     });
                 }
@@ -308,6 +272,7 @@ impl List {
                             } else {
                                 this.skip
                             };
+                            this.selection_change(&actions, cx);
                             cx.notify();
                         }
                     });
@@ -321,15 +286,9 @@ impl List {
                             } else {
                                 0
                             };
+                            this.selection_change(&actions, cx);
                             cx.notify();
                         }
-                    });
-                }
-                TextEvent::Submit {} => {
-                    clone.update(cx, |this, cx| {
-                        if let Some(action) = this.items[this.selected].actions.get(0) {
-                            (action.action)(cx);
-                        };
                     });
                 }
                 _ => {}
@@ -337,5 +296,11 @@ impl List {
         })
         .detach();
         view
+    }
+    pub fn selection_change(&self, actions: &ActionsModel, cx: &mut WindowContext) {
+        if let Some(item) = self.items.get(self.selected) {
+            eprintln!("item: {:?}", item.keywords);
+            actions.update_local(item.actions.clone(), cx)
+        }
     }
 }

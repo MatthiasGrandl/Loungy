@@ -2,18 +2,19 @@ use std::ops::Range;
 
 use gpui::*;
 
-use crate::theme::Theme;
+use crate::{state::ActionsModel, theme::Theme};
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
     focus_handle: FocusHandle,
     view: View<TextDisplay>,
+    actions: ActionsModel,
     pub model: Model<TextModel>,
 }
 
 impl TextInput {
-    pub fn new(cx: &mut WindowContext, initial_text: String) -> Self {
-        let model = TextModel::init(initial_text.clone(), cx);
+    pub fn new(actions: &ActionsModel, cx: &mut WindowContext) -> Self {
+        let model = TextModel::init(cx);
         let clone = model.clone();
 
         let focus_handle = cx.focus_handle();
@@ -39,6 +40,7 @@ impl TextInput {
             focus_handle,
             view,
             model,
+            actions: actions.clone(),
         }
     }
 }
@@ -51,11 +53,10 @@ pub struct TextModel {
 }
 
 impl TextModel {
-    pub fn init(text: String, cx: &mut WindowContext) -> Model<Self> {
-        let i = text.len();
+    pub fn init(cx: &mut WindowContext) -> Model<Self> {
         let m = Self {
-            text,
-            selection: i..i,
+            text: "".to_string(),
+            selection: 0..0,
             word_click: (0, 0),
             placeholder: "Type here...".to_string(),
         };
@@ -121,7 +122,6 @@ impl TextModel {
 pub enum TextEvent {
     Input { text: String },
     Movement(TextMovement),
-    Submit {},
 }
 pub enum TextMovement {
     Up,
@@ -133,10 +133,16 @@ impl EventEmitter<TextEvent> for TextModel {}
 impl RenderOnce for TextInput {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         cx.focus(&self.focus_handle);
-
         div()
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
+                if let Some(action) = self.actions.check(&ev.keystroke, cx) {
+                    if ev.is_held {
+                        return;
+                    }
+                    (action.action)(cx);
+                    return;
+                };
                 self.model.update(cx, |editor, cx| {
                     let keystroke = &ev.keystroke.key;
                     if ev.keystroke.modifiers.command {
@@ -222,9 +228,6 @@ impl RenderOnce for TextInput {
                                     editor.text.insert(editor.selection.start, '\n');
                                     let i = editor.selection.start + 1;
                                     editor.selection = i..i;
-                                } else {
-                                    cx.emit(TextEvent::Submit {});
-                                    return;
                                 }
                             }
                             "escape" => {
