@@ -213,9 +213,6 @@ impl RenderOnce for TextInput {
                                     editor.selection = i..i;
                                 }
                             }
-                            "escape" => {
-                                cx.hide();
-                            }
                             keystroke_str => {
                                 eprintln!("Unhandled keystroke {keystroke_str}")
                             }

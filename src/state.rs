@@ -18,10 +18,19 @@ impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
-        cx.subscribe(&query.view, |_, event, cx| match event {
+        let actions_clone = actions.clone();
+        cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
-                cx.hide();
+                if !actions_clone.inner.read(cx).show {
+                    cx.hide();
+                };
             }
+            TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
+                "escape" => {
+                    cx.hide();
+                }
+                _ => {}
+            },
             _ => {}
         })
         .detach();
@@ -341,6 +350,13 @@ impl ActionsModel {
                         this.show = false;
                         cx.notify();
                     }
+                    TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
+                        "escape" => {
+                            this.show = false;
+                            cx.notify();
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 }
                 cx.notify();
