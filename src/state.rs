@@ -4,7 +4,7 @@ use crate::{
     commands::root::list::RootBuilder,
     icon::Icon,
     list::{Img, ImgMask, ImgSize, ImgSource},
-    query::TextInput,
+    query::{TextEvent, TextInput},
     theme,
 };
 
@@ -18,6 +18,13 @@ impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
+        cx.subscribe(&query.view, |_, event, cx| match event {
+            TextEvent::Blur => {
+                cx.hide();
+            }
+            _ => {}
+        })
+        .detach();
         let view = view.build(&query, &actions, cx);
         Self {
             query,
@@ -111,11 +118,8 @@ fn key_icon(el: Div, icon: Icon) -> Div {
 impl RenderOnce for Action {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
-        let mut el = div()
-            .ml_auto()
-            .child(div().child(self.label).mr_2())
-            .flex()
-            .items_center();
+
+        let mut el = div().flex().items_center();
         if let Some(shortcut) = self.shortcut {
             if shortcut.modifiers.control {
                 el = key_icon(el, Icon::ChevronUp);
@@ -178,7 +182,13 @@ impl RenderOnce for Action {
                 }
             }
         }
-        el
+        div()
+            .ml_auto()
+            .child(div().child(self.label).mr_2())
+            .flex()
+            .items_center()
+            .justify_between()
+            .child(el)
     }
 }
 
@@ -255,9 +265,12 @@ impl Actions {
             .min_h_32()
             .bg(theme.base)
             .rounded_xl()
-            .border_2()
+            .border_1()
             .border_color(theme.crust)
             .shadow_lg()
+            .flex()
+            .flex_col()
+            .children(self.combined.clone())
             .child(
                 div()
                     .child(query)
@@ -265,9 +278,11 @@ impl Actions {
                     .bottom_0()
                     .left_0()
                     .right_0()
-                    .p_2()
+                    .py_2()
+                    .px_4()
                     .border_t_1()
-                    .border_color(theme.crust),
+                    .border_color(theme.mantle)
+                    .text_base(),
             )
     }
 }
@@ -320,10 +335,18 @@ impl ActionsModel {
         };
         let query = TextInput::new(&model, cx);
         inner.update(cx, |this, cx| {
-            cx.subscribe(&query.view, |_, _, _, cx| {
+            cx.subscribe(&query.view, |this, _, event, cx| {
+                match event {
+                    TextEvent::Blur => {
+                        this.show = false;
+                        cx.notify();
+                    }
+                    _ => {}
+                }
                 cx.notify();
             })
             .detach();
+
             this.query = Some(query);
             cx.notify();
         });

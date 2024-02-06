@@ -45,10 +45,10 @@ impl TextView {
             placeholder: "Type here...".to_string(),
         };
         let view = cx.new_view(|cx| {
-            // cx.on_blur(focus_handle, |_, cx| {
-            //     cx.hide();
-            // })
-            // .detach();
+            cx.on_blur(focus_handle, |_, cx| {
+                cx.emit(TextEvent::Blur);
+            })
+            .detach();
             m
         });
         cx.subscribe(&view, |subscriber, emitter: &TextEvent, cx| match emitter {
@@ -108,7 +108,8 @@ impl TextView {
 
 pub enum TextEvent {
     Input { text: String },
-    Movement(TextMovement),
+    Blur,
+    KeyDown(KeyDownEvent),
 }
 pub enum TextMovement {
     Up,
@@ -131,7 +132,9 @@ impl RenderOnce for TextInput {
                     (action.action)(cx);
                     return;
                 };
+
                 self.view.update(cx, |editor, cx| {
+                    cx.emit(TextEvent::KeyDown(ev.clone()));
                     let keystroke = &ev.keystroke.key;
                     if ev.keystroke.modifiers.command {
                         match keystroke.as_str() {
@@ -167,14 +170,6 @@ impl RenderOnce for TextInput {
                         editor.selection = i..i;
                     } else {
                         match keystroke.as_str() {
-                            "up" => {
-                                cx.emit(TextEvent::Movement(TextMovement::Up));
-                                return;
-                            }
-                            "down" => {
-                                cx.emit(TextEvent::Movement(TextMovement::Down));
-                                return;
-                            }
                             "left" => {
                                 if editor.selection.start > 0 {
                                     let i = if editor.selection.start == editor.selection.end {

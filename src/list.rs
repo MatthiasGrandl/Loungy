@@ -201,24 +201,23 @@ impl RenderOnce for Item {
 pub struct List {
     selected: usize,
     skip: usize,
-    query: TextInput,
     actions: ActionsModel,
     pub items: Vec<Item>,
 }
 
 impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let model = self.query.clone();
         self.selection_change(&self.actions, cx);
+        let view = cx.view().clone();
         div()
             .w_full()
             .on_scroll_wheel(move |ev, cx| {
-                let _ = &model.view.update(cx, |_model, cx| {
+                view.update(cx, |this, cx| {
                     let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
                     if y > 10.0 {
-                        cx.emit(TextEvent::Movement(TextMovement::Up));
+                        this.up(cx);
                     } else if y < -10.0 {
-                        cx.emit(TextEvent::Movement(TextMovement::Down));
+                        this.down(cx);
                     }
                 });
             })
@@ -237,11 +236,32 @@ impl Render for List {
 }
 
 impl List {
+    pub fn up(&mut self, cx: &mut ViewContext<Self>) {
+        if self.selected > 0 {
+            self.selected -= 1;
+            self.skip = if self.skip > self.selected {
+                self.selected
+            } else {
+                self.skip
+            };
+            cx.notify();
+        }
+    }
+    pub fn down(&mut self, cx: &mut ViewContext<Self>) {
+        if self.selected < self.items.len() - 1 {
+            self.selected += 1;
+            self.skip = if self.selected > 7 {
+                self.selected - 7
+            } else {
+                0
+            };
+            cx.notify();
+        }
+    }
     pub fn new(query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> View<Self> {
         let list = Self {
             selected: 0,
             skip: 0,
-            query: query.clone(),
             items: vec![],
             actions: actions.clone(),
         };
@@ -258,32 +278,19 @@ impl List {
                         cx.notify();
                     });
                 }
-                TextEvent::Movement(TextMovement::Up) => {
-                    clone.update(cx, |this, cx| {
-                        if this.selected > 0 {
-                            this.selected -= 1;
-                            this.skip = if this.skip > this.selected {
-                                this.selected
-                            } else {
-                                this.skip
-                            };
-                            cx.notify();
-                        }
-                    });
-                }
-                TextEvent::Movement(TextMovement::Down) => {
-                    clone.update(cx, |this, cx| {
-                        if this.selected < this.items.len() - 1 {
-                            this.selected += 1;
-                            this.skip = if this.selected > 7 {
-                                this.selected - 7
-                            } else {
-                                0
-                            };
-                            cx.notify();
-                        }
-                    });
-                }
+                TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
+                    "up" => {
+                        clone.update(cx, |this, cx| {
+                            this.up(cx);
+                        });
+                    }
+                    "down" => {
+                        clone.update(cx, |this, cx| {
+                            this.down(cx);
+                        });
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
         })
