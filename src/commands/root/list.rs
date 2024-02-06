@@ -8,7 +8,7 @@ use crate::{
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
-    query::{TextEvent, TextModel},
+    query::{TextEvent, TextInput, TextView},
     state::{Action, ActionsModel, StateView},
 };
 
@@ -171,26 +171,28 @@ struct AppModel {
 pub struct RootBuilder;
 
 impl StateView for RootBuilder {
-    fn build(
-        &self,
-        query: &Model<TextModel>,
-        actions: &ActionsModel,
-        cx: &mut WindowContext,
-    ) -> AnyView {
+    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
         let app_model = cx.new_model(|_cx| AppModel {
             items: Vec::with_capacity(500),
         });
         update(&app_model, cx);
+        query.view.update(cx, |this, cx| {
+            this.placeholder = "Search for apps and commands".to_string();
+            cx.notify();
+        });
         cx.new_view(|cx| {
             let list = List::new(query, &actions, cx);
             list_items(&list, &app_model, "", cx);
             let clone = list.clone();
-            cx.subscribe(query, move |_subscriber, _emitter, event, cx| match event {
-                TextEvent::Input { text } => {
-                    list_items(&clone, &app_model, text.as_str(), cx);
-                }
-                _ => {}
-            })
+            cx.subscribe(
+                &query.view,
+                move |_subscriber, _emitter, event, cx| match event {
+                    TextEvent::Input { text } => {
+                        list_items(&clone, &app_model, text.as_str(), cx);
+                    }
+                    _ => {}
+                },
+            )
             .detach();
             Root { list }
         })

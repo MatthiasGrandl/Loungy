@@ -2,7 +2,7 @@ use gpui::{ImageSource, *};
 
 use crate::{
     icon::Icon,
-    query::{TextEvent, TextModel, TextMovement},
+    query::{TextEvent, TextInput, TextMovement, TextView},
     state::{Action, ActionsModel},
     theme::Theme,
 };
@@ -201,7 +201,7 @@ impl RenderOnce for Item {
 pub struct List {
     selected: usize,
     skip: usize,
-    query: Model<TextModel>,
+    query: TextInput,
     actions: ActionsModel,
     pub items: Vec<Item>,
 }
@@ -213,7 +213,7 @@ impl Render for List {
         div()
             .w_full()
             .on_scroll_wheel(move |ev, cx| {
-                let _ = &model.update(cx, |_model, cx| {
+                let _ = &model.view.update(cx, |_model, cx| {
                     let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
                     if y > 10.0 {
                         cx.emit(TextEvent::Movement(TextMovement::Up));
@@ -237,11 +237,7 @@ impl Render for List {
 }
 
 impl List {
-    pub fn new(
-        query: &Model<TextModel>,
-        actions: &ActionsModel,
-        cx: &mut WindowContext,
-    ) -> View<Self> {
+    pub fn new(query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> View<Self> {
         let list = Self {
             selected: 0,
             skip: 0,
@@ -252,7 +248,7 @@ impl List {
         let view = cx.new_view(|_| list);
         let clone = view.clone();
 
-        cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
+        cx.subscribe(&query.view, move |_subscriber, emitter: &TextEvent, cx| {
             let clone = clone.clone();
             match emitter {
                 TextEvent::Input { text: _ } => {

@@ -4,7 +4,7 @@ use crate::{
     commands::root::list::RootBuilder,
     icon::Icon,
     list::{Img, ImgMask, ImgSize, ImgSource},
-    query::{TextInput, TextModel},
+    query::TextInput,
     theme,
 };
 
@@ -18,7 +18,7 @@ impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
-        let view = view.build(&query.model, &actions, cx);
+        let view = view.build(&query, &actions, cx);
         Self {
             query,
             view,
@@ -28,12 +28,7 @@ impl StateItem {
 }
 
 pub trait StateView {
-    fn build(
-        &self,
-        query: &Model<TextModel>,
-        actions: &ActionsModel,
-        cx: &mut WindowContext,
-    ) -> AnyView;
+    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView;
 }
 
 pub struct State {
@@ -120,8 +115,7 @@ impl RenderOnce for Action {
             .ml_auto()
             .child(div().child(self.label).mr_2())
             .flex()
-            .items_center()
-            .font_weight(FontWeight::SEMIBOLD);
+            .items_center();
         if let Some(shortcut) = self.shortcut {
             if shortcut.modifiers.control {
                 el = key_icon(el, Icon::ChevronUp);
@@ -274,6 +268,7 @@ impl Render for Actions {
                 .ml_auto()
                 .flex()
                 .items_center()
+                .font_weight(FontWeight::SEMIBOLD)
                 .child(div().child(action.clone()).text_color(theme.text))
                 .child(div().h_2_3().w(Pixels(2.0)).bg(theme.surface0).mx_2())
                 .child(open)
