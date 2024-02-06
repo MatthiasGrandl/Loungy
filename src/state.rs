@@ -69,7 +69,7 @@ impl StateModel {
 
 // Actions
 
-pub trait CloneableFn: Fn(&WindowContext) -> () {
+pub trait CloneableFn: Fn(&mut WindowContext) -> () {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
         Self: 'a;
@@ -77,7 +77,7 @@ pub trait CloneableFn: Fn(&WindowContext) -> () {
 
 impl<F> CloneableFn for F
 where
-    F: Fn(&WindowContext) -> () + Clone,
+    F: Fn(&mut WindowContext) -> () + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
@@ -118,7 +118,7 @@ impl RenderOnce for Action {
         let theme = cx.global::<theme::Theme>();
         let mut el = div()
             .ml_auto()
-            .child(div().text_color(theme.text).child(self.label).mr_2())
+            .child(div().child(self.label).mr_2())
             .flex()
             .items_center()
             .font_weight(FontWeight::SEMIBOLD);
@@ -208,10 +208,11 @@ pub struct Actions {
     global: Vec<Action>,
     local: Vec<Action>,
     combined: Vec<Action>,
+    show: bool,
 }
 
 impl Actions {
-    fn compute(&mut self) {
+    fn compute(&mut self, toggle: Box<dyn CloneableFn>) {
         let mut combined = self.local.clone();
         combined.append(&mut self.global);
         // if there are actions, make the first action the default action
@@ -221,6 +222,26 @@ impl Actions {
                 key: "enter".to_string(),
                 ime_key: None,
             });
+            combined.push(Action::new(
+                Img::new(
+                    ImgSource::Icon(Icon::BookOpen),
+                    ImgMask::Rounded,
+                    ImgSize::Medium,
+                ),
+                "Actions",
+                Some(Keystroke {
+                    modifiers: Modifiers {
+                        control: false,
+                        alt: false,
+                        shift: false,
+                        command: true,
+                        function: false,
+                    },
+                    key: "k".to_string(),
+                    ime_key: None,
+                }),
+                toggle,
+            ))
         }
         self.combined = combined;
     }
@@ -229,34 +250,13 @@ impl Actions {
 impl Render for Actions {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
-        let open = Action::new(
-            Img::new(
-                ImgSource::Icon(Icon::BookOpen),
-                ImgMask::Rounded,
-                ImgSize::Medium,
-            ),
-            "Actions",
-            Some(Keystroke {
-                modifiers: Modifiers {
-                    control: false,
-                    alt: false,
-                    shift: false,
-                    command: true,
-                    function: false,
-                },
-                key: "k".to_string(),
-                ime_key: Some("k".to_string()),
-            }),
-            Box::new(|cx| {
-                eprintln!("open actions");
-            }),
-        );
         if let Some(action) = self.combined.get(0) {
+            let open = self.combined.last().unwrap().clone();
             div()
                 .ml_auto()
                 .flex()
                 .items_center()
-                .child(action.clone())
+                .child(div().child(action.clone()).text_color(theme.text))
                 .child(div().h_2_3().w(Pixels(2.0)).bg(theme.surface0).mx_2())
                 .child(open)
         } else {
@@ -268,6 +268,7 @@ impl Render for Actions {
 #[derive(Clone)]
 pub struct ActionsModel {
     pub inner: View<Actions>,
+    pub toggle: Box<dyn CloneableFn>,
 }
 
 impl ActionsModel {
@@ -276,20 +277,30 @@ impl ActionsModel {
             global: Vec::new(),
             local: Vec::new(),
             combined: Vec::new(),
+            show: false,
         });
-        Self { inner }
+        let clone = inner.clone();
+        let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
+            clone.update(cx, |model, cx| {
+                model.show = !model.show;
+                cx.notify();
+            });
+        });
+        Self { inner, toggle }
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
+        let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
             model.global = actions;
-            model.compute();
+            model.compute(toggle);
             cx.notify();
         });
     }
     pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
+        let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
             model.local = actions;
-            model.compute();
+            model.compute(toggle);
             cx.notify();
         });
     }
