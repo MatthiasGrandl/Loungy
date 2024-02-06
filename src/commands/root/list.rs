@@ -105,6 +105,7 @@ fn update(model: &Model<AppModel>, cx: &mut WindowContext) {
                             }
                             let _ = command.spawn();
                         }),
+                        false,
                     )],
                     None,
                 );
@@ -154,6 +155,7 @@ fn list_items(list: &View<List>, model: &Model<AppModel>, query: &str, cx: &mut 
                             cx.write_to_clipboard(ClipboardItem::new(result.to_string()));
                             cx.hide();
                         }),
+                        false,
                     )],
                     None,
                 ));

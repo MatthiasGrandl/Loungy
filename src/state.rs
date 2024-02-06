@@ -111,6 +111,7 @@ pub struct Action {
     pub shortcut: Option<Keystroke>,
     pub image: Img,
     pub action: Box<dyn CloneableFn>,
+    pub hide: bool,
 }
 
 fn key_icon(el: Div, icon: Icon) -> Div {
@@ -208,12 +209,14 @@ impl Action {
         label: impl ToString,
         shortcut: Option<Keystroke>,
         action: Box<dyn CloneableFn>,
+        hide: bool,
     ) -> Self {
         Self {
             label: label.to_string(),
             shortcut,
             action,
             image,
+            hide,
         }
     }
 }
@@ -257,6 +260,7 @@ impl Actions {
                     ime_key: None,
                 }),
                 toggle,
+                true,
             ))
         }
         self.combined = combined;
@@ -365,9 +369,13 @@ impl ActionsModel {
                             .combined
                             .clone()
                             .into_iter()
-                            .map(|item| {
-                                let action = item.clone();
-                                Item::new(
+                            .filter_map(|item| {
+                                if item.hide {
+                                    return None;
+                                }
+                                let mut action = item.clone();
+                                action.hide = true;
+                                Some(Item::new(
                                     vec![item.label.clone()],
                                     cx.new_view(|_| {
                                         ListItem::new(
@@ -381,7 +389,7 @@ impl ActionsModel {
                                     None,
                                     vec![action],
                                     None,
-                                )
+                                ))
                             })
                             .collect();
                         let items = fuzzy_match(text, items, false);
