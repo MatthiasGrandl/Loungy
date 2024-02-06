@@ -21,6 +21,12 @@ impl TextInput {
             actions: actions.clone(),
         }
     }
+    pub fn set_placeholder(&self, placeholder: impl ToString, cx: &mut WindowContext) {
+        self.view.update(cx, |editor, cx| {
+            editor.placeholder = placeholder.to_string();
+            cx.notify();
+        });
+    }
 }
 
 pub struct TextView {

@@ -176,10 +176,7 @@ impl StateView for RootBuilder {
             items: Vec::with_capacity(500),
         });
         update(&app_model, cx);
-        query.view.update(cx, |this, cx| {
-            this.placeholder = "Search for apps and commands".to_string();
-            cx.notify();
-        });
+        query.set_placeholder("Search for apps and commands", cx);
         cx.new_view(|cx| {
             let list = List::new(query, &actions, cx);
             list_items(&list, &app_model, "", cx);
