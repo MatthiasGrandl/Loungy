@@ -79,9 +79,6 @@ impl TextView {
     pub fn select_all(&mut self, cx: &mut ViewContext<Self>) {
         self.selection = 0..self.text.len();
         cx.notify();
-        cx.emit(TextEvent::Input {
-            text: self.text.clone(),
-        });
     }
     pub fn word_ranges(&self) -> Vec<Range<usize>> {
         let mut words = Vec::new();
@@ -140,6 +137,7 @@ impl RenderOnce for TextInput {
                 };
 
                 self.view.update(cx, |editor, cx| {
+                    let prev = editor.text.clone();
                     cx.emit(TextEvent::KeyDown(ev.clone()));
                     let keystroke = &ev.keystroke.key;
                     if ev.keystroke.modifiers.command {
@@ -222,9 +220,11 @@ impl RenderOnce for TextInput {
                             _ => {}
                         };
                     }
-                    cx.emit(TextEvent::Input {
-                        text: editor.text.clone(),
-                    });
+                    if prev != editor.text {
+                        cx.emit(TextEvent::Input {
+                            text: editor.text.clone(),
+                        });
+                    }
                 });
             })
             //.focus(|style| style.border_color(theme.lavender))

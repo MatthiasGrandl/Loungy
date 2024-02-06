@@ -268,7 +268,6 @@ impl List {
             };
             cx.notify();
         }
-        eprintln!("{}", self.selected);
     }
     pub fn new(query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> View<Self> {
         let list = Self {
@@ -281,9 +280,9 @@ impl List {
         let view = cx.new_view(|_| list);
         let clone = view.clone();
 
-        cx.subscribe(
-            &query.view,
-            move |_subscriber, emitter: &TextEvent, cx| match emitter {
+        cx.subscribe(&query.view, move |_subscriber, emitter: &TextEvent, cx| {
+            //let clone = clone.clone();
+            match emitter {
                 TextEvent::Input { text: _ } => {
                     clone.update(cx, |this, cx| {
                         this.selected = 0;
@@ -305,8 +304,8 @@ impl List {
                     _ => {}
                 },
                 _ => {}
-            },
-        )
+            }
+        })
         .detach();
         view
     }
