@@ -251,7 +251,6 @@ impl List {
         };
         let view = cx.new_view(|_| list);
         let clone = view.clone();
-        let actions = actions.clone();
 
         cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
             let clone = clone.clone();
@@ -260,7 +259,6 @@ impl List {
                     clone.update(cx, |this, cx| {
                         this.selected = 0;
                         this.skip = 0;
-                        this.selection_change(&actions, cx);
                         cx.notify();
                     });
                 }
@@ -273,7 +271,6 @@ impl List {
                             } else {
                                 this.skip
                             };
-                            this.selection_change(&actions, cx);
                             cx.notify();
                         }
                     });
@@ -287,7 +284,6 @@ impl List {
                             } else {
                                 0
                             };
-                            this.selection_change(&actions, cx);
                             cx.notify();
                         }
                     });

@@ -172,9 +172,13 @@ impl RenderOnce for Action {
                             .size_5()
                             .p_1()
                             .rounded_md()
+                            .bg(theme.surface0)
+                            .text_color(theme.text)
+                            .font_weight(FontWeight::MEDIUM)
                             .flex()
                             .items_center()
-                            .child(shortcut.ime_key.unwrap_or(shortcut.key))
+                            .justify_center()
+                            .child(shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase())
                             .ml_0p5(),
                     )
                 }
@@ -223,9 +227,38 @@ impl Actions {
 }
 
 impl Render for Actions {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+        let open = Action::new(
+            Img::new(
+                ImgSource::Icon(Icon::BookOpen),
+                ImgMask::Rounded,
+                ImgSize::Medium,
+            ),
+            "Actions",
+            Some(Keystroke {
+                modifiers: Modifiers {
+                    control: false,
+                    alt: false,
+                    shift: false,
+                    command: true,
+                    function: false,
+                },
+                key: "k".to_string(),
+                ime_key: Some("k".to_string()),
+            }),
+            Box::new(|cx| {
+                eprintln!("open actions");
+            }),
+        );
         if let Some(action) = self.combined.get(0) {
-            div().ml_auto().child(action.clone())
+            div()
+                .ml_auto()
+                .flex()
+                .items_center()
+                .child(action.clone())
+                .child(div().h_2_3().w(Pixels(2.0)).bg(theme.surface0).mx_2())
+                .child(open)
         } else {
             div()
         }
