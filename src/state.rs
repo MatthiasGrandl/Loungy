@@ -2,8 +2,10 @@ use gpui::*;
 
 use crate::{
     commands::root::list::RootBuilder,
-    list::Img,
+    icon::Icon,
+    list::{Img, ImgMask, ImgSize, ImgSource},
     query::{TextInput, TextModel},
+    theme,
 };
 
 pub struct StateItem {
@@ -91,12 +93,95 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, IntoElement)]
 pub struct Action {
     pub label: String,
     pub shortcut: Option<Keystroke>,
     pub image: Img,
     pub action: Box<dyn CloneableFn>,
+}
+
+fn key_icon(el: Div, icon: Icon) -> Div {
+    el.child(
+        div()
+            .child(Img::new(
+                ImgSource::Icon(icon),
+                ImgMask::Rounded,
+                ImgSize::Small,
+            ))
+            .ml_0p5(),
+    )
+}
+
+impl RenderOnce for Action {
+    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+        let mut el = div()
+            .ml_auto()
+            .child(div().text_color(theme.text).child(self.label).mr_2())
+            .flex()
+            .items_center()
+            .font_weight(FontWeight::SEMIBOLD);
+        if let Some(shortcut) = self.shortcut {
+            if shortcut.modifiers.control {
+                el = key_icon(el, Icon::ChevronUp);
+            }
+            if shortcut.modifiers.alt {
+                el = key_icon(el, Icon::Option);
+            }
+            if shortcut.modifiers.shift {
+                el = key_icon(el, Icon::ArrowBigUp);
+            }
+            if shortcut.modifiers.command {
+                el = key_icon(el, Icon::Command);
+            }
+            match shortcut.key.as_str() {
+                "enter" => {
+                    el = key_icon(el, Icon::CornerDownLeft);
+                }
+                "backspace" => {
+                    el = key_icon(el, Icon::Delete);
+                }
+                "delete" => {
+                    el = key_icon(el, Icon::Delete);
+                }
+                "escape" => {
+                    el = key_icon(el, Icon::ArrowUpRightFromSquare);
+                }
+                "tab" => {
+                    el = key_icon(el, Icon::ArrowRightToLine);
+                }
+                "space" => {
+                    el = key_icon(el, Icon::Space);
+                }
+                "up" => {
+                    el = key_icon(el, Icon::ArrowUp);
+                }
+                "down" => {
+                    el = key_icon(el, Icon::ArrowDown);
+                }
+                "left" => {
+                    el = key_icon(el, Icon::ArrowLeft);
+                }
+                "right" => {
+                    el = key_icon(el, Icon::ArrowRight);
+                }
+                _ => {
+                    el = el.child(
+                        div()
+                            .size_5()
+                            .p_1()
+                            .rounded_md()
+                            .flex()
+                            .items_center()
+                            .child(shortcut.ime_key.unwrap_or(shortcut.key))
+                            .ml_0p5(),
+                    )
+                }
+            }
+        }
+        el
+    }
 }
 
 impl Action {
@@ -137,14 +222,24 @@ impl Actions {
     }
 }
 
+impl Render for Actions {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        if let Some(action) = self.combined.get(0) {
+            div().ml_auto().child(action.clone())
+        } else {
+            div()
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ActionsModel {
-    inner: Model<Actions>,
+    pub inner: View<Actions>,
 }
 
 impl ActionsModel {
     pub fn init(cx: &mut WindowContext) -> Self {
-        let inner = cx.new_model(|cx| Actions {
+        let inner = cx.new_view(|cx| Actions {
             global: Vec::new(),
             local: Vec::new(),
             combined: Vec::new(),
@@ -173,7 +268,6 @@ impl ActionsModel {
         for action in actions {
             if let Some(shortcut) = &action.shortcut {
                 if shortcut.eq(keystroke) {
-                    eprintln!("action: {:?}", action.label);
                     return Some(action.clone());
                 }
             }

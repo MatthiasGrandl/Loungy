@@ -29,6 +29,7 @@ impl Render for Workspace {
             //.rounded_xl()
             //.border_2()
             //.border_color(theme.crust)
+            .font("Inter")
             .text_color(theme.text)
             .child(
                 div()
@@ -87,7 +88,8 @@ impl Render for Workspace {
                                 Theme::change(catppuccin::Flavour::Macchiato, cx);
                             })
                             .child("Macchiato"),
-                    ),
+                    )
+                    .child(item.actions.inner.clone()),
             )
     }
 }

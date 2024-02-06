@@ -43,29 +43,30 @@ impl Img {
 impl RenderOnce for Img {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let el = div();
+        let el = div().overflow_hidden();
         let el = match self.mask {
-            ImgMask::Circle => el.rounded_full().bg(theme.mantle),
-            ImgMask::Rounded => el.rounded_lg().bg(theme.mantle),
+            ImgMask::Circle => el.rounded_full().bg(theme.surface0),
+            ImgMask::Rounded => el.rounded_md().bg(theme.surface0),
             ImgMask::None => el,
+        };
+        let mut el = match self.size {
+            ImgSize::Small => el.size_5(),
+            ImgSize::Medium => el.size_6(),
+            ImgSize::Large => el.size_8(),
         };
         let img = match self.src {
             ImgSource::Icon(icon) => {
-                let svg = svg().path(icon.path()).text_color(theme.text);
-                let svg = match self.size {
-                    ImgSize::Small => svg.size_4(),
-                    ImgSize::Medium => svg.size_6(),
-                    ImgSize::Large => svg.size_8(),
-                };
+                match self.mask {
+                    ImgMask::None => {}
+                    _ => {
+                        el = el.p_1();
+                    }
+                }
+                let svg = svg().path(icon.path()).text_color(theme.text).size_full();
                 svg.into_any_element()
             }
             ImgSource::Base(src) => {
-                let img = img(src);
-                let img = match self.size {
-                    ImgSize::Small => img.size_4(),
-                    ImgSize::Medium => img.size_6(),
-                    ImgSize::Large => img.size_8(),
-                };
+                let img = img(src).size_full();
                 img.into_any_element()
             }
         };
@@ -299,7 +300,6 @@ impl List {
     }
     pub fn selection_change(&self, actions: &ActionsModel, cx: &mut WindowContext) {
         if let Some(item) = self.items.get(self.selected) {
-            eprintln!("item: {:?}", item.keywords);
             actions.update_local(item.actions.clone(), cx)
         }
     }
