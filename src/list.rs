@@ -169,9 +169,10 @@ impl Render for ListItem {
         .flex()
         .w_full()
         .items_center()
-        .text_sm()
+        .text_xs()
         .child(
             div()
+                .text_sm()
                 .child(self.title.clone())
                 .font_weight(FontWeight::MEDIUM),
         );
