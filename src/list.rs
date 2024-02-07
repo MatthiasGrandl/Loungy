@@ -5,7 +5,7 @@ use gpui::{ImageSource, *};
 use crate::{
     icon::Icon,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel},
+    state::{Action, ActionsModel, Shortcut},
     theme::Theme,
 };
 
@@ -99,30 +99,38 @@ impl RenderOnce for Img {
 }
 
 #[derive(Clone, IntoElement)]
-pub struct Accessory {
-    tag: String,
-    img: Option<Img>,
+pub enum Accessory {
+    Tag { tag: String, img: Option<Img> },
+    Shortcut(Shortcut),
 }
 
 impl Accessory {
     pub fn new(tag: impl ToString, img: Option<Img>) -> Self {
-        Self {
+        Self::Tag {
             tag: tag.to_string(),
             img,
         }
+    }
+    pub fn shortcut(shortcut: Shortcut) -> Self {
+        Self::Shortcut(shortcut)
     }
 }
 
 impl RenderOnce for Accessory {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let el = div().flex().items_center().text_color(theme.subtext0);
-        let el = if let Some(img) = self.img {
-            el.child(div().mr_1().child(img))
-        } else {
-            el
-        };
-        el.child(self.tag).ml_2()
+        match self {
+            Accessory::Tag { tag, img } => {
+                let el = div().flex().items_center().text_color(theme.subtext0);
+                let el = if let Some(img) = img {
+                    el.child(div().mr_1().child(img))
+                } else {
+                    el
+                };
+                el.child(tag).ml_2()
+            }
+            Accessory::Shortcut(shortcut) => div().child(shortcut),
+        }
     }
 }
 

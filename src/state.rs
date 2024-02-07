@@ -114,12 +114,41 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
 }
 
 #[derive(Clone, IntoElement)]
-pub struct Action {
-    pub label: String,
-    pub shortcut: Option<Keystroke>,
-    pub image: Img,
-    pub action: Box<dyn CloneableFn>,
-    pub hide: bool,
+pub struct Shortcut {
+    inner: Keystroke,
+}
+
+impl Shortcut {
+    pub fn simple(key: impl ToString) -> Self {
+        Self {
+            inner: Keystroke {
+                modifiers: Modifiers::default(),
+                key: key.to_string(),
+                ime_key: None,
+            },
+        }
+    }
+    pub fn cmd(key: impl ToString) -> Self {
+        Self {
+            inner: Keystroke {
+                modifiers: Modifiers {
+                    command: true,
+                    ..Modifiers::default()
+                },
+                key: key.to_string(),
+                ime_key: None,
+            },
+        }
+    }
+    pub fn new(modifiers: Modifiers, key: impl ToString) -> Self {
+        Self {
+            inner: Keystroke {
+                modifiers,
+                key: key.to_string(),
+                ime_key: None,
+            },
+        }
+    }
 }
 
 fn key_icon(el: Div, icon: Icon) -> Div {
@@ -134,80 +163,98 @@ fn key_icon(el: Div, icon: Icon) -> Div {
     )
 }
 
-impl RenderOnce for Action {
+impl RenderOnce for Shortcut {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
-
         let mut el = div().flex().items_center();
-        if let Some(shortcut) = self.shortcut {
-            if shortcut.modifiers.control {
-                el = key_icon(el, Icon::ChevronUp);
+        let shortcut = self.inner;
+        if shortcut.modifiers.control {
+            el = key_icon(el, Icon::ChevronUp);
+        }
+        if shortcut.modifiers.alt {
+            el = key_icon(el, Icon::Option);
+        }
+        if shortcut.modifiers.shift {
+            el = key_icon(el, Icon::ArrowBigUp);
+        }
+        if shortcut.modifiers.command {
+            el = key_icon(el, Icon::Command);
+        }
+        match shortcut.key.as_str() {
+            "enter" => {
+                el = key_icon(el, Icon::CornerDownLeft);
             }
-            if shortcut.modifiers.alt {
-                el = key_icon(el, Icon::Option);
+            "backspace" => {
+                el = key_icon(el, Icon::Delete);
             }
-            if shortcut.modifiers.shift {
-                el = key_icon(el, Icon::ArrowBigUp);
+            "delete" => {
+                el = key_icon(el, Icon::Delete);
             }
-            if shortcut.modifiers.command {
-                el = key_icon(el, Icon::Command);
+            "escape" => {
+                el = key_icon(el, Icon::ArrowUpRightFromSquare);
             }
-            match shortcut.key.as_str() {
-                "enter" => {
-                    el = key_icon(el, Icon::CornerDownLeft);
-                }
-                "backspace" => {
-                    el = key_icon(el, Icon::Delete);
-                }
-                "delete" => {
-                    el = key_icon(el, Icon::Delete);
-                }
-                "escape" => {
-                    el = key_icon(el, Icon::ArrowUpRightFromSquare);
-                }
-                "tab" => {
-                    el = key_icon(el, Icon::ArrowRightToLine);
-                }
-                "space" => {
-                    el = key_icon(el, Icon::Space);
-                }
-                "up" => {
-                    el = key_icon(el, Icon::ArrowUp);
-                }
-                "down" => {
-                    el = key_icon(el, Icon::ArrowDown);
-                }
-                "left" => {
-                    el = key_icon(el, Icon::ArrowLeft);
-                }
-                "right" => {
-                    el = key_icon(el, Icon::ArrowRight);
-                }
-                _ => {
-                    el = el.child(
-                        div()
-                            .size_5()
-                            .p_1()
-                            .rounded_md()
-                            .bg(theme.surface0)
-                            .text_color(theme.text)
-                            .font_weight(FontWeight::MEDIUM)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .child(shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase())
-                            .ml_0p5(),
-                    )
-                }
+            "tab" => {
+                el = key_icon(el, Icon::ArrowRightToLine);
+            }
+            "space" => {
+                el = key_icon(el, Icon::Space);
+            }
+            "up" => {
+                el = key_icon(el, Icon::ArrowUp);
+            }
+            "down" => {
+                el = key_icon(el, Icon::ArrowDown);
+            }
+            "left" => {
+                el = key_icon(el, Icon::ArrowLeft);
+            }
+            "right" => {
+                el = key_icon(el, Icon::ArrowRight);
+            }
+            _ => {
+                el = el.child(
+                    div()
+                        .size_5()
+                        .p_1()
+                        .rounded_md()
+                        .bg(theme.surface0)
+                        .text_color(theme.text)
+                        .font_weight(FontWeight::MEDIUM)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase())
+                        .ml_0p5(),
+                )
             }
         }
+        el
+    }
+}
+
+#[derive(Clone, IntoElement)]
+pub struct Action {
+    pub label: String,
+    pub shortcut: Option<Shortcut>,
+    pub image: Img,
+    pub action: Box<dyn CloneableFn>,
+    pub hide: bool,
+}
+
+impl RenderOnce for Action {
+    fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
+        let shortcut = if let Some(shortcut) = self.shortcut {
+            div().child(shortcut)
+        } else {
+            div()
+        };
         div()
             .ml_auto()
             .child(div().child(self.label).mr_2())
             .flex()
             .items_center()
             .justify_between()
-            .child(el)
+            .child(shortcut)
     }
 }
 
@@ -215,7 +262,7 @@ impl Action {
     pub fn new(
         image: Img,
         label: impl ToString,
-        shortcut: Option<Keystroke>,
+        shortcut: Option<Shortcut>,
         action: Box<dyn CloneableFn>,
         hide: bool,
     ) -> Self {
@@ -243,25 +290,11 @@ impl Actions {
         let mut combined = self.local.read(cx).clone();
         combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
-            action.shortcut = Some(Keystroke {
-                modifiers: Modifiers::default(),
-                key: "enter".to_string(),
-                ime_key: None,
-            });
+            action.shortcut = Some(Shortcut::simple("enter"));
             combined.push(Action::new(
                 Img::list_icon(Icon::BookOpen),
                 "Actions",
-                Some(Keystroke {
-                    modifiers: Modifiers {
-                        control: false,
-                        alt: false,
-                        shift: false,
-                        command: true,
-                        function: false,
-                    },
-                    key: "k".to_string(),
-                    ime_key: None,
-                }),
+                Some(Shortcut::cmd("k")),
                 self.toggle.clone(),
                 true,
             ))
@@ -309,15 +342,15 @@ impl Actions {
                     return None;
                 }
                 let action = item.clone();
+                let accessories = if let Some(shortcut) = item.shortcut {
+                    vec![Accessory::shortcut(shortcut)]
+                } else {
+                    vec![]
+                };
                 Some(Item::new(
                     vec![item.label.clone()],
                     cx.new_view(|_| {
-                        ListItem::new(
-                            Some(action.image.clone()),
-                            item.label,
-                            None,
-                            Vec::<Accessory>::new(),
-                        )
+                        ListItem::new(Some(action.image.clone()), item.label, None, accessories)
                     })
                     .into(),
                     None,
@@ -445,7 +478,7 @@ impl ActionsModel {
         let actions = &self.get(cx);
         for action in actions {
             if let Some(shortcut) = &action.shortcut {
-                if shortcut.eq(keystroke) {
+                if shortcut.inner.eq(keystroke) {
                     return Some(action.clone());
                 }
             }

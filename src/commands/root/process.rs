@@ -19,7 +19,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, StateView},
+    state::{Action, ActionsModel, Shortcut, StateView},
     swift::get_application_data,
 };
 
@@ -82,11 +82,7 @@ impl ProcessList {
             Action::new(
                 Img::list_icon(Icon::MemoryStick),
                 "Sort by Memory",
-                Some(Keystroke {
-                    modifiers: Modifiers::default(),
-                    key: "tab".to_string(),
-                    ime_key: None,
-                }),
+                Some(Shortcut::simple("tab")),
                 Box::new(move |_| {
                     CPU.store(false, Ordering::Relaxed);
                     let _ = s1.clone().send(true);
@@ -97,11 +93,7 @@ impl ProcessList {
             Action::new(
                 Img::list_icon(Icon::Cpu),
                 "Sort by CPU",
-                Some(Keystroke {
-                    modifiers: Modifiers::default(),
-                    key: "tab".to_string(),
-                    ime_key: None,
-                }),
+                Some(Shortcut::simple("tab")),
                 Box::new(move |_| {
                     CPU.store(true, Ordering::Relaxed);
                     let _ = s1.clone().send(true);
