@@ -25,6 +25,7 @@ swift!(pub(super) fn get_application_data(cache_dir: &SRString, input: &SRString
 pub struct Root {
     model: Model<Vec<Item>>,
     list: View<List>,
+    numbat: View<Numbat>,
 }
 
 impl Root {
@@ -154,11 +155,10 @@ impl Root {
             ));
             let mut items = fuzzy_match(query, items, false);
             if items.len() == 0 {
-                if let Some(calc) = Numbat::init(query) {
-                    let result = calc.clone().result.unwrap();
+                if let Some(result) = self.numbat.read(cx).result.clone() {
                     items.push(Item::new(
                         Vec::<String>::new(),
-                        cx.new_view(|_cx| calc).into(),
+                        self.numbat.clone().into(),
                         None,
                         vec![Action::new(
                             crate::list::Img::new(
@@ -169,7 +169,9 @@ impl Root {
                             "Copy",
                             None,
                             Box::new(move |cx| {
-                                cx.write_to_clipboard(ClipboardItem::new(result.to_string()));
+                                cx.write_to_clipboard(ClipboardItem::new(
+                                    result.result.to_string(),
+                                ));
                                 cx.hide();
                             }),
                             false,
@@ -195,9 +197,11 @@ pub struct RootBuilder;
 impl StateView for RootBuilder {
     fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
         let list = List::new(query, &actions, cx);
+        let numbat = Numbat::init(&query, cx);
         let mut root = Root {
             list,
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
+            numbat,
         };
         root.update(cx);
         root.list("", cx);

@@ -6,81 +6,103 @@ use numbat::{
     Context,
 };
 
-use crate::{icon::Icon, lazy::LazyMutex, theme::Theme};
+use crate::{
+    icon::Icon,
+    query::{TextEvent, TextInput},
+    theme::Theme,
+};
 
-struct Ctx {
-    ctx: Context,
+#[derive(Clone)]
+pub struct NumbatResult {
+    equation: String,
+    pub result: String,
+    unit: String,
+    type_id: String,
 }
-impl Default for Ctx {
-    fn default() -> Ctx {
+
+#[derive(Clone)]
+pub struct Numbat {
+    pub result: Option<NumbatResult>,
+}
+
+impl Numbat {
+    pub fn init(query: &TextInput, cx: &mut WindowContext) -> View<Numbat> {
         let importer = BuiltinModuleImporter::default();
         let mut ctx = Context::new(importer);
         ctx.load_currency_module_on_demand(true);
         Context::prefetch_exchange_rates();
         let _ = ctx.interpret("use prelude", numbat::resolver::CodeSource::Text);
-        Ctx { ctx }
-    }
-}
-static CTX: LazyMutex<Ctx> = LazyMutex::new(Ctx::default);
 
-#[derive(Clone)]
-pub struct Numbat {
-    pub result: Option<String>,
-    unit: Option<String>,
-    type_id: Option<String>,
-    equation: String,
-}
-
-impl Numbat {
-    pub fn init(query: &str) -> Option<Self> {
-        let c = &mut *CTX.lock();
-        let ctx = &mut c.ctx;
-        let result = ctx.interpret(query, numbat::resolver::CodeSource::Text);
-        let formatter = PlainTextFormatter {};
-        match result {
-            Ok((statements, result)) => {
-                let s: Vec<String> = statements
-                    .iter()
-                    .map(|s| {
-                        let s = formatter.format(&s.pretty_print(), false);
-                        s
-                    })
-                    .collect();
-                let s = s.join(" ");
-                let result = &result.to_markup(statements.last(), ctx.dimension_registry(), true);
-                let mut value: Option<String> = None;
-                let mut type_id: Option<String> = None;
-                let mut unit: Option<String> = None;
-                for part in &result.0 {
-                    match part.1 {
-                        numbat::markup::FormatType::Value => {
-                            value = Some(part.2.clone());
-                        }
-                        numbat::markup::FormatType::TypeIdentifier => {
-                            type_id = Some(part.2.clone());
-                        }
-                        numbat::markup::FormatType::Unit => {
-                            unit = Some(part.2.clone());
-                        }
-                        _ => {}
+        cx.new_view(move |cx| {
+            cx.subscribe(
+                &query.view,
+                move |subscriber: &mut Numbat, _, event, cx| match event {
+                    TextEvent::Input { text } => {
+                        let result = ctx.interpret(text, numbat::resolver::CodeSource::Text);
+                        let formatter = PlainTextFormatter {};
+                        subscriber.result = match result {
+                            Ok((statements, result)) => {
+                                let s: Vec<String> = statements
+                                    .iter()
+                                    .map(|s| {
+                                        let s = formatter.format(&s.pretty_print(), false);
+                                        s
+                                    })
+                                    .collect();
+                                let s = s.join(" ");
+                                let result = &result.to_markup(
+                                    statements.last(),
+                                    ctx.dimension_registry(),
+                                    true,
+                                );
+                                let mut value: Option<String> = None;
+                                let mut type_id: Option<String> = None;
+                                let mut unit: Option<String> = None;
+                                for part in &result.0 {
+                                    match part.1 {
+                                        numbat::markup::FormatType::Value => {
+                                            value = Some(part.2.clone());
+                                        }
+                                        numbat::markup::FormatType::TypeIdentifier => {
+                                            type_id = Some(part.2.clone());
+                                        }
+                                        numbat::markup::FormatType::Unit => {
+                                            unit = Some(part.2.clone());
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                if let Some(value) = value {
+                                    Some(NumbatResult {
+                                        result: value,
+                                        unit: unit.unwrap_or_default(),
+                                        type_id: type_id.unwrap_or_default(),
+                                        equation: s.replace("➞", "to"),
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        };
+                        cx.notify();
                     }
-                }
-
-                return Some(Self {
-                    result: value,
-                    unit,
-                    type_id,
-                    equation: s.replace("➞", "to"),
-                });
-            }
-            _ => None,
-        }
+                    _ => {}
+                },
+            )
+            .detach();
+            Numbat { result: None }
+        })
     }
 }
 
 impl Render for Numbat {
     fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
+        if self.result.is_none() {
+            return div();
+        }
+        let result = self.result.as_ref().unwrap().clone();
         div()
             .flex()
             .text_xl()
@@ -93,7 +115,7 @@ impl Render for Numbat {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(self.equation.clone()),
+                    .child(result.equation),
             )
             .child(
                 div()
@@ -102,11 +124,7 @@ impl Render for Numbat {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(format!(
-                        "{} {}",
-                        self.result.as_ref().unwrap_or(&String::from("")),
-                        self.unit.as_ref().unwrap_or(&String::from(""))
-                    )),
+                    .child(format!("{} {}", result.result, result.unit)),
             )
             .child(
                 div()
