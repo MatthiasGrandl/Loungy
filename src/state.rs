@@ -19,7 +19,7 @@ impl StateItem {
     pub fn init(mut view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
-        let actions_clone = actions.clone();
+        //let actions_clone = actions.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
                 // if !actions_clone.inner.read(cx).show {
@@ -32,6 +32,11 @@ impl StateItem {
                 }
                 _ => {}
             },
+            TextEvent::Back => {
+                cx.update_global::<StateModel, _>(|this, cx| {
+                    this.pop(cx);
+                });
+            }
             _ => {}
         })
         .detach();
@@ -389,7 +394,7 @@ impl ActionsModel {
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
-                    TextEvent::Blur => {
+                    TextEvent::Blur | TextEvent::Back => {
                         this.show = false;
                         cx.notify();
                     }

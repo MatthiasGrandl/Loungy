@@ -117,6 +117,7 @@ impl TextView {
 pub enum TextEvent {
     Input { text: String },
     Blur,
+    Back,
     KeyDown(KeyDownEvent),
 }
 pub enum TextMovement {
@@ -201,7 +202,9 @@ impl RenderOnce for TextInput {
                                 }
                             }
                             "backspace" => {
-                                if editor.selection.start == editor.selection.end
+                                if editor.text.len() == 0 && !ev.is_held {
+                                    cx.emit(TextEvent::Back);
+                                } else if editor.selection.start == editor.selection.end
                                     && editor.selection.start > 0
                                 {
                                     let mut start = editor.text[..editor.selection.start].chars();
