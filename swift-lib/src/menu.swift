@@ -3,6 +3,8 @@ import Cocoa
 import Foundation
 import SwiftRs
 
+// Credit: https://github.com/BenziAhamed/Menu-Bar-Search
+
 class MenuBar {
     var menuBar: AXUIElement?
     let initState: AXError

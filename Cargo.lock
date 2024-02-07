@@ -1382,27 +1382,6 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-std",
- "catppuccin",
- "global-hotkey",
- "gpui 0.1.0 (git+https://github.com/zed-industries/zed)",
- "nucleo",
- "numbat",
- "numbat-exchange-rates",
- "parking_lot 0.12.1",
- "regex",
- "rust-embed",
- "serde",
- "serde_json",
- "swift-rs",
- "whoami",
-]
-
-[[package]]
-name = "gpui"
-version = "0.1.0"
 source = "git+https://github.com/zed-industries/zed#79c1003b344ee513cf97ee8313c38c7c3f02c916"
 dependencies = [
  "anyhow",
@@ -1800,6 +1779,27 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 dependencies = [
  "serde",
  "value-bag",
+]
+
+[[package]]
+name = "loungy"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-std",
+ "catppuccin",
+ "global-hotkey",
+ "gpui",
+ "nucleo",
+ "numbat",
+ "numbat-exchange-rates",
+ "parking_lot 0.12.1",
+ "regex",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "swift-rs",
+ "whoami",
 ]
 
 [[package]]
