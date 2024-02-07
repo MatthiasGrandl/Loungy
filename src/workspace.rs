@@ -1,6 +1,8 @@
 use gpui::*;
 
-use crate::state::StateModel;
+use crate::icon::Icon;
+use crate::list::Img;
+use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
 
 pub struct Workspace {
@@ -21,19 +23,31 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let item = self.state.inner.read(cx).stack.last().unwrap();
+        let stack: &Vec<StateItem> = self.state.inner.read(cx).stack.as_ref();
+        let item = stack.last().unwrap();
+        let mut back = div();
+        if stack.len() > 1 {
+            back = div()
+                .on_mouse_down(MouseButton::Left, move |_, cx| {
+                    cx.update_global::<StateModel, _>(|this, cx| {
+                        this.pop(cx);
+                    });
+                })
+                .mr_2()
+                .child(Img::list_icon(Icon::ArrowLeft));
+        }
         div()
             .full()
             .flex()
             .flex_col()
             .bg(theme.base)
-            //.rounded_xl()
-            //.border_2()
-            //.border_color(theme.crust)
             .font("Inter")
             .text_color(theme.text)
             .child(
                 div()
+                    .flex()
+                    .items_center()
+                    .child(back)
                     .child(item.query.clone())
                     .text_lg()
                     .p_2()

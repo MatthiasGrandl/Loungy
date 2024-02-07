@@ -1,5 +1,8 @@
 use gpui::*;
-use std::{cmp::Reverse, collections::HashMap, fs, process::Command, sync::atomic::AtomicBool};
+use std::{
+    cmp::Reverse, collections::HashMap, fs, process::Command, sync::atomic::AtomicBool,
+    time::Duration,
+};
 
 use regex::Regex;
 
@@ -56,10 +59,11 @@ fn format_bytes(bytes: u64) -> String {
         format!("{} B", bytes)
     }
 }
-
+#[derive(Clone)]
 struct ProcessList {
     list: View<List>,
-    model: Model<Vec<Item>>,
+    query: TextInput,
+    unfiltered: Vec<Item>,
 }
 
 impl ProcessList {
@@ -218,15 +222,13 @@ impl ProcessList {
             })
             .collect();
 
-        self.model.update(cx, |model, cx| {
-            *model = items;
-            cx.notify();
-        });
+        self.unfiltered = items;
+        self.list(cx);
     }
-    fn list(&mut self, query: &str, cx: &mut WindowContext) {
+    fn list(&mut self, cx: &mut WindowContext) {
+        let query = self.query.view.read(cx).text.clone();
         self.list.update(cx, |this, cx| {
-            let items = self.model.read(cx).clone();
-            let items = fuzzy_match(&query, items, false);
+            let items = fuzzy_match(&query, self.unfiltered.clone(), false);
             this.items = items;
             cx.notify();
         });
@@ -242,19 +244,33 @@ impl Render for ProcessList {
 pub struct ProcessBuilder {}
 impl StateView for ProcessBuilder {
     fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
-        let mut comp = ProcessList {
+        let comp = ProcessList {
             list: List::new(query, actions, cx),
-            model: cx.new_model(|_cx| Vec::<Item>::with_capacity(100)),
+            query: query.clone(),
+            unfiltered: Vec::<Item>::with_capacity(500),
         };
-        comp.update(cx);
-        comp.list("", cx);
         query.set_placeholder("Search for running processes...", cx);
+        let mut acomp = comp.clone();
+
         cx.new_view(|cx| {
+            cx.spawn(|view, mut cx| async move {
+                loop {
+                    if view.upgrade().is_none() {
+                        break;
+                    }
+                    let _ = cx.update(|cx| {
+                        eprintln!("Updating");
+                        acomp.update(cx);
+                    });
+                    cx.background_executor().timer(Duration::from_secs(5)).await;
+                }
+            })
+            .detach();
             cx.subscribe(
                 &query.view,
                 move |subscriber: &mut ProcessList, _emitter, event, cx| match event {
-                    TextEvent::Input { text } => {
-                        subscriber.list(text.as_str(), cx);
+                    TextEvent::Input { text: _ } => {
+                        subscriber.list(cx);
                     }
                     _ => {}
                 },
