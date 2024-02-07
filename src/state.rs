@@ -16,15 +16,15 @@ pub struct StateItem {
 }
 
 impl StateItem {
-    pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
+    pub fn init(mut view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
         let actions_clone = actions.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
-                if !actions_clone.inner.read(cx).show {
-                    cx.hide();
-                };
+                // if !actions_clone.inner.read(cx).show {
+                //     cx.hide();
+                // };
             }
             TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
                 "escape" => {
@@ -52,6 +52,7 @@ pub struct State {
     pub stack: Vec<StateItem>,
 }
 
+#[derive(Clone)]
 pub struct StateModel {
     pub inner: Model<State>,
 }
@@ -78,6 +79,8 @@ impl StateModel {
         });
     }
 }
+
+impl Global for StateModel {}
 
 // Actions
 

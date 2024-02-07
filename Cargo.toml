@@ -23,3 +23,4 @@ whoami = { version = "1.4.1", default-features = false }
 smol = "2.0.0"
 anyhow = "1.0.79"
 rust-embed = "8.2.0"
+regex = "1.10.3"

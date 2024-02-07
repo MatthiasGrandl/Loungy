@@ -1372,6 +1372,7 @@ dependencies = [
  "numbat",
  "numbat-exchange-rates",
  "parking_lot 0.12.1",
+ "regex",
  "rust-embed",
  "serde",
  "serde_json",
