@@ -1,3 +1,5 @@
+use std::{path::PathBuf, sync::Arc};
+
 use gpui::{ImageSource, *};
 
 use crate::{
@@ -37,6 +39,20 @@ pub struct Img {
 impl Img {
     pub fn new(src: ImgSource, mask: ImgMask, size: ImgSize) -> Self {
         Self { src, mask, size }
+    }
+    pub fn list_icon(icon: Icon) -> Self {
+        Self {
+            src: ImgSource::Icon(icon),
+            mask: ImgMask::Rounded,
+            size: ImgSize::Medium,
+        }
+    }
+    pub fn list_file(src: PathBuf) -> Self {
+        Self {
+            src: ImgSource::Base(ImageSource::File(Arc::new(src))),
+            mask: ImgMask::None,
+            size: ImgSize::Medium,
+        }
     }
 }
 

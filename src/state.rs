@@ -245,11 +245,7 @@ impl Actions {
                 ime_key: None,
             });
             combined.push(Action::new(
-                Img::new(
-                    ImgSource::Icon(Icon::BookOpen),
-                    ImgMask::Rounded,
-                    ImgSize::Medium,
-                ),
+                Img::list_icon(Icon::BookOpen),
                 "Actions",
                 Some(Keystroke {
                     modifiers: Modifiers {
@@ -314,8 +310,15 @@ impl Actions {
                 let action = item.clone();
                 Some(Item::new(
                     vec![item.label.clone()],
-                    cx.new_view(|_| ListItem::new(None, item.label, None, Vec::<Accessory>::new()))
-                        .into(),
+                    cx.new_view(|_| {
+                        ListItem::new(
+                            Some(action.image.clone()),
+                            item.label,
+                            None,
+                            Vec::<Accessory>::new(),
+                        )
+                    })
+                    .into(),
                     None,
                     vec![action],
                     None,

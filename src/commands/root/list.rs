@@ -80,11 +80,7 @@ impl Root {
                         vec![name.clone()],
                         cx.new_view(|_cx| {
                             ListItem::new(
-                                Some(Img::new(
-                                    ImgSource::Base(ImageSource::File(Arc::new(icon_path))),
-                                    ImgMask::None,
-                                    ImgSize::Medium,
-                                )),
+                                Some(Img::list_file(icon_path)),
                                 name.clone(),
                                 None,
                                 vec![Accessory::new(tag, None)],
@@ -93,11 +89,7 @@ impl Root {
                         .into(),
                         None,
                         vec![Action::new(
-                            crate::list::Img::new(
-                                ImgSource::Icon(Icon::ArrowUpRightFromSquare),
-                                ImgMask::Rounded,
-                                ImgSize::Medium,
-                            ),
+                            Img::list_icon(Icon::ArrowUpRightFromSquare),
                             format!("Open {}", tag),
                             None,
                             Box::new(move |cx| {
@@ -133,15 +125,18 @@ impl Root {
             let mut items = self.model.read(cx).clone();
             items.push(Item::new(
                 vec!["Process".to_string(), "Kill".to_string()],
-                cx.new_view(|_| ListItem::new(None, "Kill Process", None, Vec::<Accessory>::new()))
-                    .into(),
+                cx.new_view(|_| {
+                    ListItem::new(
+                        Some(Img::list_icon(Icon::Cpu)),
+                        "Kill Process",
+                        None,
+                        Vec::<Accessory>::new(),
+                    )
+                })
+                .into(),
                 None,
                 vec![Action::new(
-                    crate::list::Img::new(
-                        ImgSource::Icon(Icon::Skull),
-                        ImgMask::Rounded,
-                        ImgSize::Medium,
-                    ),
+                    Img::list_icon(Icon::Skull),
                     "Kill Process",
                     None,
                     Box::new(|cx| {
@@ -161,11 +156,7 @@ impl Root {
                         self.numbat.clone().into(),
                         None,
                         vec![Action::new(
-                            crate::list::Img::new(
-                                ImgSource::Icon(Icon::Copy),
-                                ImgMask::Rounded,
-                                ImgSize::Medium,
-                            ),
+                            Img::list_icon(Icon::Copy),
                             "Copy",
                             None,
                             Box::new(move |cx| {
