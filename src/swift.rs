@@ -1,3 +1,4 @@
+use gpui::Keystroke;
 use serde::Deserialize;
 use serde_json::Value;
 use swift_rs::{swift, SRData, SRObject, SRString};
@@ -23,8 +24,7 @@ pub struct MenuItem {
     pub path: Vec<String>,
     #[serde(alias = "pathIndices")]
     pub path_indices: Option<Value>,
-    // TODO: change this to keystroke format
-    //shortcut: Option<Shortcut>,
+    pub shortcut: Option<Keystroke>,
 }
 
 // Function to list menu items

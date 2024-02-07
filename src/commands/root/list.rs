@@ -145,7 +145,7 @@ impl Root {
                     vec!["Menu Items", "Navigation"],
                     cx.new_view(|_| {
                         ListItem::new(
-                            Some(Img::list_icon(Icon::Cpu)),
+                            Some(Img::list_icon(Icon::Library)),
                             "Search Menu Items",
                             Some("Navigation".to_string()),
                             Vec::<Accessory>::new(),
@@ -154,7 +154,7 @@ impl Root {
                     .into(),
                     None,
                     vec![Action::new(
-                        Img::list_icon(Icon::Skull),
+                        Img::list_icon(Icon::Library),
                         "Search Menu Items",
                         None,
                         Box::new(|cx| {

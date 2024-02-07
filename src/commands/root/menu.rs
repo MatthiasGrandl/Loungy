@@ -6,7 +6,7 @@ use crate::{
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, StateView},
+    state::{Action, ActionsModel, Shortcut, StateView},
     swift::{menu_item_select, menu_items, MenuItem},
 };
 
@@ -31,7 +31,7 @@ impl MenuList {
                         let indices = indices.clone();
                         vec![Action::new(
                             Img::list_icon(Icon::BookOpen),
-                            "Open",
+                            "Select Menu Item",
                             None,
                             Box::new(move |_| {
                                 let data = serde_json::to_vec(&indices).unwrap();
@@ -42,13 +42,17 @@ impl MenuList {
                     } else {
                         vec![]
                     };
+                    let accessories = if let Some(shortcut) = item.shortcut {
+                        eprintln!("shortcut: {:?}", shortcut);
+                        vec![Accessory::Shortcut(Shortcut::new(shortcut))]
+                    } else {
+                        vec![]
+                    };
 
                     Item::new(
                         vec![name.clone(), subtitle.clone()],
-                        cx.new_view(|_| {
-                            ListItem::new(None, name, Some(subtitle), Vec::<Accessory>::new())
-                        })
-                        .into(),
+                        cx.new_view(|_| ListItem::new(None, name, Some(subtitle), accessories))
+                            .into(),
                         None,
                         actions,
                         None,

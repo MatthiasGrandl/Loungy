@@ -1,4 +1,5 @@
 use gpui::*;
+use serde::Deserialize;
 
 use crate::{
     commands::root::list::RootBuilder,
@@ -113,7 +114,7 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
     }
 }
 
-#[derive(Clone, IntoElement)]
+#[derive(Clone, IntoElement, Deserialize)]
 pub struct Shortcut {
     inner: Keystroke,
 }
@@ -140,14 +141,8 @@ impl Shortcut {
             },
         }
     }
-    pub fn new(modifiers: Modifiers, key: impl ToString) -> Self {
-        Self {
-            inner: Keystroke {
-                modifiers,
-                key: key.to_string(),
-                ime_key: None,
-            },
-        }
+    pub fn new(keystroke: Keystroke) -> Self {
+        Self { inner: keystroke }
     }
 }
 

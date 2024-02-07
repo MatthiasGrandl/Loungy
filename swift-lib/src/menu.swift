@@ -41,59 +41,70 @@ class MenuBar {
 }
 
 let virtualKeys = [
-    0x24: "Enter", // kVK_Return
-    0x4C: "KeypadEnter", // kVK_ANSI_KeypadEnter
-    0x47: "KeypadClear", // kVK_ANSI_KeypadClear
-    0x30: "Tab", // kVK_Tab
-    0x31: "Space", // kVK_Space
-    0x33: "Backspace", // kVK_Delete
-    0x35: "Escape", // kVK_Escape
-    0x39: "CapsLock", // kVK_CapsLock
-    0x3F: "Fn", // kVK_Function
-    0x7A: "F1", // kVK_F1
-    0x78: "F2", // kVK_F2
-    0x63: "F3", // kVK_F3
-    0x76: "F4", // kVK_F4
-    0x60: "F5", // kVK_F5
-    0x61: "F6", // kVK_F6
-    0x62: "F7", // kVK_F7
-    0x64: "F8", // kVK_F8
-    0x65: "F9", // kVK_F9
-    0x6D: "F10", // kVK_F10
-    0x67: "F11", // kVK_F11
-    0x6F: "F12", // kVK_F12
-    0x69: "F13", // kVK_F13
-    0x6B: "F14", // kVK_F14
-    0x71: "F15", // kVK_F15
-    0x6A: "F16", // kVK_F16
-    0x40: "F17", // kVK_F17
-    0x4F: "F18", // kVK_F18
-    0x50: "F19", // kVK_F19
-    0x5A: "F20", // kVK_F20
-    0x73: "Home", // kVK_Home
-    0x74: "PageUp", // kVK_PageUp
-    0x75: "Delete", // kVK_ForwardDelete
-    0x77: "End", // kVK_End
-    0x79: "PageDown", // kVK_PageDown
-    0x7B: "ArrowLeft", // kVK_LeftArrow
-    0x7C: "ArrowRight", // kVK_RightArrow
-    0x7D: "ArrowDown", // kVK_DownArrow
-    0x7E: "ArrowUp", // kVK_UpArrow
+    0x24: "enter", // kVK_Return
+    0x4C: "enter", // kVK_ANSI_KeypadEnter
+    0x47: "enter", // kVK_ANSI_KeypadClear
+    0x30: "tab", // kVK_Tab
+    0x31: "space", // kVK_Space
+    0x33: "backspace", // kVK_Delete
+    0x35: "escape", // kVK_Escape
+    0x39: "caps", // kVK_CapsLock
+    0x3F: "function", // kVK_Function
+    0x7A: "f1", // kVK_F1
+    0x78: "f2", // kVK_F2
+    0x63: "f3", // kVK_F3
+    0x76: "f4", // kVK_F4
+    0x60: "f5", // kVK_F5
+    0x61: "f6", // kVK_F6
+    0x62: "f7", // kVK_F7
+    0x64: "f8", // kVK_F8
+    0x65: "f9", // kVK_F9
+    0x6D: "f10", // kVK_F10
+    0x67: "f11", // kVK_F11
+    0x6F: "f12", // kVK_F12
+    0x69: "f13", // kVK_F13
+    0x6B: "f14", // kVK_F14
+    0x71: "f15", // kVK_F15
+    0x6A: "f16", // kVK_F16
+    0x40: "f17", // kVK_F17
+    0x4F: "f18", // kVK_F18
+    0x50: "f19", // kVK_F19
+    0x5A: "f20", // kVK_F20
+    0x73: "home", // kVK_Home
+    0x74: "pageup", // kVK_PageUp
+    0x75: "delete", // kVK_ForwardDelete
+    0x77: "end", // kVK_End
+    0x79: "pageup", // kVK_PageDown
+    0x7B: "left", // kVK_LeftArrow
+    0x7C: "right", // kVK_RightArrow
+    0x7D: "down", // kVK_DownArrow
+    0x7E: "up", // kVK_UpArrow
 ]
 
-func decode(modifiers: Int) -> [String] {
-    if modifiers == 0x18 { return ["Fn"] }
-    var result = [String]()
-    if (modifiers & 0x04) > 0 { result.append("Ctrl") }
-    if (modifiers & 0x02) > 0 { result.append("Opt") }
-    if (modifiers & 0x01) > 0 { result.append("Shift") }
-    if (modifiers & 0x08) == 0 { result.append("Cmd") }
-    return result
+func decode(modifiers: Int) -> Modifiers {
+    if modifiers == 0x18 {
+        return Modifiers(function: true)
+    }
+    return Modifiers(
+        control: (modifiers & 0x04) > 0,
+        alt: (modifiers & 0x02) > 0,
+        shift: (modifiers & 0x01) > 0,
+        command: (modifiers & 0x08) == 0
+    )
+}
+
+struct Modifiers: Codable {
+    var control: Bool = false
+    var alt: Bool = false
+    var shift: Bool = false
+    var command: Bool = false
+    var function: Bool = false
 }
 
 struct Shortcut: Codable {
-    var mods: [String] = []
+    var modifiers: Modifiers
     var key: String
+    var ime_key: String = ""
 }
 
 func getShortcut(_: String?, _ modifiers: Int, _ virtualKey: Int) -> Shortcut? {
@@ -107,7 +118,7 @@ func getShortcut(_: String?, _ modifiers: Int, _ virtualKey: Int) -> Shortcut? {
     guard let shortcut else {
         return nil
     }
-    return Shortcut(mods: mods, key: shortcut)
+    return Shortcut(modifiers: mods, key: shortcut)
 }
 
 func getAttribute(element: AXUIElement, name: String) -> CFTypeRef? {
