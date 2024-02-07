@@ -56,8 +56,12 @@ impl TextView {
             placeholder: "Type here...".to_string(),
         };
         let view = cx.new_view(|cx| {
-            cx.on_blur(focus_handle, |_, cx| {
+            cx.on_blur(focus_handle, |_: &mut TextView, cx| {
                 cx.emit(TextEvent::Blur);
+            })
+            .detach();
+            cx.on_focus(focus_handle, |view, cx| {
+                view.select_all(cx);
             })
             .detach();
             m
@@ -119,10 +123,6 @@ pub enum TextEvent {
     Blur,
     Back,
     KeyDown(KeyDownEvent),
-}
-pub enum TextMovement {
-    Up,
-    Down,
 }
 
 impl EventEmitter<TextEvent> for TextView {}

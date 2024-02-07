@@ -16,7 +16,7 @@ pub struct StateItem {
 }
 
 impl StateItem {
-    pub fn init(mut view: impl StateView, cx: &mut WindowContext) -> Self {
+    pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
         //let actions_clone = actions.clone();

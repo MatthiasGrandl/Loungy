@@ -4,7 +4,7 @@ use gpui::{ImageSource, *};
 
 use crate::{
     icon::Icon,
-    query::{TextEvent, TextInput, TextMovement, TextView},
+    query::{TextEvent, TextInput},
     state::{Action, ActionsModel},
     theme::Theme,
 };
@@ -151,7 +151,8 @@ impl ListItem {
 }
 
 impl Render for ListItem {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
         let el = if let Some(img) = &self.img {
             div().child(div().mr_4().child(img.clone()))
         } else {
@@ -167,7 +168,12 @@ impl Render for ListItem {
                 .font_weight(FontWeight::MEDIUM),
         );
         let el = if let Some(subtitle) = &self.subtitle {
-            el.child(subtitle.clone())
+            el.child(
+                div()
+                    .ml_2()
+                    .text_color(theme.subtext0)
+                    .child(subtitle.clone()),
+            )
         } else {
             el
         };

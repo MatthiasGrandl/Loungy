@@ -124,12 +124,12 @@ impl Root {
         self.list.update(cx, |this, cx| {
             let mut items = self.model.read(cx).clone();
             items.push(Item::new(
-                vec!["Process".to_string(), "Kill".to_string()],
+                vec!["Search Process", "Kill", "Task Manager", "Memory", "CPU"],
                 cx.new_view(|_| {
                     ListItem::new(
                         Some(Img::list_icon(Icon::Cpu)),
-                        "Kill Process",
-                        None,
+                        "Search Process",
+                        Some("Task Manager".to_string()),
                         Vec::<Accessory>::new(),
                     )
                 })
@@ -137,7 +137,7 @@ impl Root {
                 None,
                 vec![Action::new(
                     Img::list_icon(Icon::Skull),
-                    "Kill Process",
+                    "Search Process",
                     None,
                     Box::new(|cx| {
                         cx.update_global::<StateModel, _>(|this, cx| {
@@ -146,7 +146,7 @@ impl Root {
                     }),
                     false,
                 )],
-                None,
+                Some(3),
             ));
             let mut items = fuzzy_match(query, items, false);
             if items.len() == 0 {

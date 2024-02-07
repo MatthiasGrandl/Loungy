@@ -1,6 +1,10 @@
 use gpui::*;
 use std::{
-    cmp::Reverse, collections::HashMap, fs, process::Command, sync::atomic::AtomicBool,
+    cmp::Reverse,
+    collections::HashMap,
+    fs,
+    process::Command,
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
@@ -12,7 +16,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{ActionsModel, StateView},
+    state::{Action, ActionsModel, CloneableFn, StateView},
 };
 
 use super::list::get_application_data;
@@ -67,6 +71,13 @@ struct ProcessList {
 }
 
 impl ProcessList {
+    fn get_update_box(&self) -> Box<dyn CloneableFn> {
+        let acomp = self.clone();
+        Box::new(move |cx| {
+            let mut acomp = acomp.clone();
+            acomp.update(cx);
+        })
+    }
     fn update(&mut self, cx: &mut WindowContext) {
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -99,7 +110,7 @@ impl ProcessList {
         });
         let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
 
-        if CPU.load(std::sync::atomic::Ordering::Relaxed) {
+        if CPU.load(Ordering::Relaxed) {
             parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
         } else {
             parsed.sort_unstable_by_key(|p| Reverse(p.mem));
@@ -132,28 +143,9 @@ impl ProcessList {
                         )
                     }
                 };
-                // let sort_action = match CPU.load(std::sync::atomic::Ordering::Relaxed) {
-                //     true => Action::new(
-                //         "plugin:root|toggle_process_sort",
-                //         "Sort by Memory",
-                //         Some(Image::Icon {
-                //             icon: Icon::MemoryStick,
-                //             mask: Some(ImageMask::RoundedRectangle),
-                //         }),
-                //         Some(Shortcut::new("Tab", vec![])),
-                //         None,
-                //     ),
-                //     false => Action::new(
-                //         "plugin:root|toggle_process_sort",
-                //         "Sort by CPU",
-                //         Some(Image::Icon {
-                //             icon: Icon::Cpu,
-                //             mask: Some(ImageMask::RoundedRectangle),
-                //         }),
-                //         Some(Shortcut::new("Tab", vec![])),
-                //         None,
-                //     ),
-                // };
+                let pid = p.pid.to_string();
+                let update = self.get_update_box();
+                let update2 = self.get_update_box();
                 Item::new(
                     vec![name.clone()],
                     cx.new_view(|_| {
@@ -175,50 +167,34 @@ impl ProcessList {
                     })
                     .into(),
                     None,
-                    vec![],
+                    vec![
+                        Action::new(
+                            Img::list_icon(Icon::Skull),
+                            "Kill Process",
+                            None,
+                            Box::new(move |cx| {
+                                let _ = Command::new("kill").arg("-9").arg(pid.clone()).output();
+                                update(cx);
+                            }),
+                            false,
+                        ),
+                        Action::new(
+                            Img::list_icon(Icon::ArrowDownUp),
+                            "Sort",
+                            Some(Keystroke {
+                                modifiers: Modifiers::default(),
+                                key: "tab".to_string(),
+                                ime_key: None,
+                            }),
+                            Box::new(move |cx| {
+                                CPU.store(!CPU.load(Ordering::Relaxed), Ordering::Relaxed);
+                                update2(cx);
+                            }),
+                            false,
+                        ),
+                    ],
                     None,
                 )
-                // Item::new(
-                //     p.pid.to_string(),
-                //     name,
-                //     Vec::<String>::new(),
-                //     vec![
-                //         // Action::new(
-                //         //     "plugin:root|kill_process",
-                //         //     "Kill Process",
-                //         //     Some(Image::Icon {
-                //         //         icon: Icon::Skull,
-                //         //         mask: Some(ImageMask::RoundedRectangle),
-                //         //     }),
-                //         //     None,
-                //         //     None,
-                //         // ),
-                //         // sort_action,
-                //     ],
-                //     Component::ListItem {
-                //         subtitle: None,
-                //         icon: Some(image),
-                //         accessories: vec![
-                //             Accessory {
-                //                 icon: Some(Image::Icon {
-                //                     icon: Icon::MemoryStick,
-                //                     mask: None,
-                //                 }),
-                //                 tag: format_bytes(p.mem * 1024),
-                //             },
-                //             Accessory {
-                //                 icon: Some(Image::Icon {
-                //                     icon: Icon::Cpu,
-                //                     mask: None,
-                //                 }),
-                //                 tag: format!("{:.2}%", p.cpu),
-                //             },
-                //         ],
-                //     },
-                //     None,
-                //     None,
-                //     None,
-                // )
             })
             .collect();
 
@@ -259,7 +235,6 @@ impl StateView for ProcessBuilder {
                         break;
                     }
                     let _ = cx.update(|cx| {
-                        eprintln!("Updating");
                         acomp.update(cx);
                     });
                     cx.background_executor().timer(Duration::from_secs(5)).await;
@@ -281,19 +256,3 @@ impl StateView for ProcessBuilder {
         .into()
     }
 }
-
-// #[tauri::command]
-// pub(super) fn toggle_process_sort(handle: AppHandle) {
-//     CPU.store(
-//         !CPU.load(std::sync::atomic::Ordering::Relaxed),
-//         std::sync::atomic::Ordering::Relaxed,
-//     );
-//     _ = handle.emit_all("plugin:root_list_processes", "");
-// }
-
-// #[tauri::command]
-// pub(super) fn kill_process(id: String, handle: AppHandle) {
-//     info!("killing process {}", id);
-//     Command::new("kill").arg("-9").arg(id).output().unwrap();
-//     _ = handle.emit_all("plugin:root_list_processes", "");
-// }
