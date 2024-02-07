@@ -4,7 +4,10 @@ use std::{
     collections::HashMap,
     fs,
     process::Command,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{channel, Sender},
+    },
     time::Duration,
 };
 
@@ -16,7 +19,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, CloneableFn, StateView},
+    state::{Action, ActionsModel, StateView},
 };
 
 use super::list::get_application_data;
@@ -67,17 +70,11 @@ fn format_bytes(bytes: u64) -> String {
 struct ProcessList {
     list: View<List>,
     query: TextInput,
-    unfiltered: Vec<Item>,
+    model: Model<Vec<Item>>,
+    sender: Sender<bool>,
 }
 
 impl ProcessList {
-    fn get_update_box(&self) -> Box<dyn CloneableFn> {
-        let acomp = self.clone();
-        Box::new(move |cx| {
-            let mut acomp = acomp.clone();
-            acomp.update(cx);
-        })
-    }
     fn update(&mut self, cx: &mut WindowContext) {
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -144,8 +141,8 @@ impl ProcessList {
                     }
                 };
                 let pid = p.pid.to_string();
-                let update = self.get_update_box();
-                let update2 = self.get_update_box();
+                let s1 = self.sender.clone();
+                let s2 = self.sender.clone();
                 Item::new(
                     vec![name.clone()],
                     cx.new_view(|_| {
@@ -172,9 +169,9 @@ impl ProcessList {
                             Img::list_icon(Icon::Skull),
                             "Kill Process",
                             None,
-                            Box::new(move |cx| {
+                            Box::new(move |_| {
                                 let _ = Command::new("kill").arg("-9").arg(pid.clone()).output();
-                                update(cx);
+                                let _ = s1.clone().send(true);
                             }),
                             false,
                         ),
@@ -186,9 +183,9 @@ impl ProcessList {
                                 key: "tab".to_string(),
                                 ime_key: None,
                             }),
-                            Box::new(move |cx| {
+                            Box::new(move |_| {
                                 CPU.store(!CPU.load(Ordering::Relaxed), Ordering::Relaxed);
-                                update2(cx);
+                                let _ = s2.clone().send(true);
                             }),
                             false,
                         ),
@@ -198,13 +195,16 @@ impl ProcessList {
             })
             .collect();
 
-        self.unfiltered = items;
+        self.model.update(cx, |model, _cx| {
+            *model = items;
+        });
         self.list(cx);
     }
     fn list(&mut self, cx: &mut WindowContext) {
         let query = self.query.view.read(cx).text.clone();
         self.list.update(cx, |this, cx| {
-            let items = fuzzy_match(&query, self.unfiltered.clone(), false);
+            let items = self.model.read(cx).clone();
+            let items = fuzzy_match(&query, items, false);
             this.items = items;
             cx.notify();
         });
@@ -220,24 +220,36 @@ impl Render for ProcessList {
 pub struct ProcessBuilder {}
 impl StateView for ProcessBuilder {
     fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
+        let (s, r) = channel::<bool>();
         let comp = ProcessList {
             list: List::new(query, actions, cx),
             query: query.clone(),
-            unfiltered: Vec::<Item>::with_capacity(500),
+            model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
+            sender: s,
         };
         query.set_placeholder("Search for running processes...", cx);
         let mut acomp = comp.clone();
 
         cx.new_view(|cx| {
             cx.spawn(|view, mut cx| async move {
+                // set last to something old so it updates immediately
+                let mut last = std::time::Instant::now() - Duration::from_secs(10);
                 loop {
                     if view.upgrade().is_none() {
                         break;
                     }
-                    let _ = cx.update(|cx| {
-                        acomp.update(cx);
-                    });
-                    cx.background_executor().timer(Duration::from_secs(5)).await;
+                    // if message in channel or last update was more than 5s ago
+
+                    if r.try_recv().is_ok() || last.elapsed().as_secs() > 5 {
+                        let _ = cx.update(|cx| {
+                            eprintln!("updating");
+                            acomp.update(cx);
+                            last = std::time::Instant::now();
+                        });
+                    }
+                    cx.background_executor()
+                        .timer(Duration::from_millis(50))
+                        .await;
                 }
             })
             .detach();
