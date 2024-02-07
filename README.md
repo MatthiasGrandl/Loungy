@@ -36,7 +36,7 @@ These features exist in the old Tauri based app and will be ported soon:
 
 - [] MacOS menu search
 - [] Bitwarden password manager
-- [] Tailwind
+- [] Tailscale peer list
 - [] Matrix Chat client
 
 ## Development
