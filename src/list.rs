@@ -47,6 +47,13 @@ impl Img {
             size: ImgSize::Medium,
         }
     }
+    pub fn accessory_icon(icon: Icon) -> Self {
+        Self {
+            src: ImgSource::Icon(icon),
+            mask: ImgMask::None,
+            size: ImgSize::Small,
+        }
+    }
     pub fn list_file(src: PathBuf) -> Self {
         Self {
             src: ImgSource::Base(ImageSource::File(Arc::new(src))),
@@ -109,17 +116,13 @@ impl Accessory {
 impl RenderOnce for Accessory {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let el = div()
-            .flex()
-            .items_center()
-            .text_xs()
-            .text_color(theme.subtext0);
+        let el = div().flex().items_center().text_color(theme.subtext0);
         let el = if let Some(img) = self.img {
-            el.child(img).mr_1()
+            el.child(div().mr_1().child(img))
         } else {
             el
         };
-        el.child(self.tag)
+        el.child(self.tag).ml_2()
     }
 }
 
@@ -168,7 +171,13 @@ impl Render for ListItem {
         } else {
             el
         };
-        el.child(div().ml_auto().children(self.accessories.clone()))
+        el.child(
+            div()
+                .flex()
+                .items_center()
+                .ml_auto()
+                .children(self.accessories.clone()),
+        )
     }
 }
 
@@ -230,6 +239,14 @@ impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         self.selection_change(&self.actions, cx);
         let view = cx.view().clone();
+        let mut items: Vec<(usize, Item)> = self
+            .items
+            .clone()
+            .into_iter()
+            .enumerate()
+            .skip(self.skip)
+            .collect();
+        items.truncate(8);
         div()
             .w_full()
             .on_scroll_wheel(move |ev, cx| {
@@ -242,17 +259,10 @@ impl Render for List {
                     }
                 });
             })
-            .children(
-                self.items
-                    .clone()
-                    .into_iter()
-                    .enumerate()
-                    .skip(self.skip)
-                    .map(|(i, mut item)| {
-                        item.selected = i == self.selected;
-                        item
-                    }),
-            )
+            .children(items.into_iter().map(|(i, mut item)| {
+                item.selected = i == self.selected;
+                item
+            }))
     }
 }
 

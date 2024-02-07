@@ -5,14 +5,14 @@ use gpui::*;
 
 use crate::{
     icon::Icon,
-    list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
+    list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, StateModel, StateView},
 };
 
-use super::numbat::Numbat;
+use super::{numbat::Numbat, process::ProcessBuilder};
 
 #[repr(C)]
 pub(super) struct AppData {
@@ -22,7 +22,7 @@ pub(super) struct AppData {
 
 swift!(pub(super) fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppData>>);
 
-pub struct Root {
+struct Root {
     model: Model<Vec<Item>>,
     list: View<List>,
     numbat: View<Numbat>,
@@ -141,7 +141,7 @@ impl Root {
                     None,
                     Box::new(|cx| {
                         cx.update_global::<StateModel, _>(|this, cx| {
-                            //this.push(Test {}, cx);
+                            this.push(ProcessBuilder {}, cx);
                         });
                     }),
                     false,

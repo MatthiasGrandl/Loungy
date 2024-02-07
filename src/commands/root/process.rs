@@ -1,19 +1,14 @@
 use gpui::*;
-use std::{
-    cmp::Reverse,
-    collections::HashMap,
-    fs,
-    process::Command,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::{cmp::Reverse, collections::HashMap, fs, process::Command, sync::atomic::AtomicBool};
 
 use regex::Regex;
 
 use crate::{
-    list::{Img, ImgMask, ImgSize, ImgSource},
+    icon::Icon,
+    list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
-    query::TextInput,
+    query::{TextEvent, TextInput},
     state::{ActionsModel, StateView},
 };
 
@@ -47,7 +42,7 @@ impl Process {
     }
 }
 
-pub(super) fn format_bytes(bytes: u64) -> String {
+fn format_bytes(bytes: u64) -> String {
     let kb = bytes / 1024;
     let mb = kb / 1024;
     let gb = mb / 1024;
@@ -62,24 +57,13 @@ pub(super) fn format_bytes(bytes: u64) -> String {
     }
 }
 
-pub(super) fn list_processes(handle: AppHandle, query: String) -> Component {
-    let cache_dir = handle.path_resolver().app_cache_dir().unwrap();
-    fs::create_dir_all(cache_dir.clone()).unwrap();
-
-    let items = fuzzy_match(&query, items, false);
-
-    Component::List {
-        items,
-        command: "plugin:root|list_processes".to_string(),
-        meta: None,
-    }
+struct ProcessList {
+    list: View<List>,
+    model: Model<Vec<Item>>,
 }
 
-pub struct ProcessBuilder {
-    model: Model<Vec<Process>>,
-}
-impl ProcessBuilder {
-    pub fn update(&mut self, cx: &mut WindowContext) {
+impl ProcessList {
+    fn update(&mut self, cx: &mut WindowContext) {
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
         let ps = Command::new("ps")
@@ -118,7 +102,7 @@ impl ProcessBuilder {
         }
 
         let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
-        let items = parsed
+        let items: Vec<Item> = parsed
             .iter()
             .map(|p| {
                 let path = re
@@ -133,120 +117,150 @@ impl ProcessBuilder {
                     Some(d) => {
                         let mut icon_path = cache_dir.clone();
                         icon_path.push(format!("{}.png", d.id.to_string()));
-                        (
-                            d.name.to_string(),
-                            Img::new(
-                                ImgSource::Base(ImageSource::File(Arc::new(icon_path))),
-                                ImgMask::None,
-                                ImgSize::Medium,
-                            ),
-                        )
+                        (d.name.to_string(), Img::list_file(icon_path))
                     }
                     None => {
                         let mut icon_path = cache_dir.clone();
                         icon_path.push("com.apple.Terminal.png");
                         (
                             p.name.split("/").last().unwrap().to_string(),
-                            Img::new(
-                                ImgSource::Base(ImageSource::File(Arc::new(icon_path))),
-                                ImgMask::None,
-                                ImgSize::Medium,
-                            ),
+                            Img::list_file(icon_path),
                         )
                     }
                 };
-                let sort_action = match CPU.load(std::sync::atomic::Ordering::Relaxed) {
-                    true => Action::new(
-                        "plugin:root|toggle_process_sort",
-                        "Sort by Memory",
-                        Some(Image::Icon {
-                            icon: Icon::MemoryStick,
-                            mask: Some(ImageMask::RoundedRectangle),
-                        }),
-                        Some(Shortcut::new("Tab", vec![])),
-                        None,
-                    ),
-                    false => Action::new(
-                        "plugin:root|toggle_process_sort",
-                        "Sort by CPU",
-                        Some(Image::Icon {
-                            icon: Icon::Cpu,
-                            mask: Some(ImageMask::RoundedRectangle),
-                        }),
-                        Some(Shortcut::new("Tab", vec![])),
-                        None,
-                    ),
-                };
+                // let sort_action = match CPU.load(std::sync::atomic::Ordering::Relaxed) {
+                //     true => Action::new(
+                //         "plugin:root|toggle_process_sort",
+                //         "Sort by Memory",
+                //         Some(Image::Icon {
+                //             icon: Icon::MemoryStick,
+                //             mask: Some(ImageMask::RoundedRectangle),
+                //         }),
+                //         Some(Shortcut::new("Tab", vec![])),
+                //         None,
+                //     ),
+                //     false => Action::new(
+                //         "plugin:root|toggle_process_sort",
+                //         "Sort by CPU",
+                //         Some(Image::Icon {
+                //             icon: Icon::Cpu,
+                //             mask: Some(ImageMask::RoundedRectangle),
+                //         }),
+                //         Some(Shortcut::new("Tab", vec![])),
+                //         None,
+                //     ),
+                // };
                 Item::new(
-                    p.pid.to_string(),
-                    name,
-                    Vec::<String>::new(),
-                    vec![
-                        Action::new(
-                            "plugin:root|kill_process",
-                            "Kill Process",
-                            Some(Image::Icon {
-                                icon: Icon::Skull,
-                                mask: Some(ImageMask::RoundedRectangle),
-                            }),
+                    vec![name.clone()],
+                    cx.new_view(|_| {
+                        ListItem::new(
+                            Some(image),
+                            name.clone(),
                             None,
-                            None,
-                        ),
-                        sort_action,
-                    ],
-                    Component::ListItem {
-                        subtitle: None,
-                        icon: Some(image),
-                        accessories: vec![
-                            Accessory {
-                                icon: Some(Image::Icon {
-                                    icon: Icon::MemoryStick,
-                                    mask: None,
-                                }),
-                                tag: format_bytes(p.mem * 1024),
-                            },
-                            Accessory {
-                                icon: Some(Image::Icon {
-                                    icon: Icon::Cpu,
-                                    mask: None,
-                                }),
-                                tag: format!("{:.2}%", p.cpu),
-                            },
-                        ],
-                    },
+                            vec![
+                                Accessory::new(
+                                    format_bytes(p.mem * 1024),
+                                    Some(Img::accessory_icon(Icon::MemoryStick)),
+                                ),
+                                Accessory::new(
+                                    format!("{:.2}%", p.cpu),
+                                    Some(Img::accessory_icon(Icon::Cpu)),
+                                ),
+                            ],
+                        )
+                    })
+                    .into(),
                     None,
-                    None,
+                    vec![],
                     None,
                 )
+                // Item::new(
+                //     p.pid.to_string(),
+                //     name,
+                //     Vec::<String>::new(),
+                //     vec![
+                //         // Action::new(
+                //         //     "plugin:root|kill_process",
+                //         //     "Kill Process",
+                //         //     Some(Image::Icon {
+                //         //         icon: Icon::Skull,
+                //         //         mask: Some(ImageMask::RoundedRectangle),
+                //         //     }),
+                //         //     None,
+                //         //     None,
+                //         // ),
+                //         // sort_action,
+                //     ],
+                //     Component::ListItem {
+                //         subtitle: None,
+                //         icon: Some(image),
+                //         accessories: vec![
+                //             Accessory {
+                //                 icon: Some(Image::Icon {
+                //                     icon: Icon::MemoryStick,
+                //                     mask: None,
+                //                 }),
+                //                 tag: format_bytes(p.mem * 1024),
+                //             },
+                //             Accessory {
+                //                 icon: Some(Image::Icon {
+                //                     icon: Icon::Cpu,
+                //                     mask: None,
+                //                 }),
+                //                 tag: format!("{:.2}%", p.cpu),
+                //             },
+                //         ],
+                //     },
+                //     None,
+                //     None,
+                //     None,
+                // )
             })
             .collect();
+
+        self.model.update(cx, |model, cx| {
+            *model = items;
+            cx.notify();
+        });
+    }
+    fn list(&mut self, query: &str, cx: &mut WindowContext) {
+        self.list.update(cx, |this, cx| {
+            let items = self.model.read(cx).clone();
+            let items = fuzzy_match(&query, items, false);
+            this.items = items;
+            cx.notify();
+        });
     }
 }
+
+impl Render for ProcessList {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        self.list.clone()
+    }
+}
+
+pub struct ProcessBuilder {}
 impl StateView for ProcessBuilder {
-    fn build(
-        &mut self,
-        query: &TextInput,
-        actions: &ActionsModel,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        self.model = cx.new_model(|_cx| Vec::<Process>::with_capacity(100));
-        self.update(cx);
-        query.set_placeholder("Search for apps and commands", cx);
+    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
+        let mut comp = ProcessList {
+            list: List::new(query, actions, cx),
+            model: cx.new_model(|_cx| Vec::<Item>::with_capacity(100)),
+        };
+        comp.update(cx);
+        comp.list("", cx);
+        query.set_placeholder("Search for running processes...", cx);
         cx.new_view(|cx| {
-            let list = List::new(query, &actions, cx);
-            list_items(&list, &app_model, "", cx);
-            let clone = list.clone();
             cx.subscribe(
                 &query.view,
-                move |_subscriber, _emitter, event, cx| match event {
+                move |subscriber: &mut ProcessList, _emitter, event, cx| match event {
                     TextEvent::Input { text } => {
-                        list_items(&clone, &app_model, text.as_str(), cx);
+                        subscriber.list(text.as_str(), cx);
                     }
                     _ => {}
                 },
             )
             .detach();
-            Root { list }
+            comp
         })
         .into()
     }
