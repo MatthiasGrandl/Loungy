@@ -1,5 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
-use swift_rs::{swift, SRObject, SRString};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use gpui::*;
 
@@ -10,17 +9,10 @@ use crate::{
     paths::Paths,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, StateModel, StateView},
+    swift::get_application_data,
 };
 
 use super::{numbat::Numbat, process::ProcessBuilder};
-
-#[repr(C)]
-pub(super) struct AppData {
-    pub(super) id: SRString,
-    pub(super) name: SRString,
-}
-
-swift!(pub(super) fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppData>>);
 
 struct Root {
     model: Model<Vec<Item>>,

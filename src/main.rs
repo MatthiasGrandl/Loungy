@@ -11,6 +11,7 @@ mod nucleo;
 mod paths;
 mod query;
 mod state;
+mod swift;
 mod theme;
 mod workspace;
 

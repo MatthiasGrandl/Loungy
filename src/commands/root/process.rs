@@ -20,9 +20,8 @@ use crate::{
     paths::Paths,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, StateView},
+    swift::get_application_data,
 };
-
-use super::list::get_application_data;
 
 static CPU: AtomicBool = AtomicBool::new(false);
 
@@ -72,10 +71,45 @@ struct ProcessList {
     query: TextInput,
     model: Model<Vec<Item>>,
     sender: Sender<bool>,
+    actions: ActionsModel,
 }
 
 impl ProcessList {
     fn update(&mut self, cx: &mut WindowContext) {
+        let s1 = self.sender.clone();
+        let sort_by_cpu = CPU.load(Ordering::Relaxed);
+        let sort_action = if sort_by_cpu {
+            Action::new(
+                Img::list_icon(Icon::MemoryStick),
+                "Sort by Memory",
+                Some(Keystroke {
+                    modifiers: Modifiers::default(),
+                    key: "tab".to_string(),
+                    ime_key: None,
+                }),
+                Box::new(move |_| {
+                    CPU.store(false, Ordering::Relaxed);
+                    let _ = s1.clone().send(true);
+                }),
+                false,
+            )
+        } else {
+            Action::new(
+                Img::list_icon(Icon::Cpu),
+                "Sort by CPU",
+                Some(Keystroke {
+                    modifiers: Modifiers::default(),
+                    key: "tab".to_string(),
+                    ime_key: None,
+                }),
+                Box::new(move |_| {
+                    CPU.store(true, Ordering::Relaxed);
+                    let _ = s1.clone().send(true);
+                }),
+                false,
+            )
+        };
+        self.actions.update_global(vec![sort_action], cx);
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
         let ps = Command::new("ps")
@@ -107,7 +141,7 @@ impl ProcessList {
         });
         let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
 
-        if CPU.load(Ordering::Relaxed) {
+        if sort_by_cpu {
             parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
         } else {
             parsed.sort_unstable_by_key(|p| Reverse(p.mem));
@@ -142,7 +176,6 @@ impl ProcessList {
                 };
                 let pid = p.pid.to_string();
                 let s1 = self.sender.clone();
-                let s2 = self.sender.clone();
                 Item::new(
                     vec![name.clone()],
                     cx.new_view(|_| {
@@ -164,32 +197,16 @@ impl ProcessList {
                     })
                     .into(),
                     None,
-                    vec![
-                        Action::new(
-                            Img::list_icon(Icon::Skull),
-                            "Kill Process",
-                            None,
-                            Box::new(move |_| {
-                                let _ = Command::new("kill").arg("-9").arg(pid.clone()).output();
-                                let _ = s1.clone().send(true);
-                            }),
-                            false,
-                        ),
-                        Action::new(
-                            Img::list_icon(Icon::ArrowDownUp),
-                            "Sort",
-                            Some(Keystroke {
-                                modifiers: Modifiers::default(),
-                                key: "tab".to_string(),
-                                ime_key: None,
-                            }),
-                            Box::new(move |_| {
-                                CPU.store(!CPU.load(Ordering::Relaxed), Ordering::Relaxed);
-                                let _ = s2.clone().send(true);
-                            }),
-                            false,
-                        ),
-                    ],
+                    vec![Action::new(
+                        Img::list_icon(Icon::Skull),
+                        "Kill Process",
+                        None,
+                        Box::new(move |_| {
+                            let _ = Command::new("kill").arg("-9").arg(pid.clone()).output();
+                            let _ = s1.clone().send(true);
+                        }),
+                        false,
+                    )],
                     None,
                 )
             })
@@ -226,6 +243,7 @@ impl StateView for ProcessBuilder {
             query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
             sender: s,
+            actions: actions.clone(),
         };
         query.set_placeholder("Search for running processes...", cx);
         let mut acomp = comp.clone();
@@ -242,7 +260,6 @@ impl StateView for ProcessBuilder {
 
                     if r.try_recv().is_ok() || last.elapsed().as_secs() > 5 {
                         let _ = cx.update(|cx| {
-                            eprintln!("updating");
                             acomp.update(cx);
                             last = std::time::Instant::now();
                         });

@@ -230,19 +230,18 @@ impl Action {
 }
 
 pub struct Actions {
-    global: Vec<Action>,
-    local: Vec<Action>,
-    combined: Vec<Action>,
+    global: Model<Vec<Action>>,
+    local: Model<Vec<Action>>,
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
+    toggle: Box<dyn CloneableFn>,
 }
 
 impl Actions {
-    fn compute(&mut self, toggle: Box<dyn CloneableFn>, cx: &mut ViewContext<Self>) {
-        let mut combined = self.local.clone();
-        combined.append(&mut self.global);
-        // if there are actions, make the first action the default action
+    fn combined(&self, cx: &mut ViewContext<Self>) -> Vec<Action> {
+        let mut combined = self.local.read(cx).clone();
+        combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
             action.shortcut = Some(Keystroke {
                 modifiers: Modifiers::default(),
@@ -263,14 +262,11 @@ impl Actions {
                     key: "k".to_string(),
                     ime_key: None,
                 }),
-                toggle,
+                self.toggle.clone(),
                 true,
             ))
         }
-        self.combined = combined;
-        // TODO: why does this not work?
-        //self.list_actions("", cx);
-        cx.notify();
+        combined
     }
     fn popup(&mut self, cx: &mut ViewContext<Self>) -> Div {
         if !self.show {
@@ -305,8 +301,7 @@ impl Actions {
     }
     fn list_actions(&self, text: &str, cx: &mut ViewContext<Self>) {
         let items: Vec<Item> = self
-            .combined
-            .clone()
+            .combined(cx)
             .into_iter()
             .filter_map(|item| {
                 if item.hide {
@@ -341,9 +336,10 @@ impl Actions {
 
 impl Render for Actions {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let combined = self.combined(cx).clone();
         let theme = cx.global::<theme::Theme>();
-        if let Some(action) = self.combined.get(0) {
-            let open = self.combined.last().unwrap().clone();
+        if let Some(action) = combined.get(0) {
+            let open = combined.last().unwrap().clone();
             div()
                 .ml_auto()
                 .flex()
@@ -362,18 +358,19 @@ impl Render for Actions {
 #[derive(Clone)]
 pub struct ActionsModel {
     pub inner: View<Actions>,
-    pub toggle: Box<dyn CloneableFn>,
 }
 
 impl ActionsModel {
     pub fn init(cx: &mut WindowContext) -> Self {
+        let global = cx.new_model(|_| Vec::new());
+        let local = cx.new_model(|_| Vec::new());
         let inner = cx.new_view(|_| Actions {
-            global: Vec::new(),
-            local: Vec::new(),
-            combined: Vec::new(),
+            global,
+            local,
             show: false,
             query: None,
             list: None,
+            toggle: Box::new(|_| {}),
         });
         let clone = inner.clone();
         let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
@@ -384,13 +381,14 @@ impl ActionsModel {
                 cx.notify();
             });
         });
+
         let model = Self {
             inner: inner.clone(),
-            toggle,
         };
         let query = TextInput::new(&model, cx);
         let list = List::new(&query, &model, cx);
         inner.update(cx, |this, cx| {
+            this.toggle = toggle;
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
@@ -407,8 +405,7 @@ impl ActionsModel {
                     },
                     TextEvent::Input { text } => {
                         this.list_actions(text, cx);
-                    }
-                    _ => {}
+                    } //_ => {}
                 }
                 cx.notify();
             })
@@ -421,24 +418,28 @@ impl ActionsModel {
         model
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
-        let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
-            model.global = actions;
-            model.compute(toggle, cx);
+            model.global.update(cx, |this, _| {
+                *this = actions;
+            });
         });
     }
     pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
-        let toggle = self.toggle.clone();
         self.inner.update(cx, |model, cx| {
-            model.local = actions;
-            model.compute(toggle, cx);
+            model.local.update(cx, |this, _| {
+                *this = actions;
+            });
         });
     }
     pub fn get(&self, cx: &mut WindowContext) -> Vec<Action> {
-        self.inner.read(cx).combined.clone()
+        let mut outer: Option<Vec<Action>> = None;
+        self.inner.update(cx, |model, cx| {
+            outer = Some(model.combined(cx));
+        });
+        outer.unwrap()
     }
     pub fn check(&self, keystroke: &Keystroke, cx: &mut WindowContext) -> Option<Action> {
-        let actions = &self.inner.read(cx).combined;
+        let actions = &self.get(cx);
         for action in actions {
             if let Some(shortcut) = &action.shortcut {
                 if shortcut.eq(keystroke) {
