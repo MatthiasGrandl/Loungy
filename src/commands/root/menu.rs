@@ -43,7 +43,6 @@ impl MenuList {
                         vec![]
                     };
                     let accessories = if let Some(shortcut) = item.shortcut {
-                        eprintln!("shortcut: {:?}", shortcut);
                         vec![Accessory::Shortcut(Shortcut::new(shortcut))]
                     } else {
                         vec![]

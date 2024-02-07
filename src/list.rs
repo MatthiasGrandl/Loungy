@@ -304,10 +304,10 @@ impl List {
         }
         if self.selected < self.items.len() - 1 {
             self.selected += 1;
-            self.skip = if self.selected > 7 {
+            self.skip = if self.selected > self.skip + 7 {
                 self.selected - 7
             } else {
-                0
+                self.skip
             };
             cx.notify();
         }
