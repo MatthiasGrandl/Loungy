@@ -12,7 +12,7 @@ use crate::{
     swift::get_application_data,
 };
 
-use super::{numbat::Numbat, process::ProcessBuilder};
+use super::{menu::MenuBuilder, numbat::Numbat, process::ProcessBuilder};
 
 struct Root {
     model: Model<Vec<Item>>,
@@ -115,31 +115,59 @@ impl Root {
     fn list(&mut self, query: &str, cx: &mut WindowContext) {
         self.list.update(cx, |this, cx| {
             let mut items = self.model.read(cx).clone();
-            items.push(Item::new(
-                vec!["Search Process", "Kill", "Task Manager", "Memory", "CPU"],
-                cx.new_view(|_| {
-                    ListItem::new(
-                        Some(Img::list_icon(Icon::Cpu)),
-                        "Search Process",
-                        Some("Task Manager".to_string()),
-                        Vec::<Accessory>::new(),
-                    )
-                })
-                .into(),
-                None,
-                vec![Action::new(
-                    Img::list_icon(Icon::Skull),
-                    "Search Process",
+            items.append(&mut vec![
+                Item::new(
+                    vec!["Search Process", "Kill", "Task Manager", "Memory", "CPU"],
+                    cx.new_view(|_| {
+                        ListItem::new(
+                            Some(Img::list_icon(Icon::Cpu)),
+                            "Search Process",
+                            Some("Task Manager".to_string()),
+                            Vec::<Accessory>::new(),
+                        )
+                    })
+                    .into(),
                     None,
-                    Box::new(|cx| {
-                        cx.update_global::<StateModel, _>(|this, cx| {
-                            this.push(ProcessBuilder {}, cx);
-                        });
-                    }),
-                    false,
-                )],
-                Some(3),
-            ));
+                    vec![Action::new(
+                        Img::list_icon(Icon::Skull),
+                        "Search Process",
+                        None,
+                        Box::new(|cx| {
+                            cx.update_global::<StateModel, _>(|this, cx| {
+                                this.push(ProcessBuilder {}, cx);
+                            });
+                        }),
+                        false,
+                    )],
+                    Some(3),
+                ),
+                Item::new(
+                    vec!["Menu Items", "Navigation"],
+                    cx.new_view(|_| {
+                        ListItem::new(
+                            Some(Img::list_icon(Icon::Cpu)),
+                            "Search Menu Items",
+                            Some("Navigation".to_string()),
+                            Vec::<Accessory>::new(),
+                        )
+                    })
+                    .into(),
+                    None,
+                    vec![Action::new(
+                        Img::list_icon(Icon::Skull),
+                        "Search Menu Items",
+                        None,
+                        Box::new(|cx| {
+                            cx.update_global::<StateModel, _>(|this, cx| {
+                                this.push(MenuBuilder {}, cx);
+                            });
+                        }),
+                        false,
+                    )],
+                    Some(3),
+                ),
+            ]);
+
             let mut items = fuzzy_match(query, items, false);
             if items.len() == 0 {
                 if let Some(result) = self.numbat.read(cx).result.clone() {
@@ -188,7 +216,7 @@ impl StateView for RootBuilder {
         };
         root.update(cx);
         root.list("", cx);
-        query.set_placeholder("Search for apps and commands", cx);
+        query.set_placeholder("Search for apps and commands...", cx);
         cx.new_view(|cx| {
             cx.subscribe(
                 &query.view,

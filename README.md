@@ -31,10 +31,10 @@ Loungy wouldn't be possible without the awesome open source ecosystem:
 - [x] Launching apps
 - [x] Calculator (including unit/currency conversions, thanks to [Numbat](https://numbat.dev/))
 - [x] Task manager (killing processes)
+- [x] MacOS menu search
 
 These features exist in the old Tauri based app and will be ported soon:
 
-- [ ] MacOS menu search
 - [ ] Bitwarden password manager
 - [ ] Tailscale peer list
 - [ ] Matrix Chat client

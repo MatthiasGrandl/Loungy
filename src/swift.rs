@@ -19,10 +19,10 @@ swift!(pub fn autofill(value: SRString, prev: SRString) -> Option<SRString>);
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
-struct MenuItem {
-    path: Vec<String>,
+pub struct MenuItem {
+    pub path: Vec<String>,
     #[serde(alias = "pathIndices")]
-    path_indices: Option<Value>,
+    pub path_indices: Option<Value>,
     // TODO: change this to keystroke format
     //shortcut: Option<Shortcut>,
 }
