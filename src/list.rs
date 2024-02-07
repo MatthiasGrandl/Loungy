@@ -236,14 +236,16 @@ impl RenderOnce for Item {
 pub struct List {
     selected: usize,
     skip: usize,
-    actions: ActionsModel,
+    actions: Option<ActionsModel>,
     pub items: Vec<Item>,
     query: TextInput,
 }
 
 impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        self.selection_change(&self.actions, cx);
+        if let Some(actions) = &self.actions {
+            self.selection_change(actions, cx);
+        }
         let view = cx.view().clone();
         let mut items: Vec<(usize, Item)> = self
             .items
@@ -301,12 +303,16 @@ impl List {
             cx.notify();
         }
     }
-    pub fn new(query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> View<Self> {
+    pub fn new(
+        query: &TextInput,
+        actions: Option<&ActionsModel>,
+        cx: &mut WindowContext,
+    ) -> View<Self> {
         let list = Self {
             selected: 0,
             skip: 0,
             items: vec![],
-            actions: actions.clone(),
+            actions: actions.cloned(),
             query: query.clone(),
         };
         let view = cx.new_view(|_| list);

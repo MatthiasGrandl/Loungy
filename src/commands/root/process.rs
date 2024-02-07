@@ -239,7 +239,7 @@ impl StateView for ProcessBuilder {
     fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
         let (s, r) = channel::<bool>();
         let comp = ProcessList {
-            list: List::new(query, actions, cx),
+            list: List::new(query, Some(actions), cx),
             query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
             sender: s,

@@ -179,7 +179,7 @@ pub struct RootBuilder;
 
 impl StateView for RootBuilder {
     fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
-        let list = List::new(query, &actions, cx);
+        let list = List::new(query, Some(&actions), cx);
         let numbat = Numbat::init(&query, cx);
         let mut root = Root {
             list,

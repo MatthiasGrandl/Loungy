@@ -299,7 +299,8 @@ impl Actions {
                     .text_base(),
             )
     }
-    fn list_actions(&self, text: &str, cx: &mut ViewContext<Self>) {
+    fn list_actions(&self, cx: &mut ViewContext<Self>) {
+        let text = self.query.clone().unwrap().view.read(cx).text.clone();
         let items: Vec<Item> = self
             .combined(cx)
             .into_iter()
@@ -326,7 +327,7 @@ impl Actions {
             })
             .collect();
 
-        let items = fuzzy_match(text, items, false);
+        let items = fuzzy_match(&text, items, false);
         self.list.clone().unwrap().update(cx, |this, cx| {
             this.items = items;
             cx.notify();
@@ -376,8 +377,6 @@ impl ActionsModel {
         let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
             clone.update(cx, |model, cx| {
                 model.show = !model.show;
-                model.query.clone().unwrap().reset(cx);
-                model.list_actions("", cx);
                 cx.notify();
             });
         });
@@ -386,7 +385,7 @@ impl ActionsModel {
             inner: inner.clone(),
         };
         let query = TextInput::new(&model, cx);
-        let list = List::new(&query, &model, cx);
+        let list = List::new(&query, None, cx);
         inner.update(cx, |this, cx| {
             this.toggle = toggle;
             this.list = Some(list);
@@ -403,8 +402,8 @@ impl ActionsModel {
                         }
                         _ => {}
                     },
-                    TextEvent::Input { text } => {
-                        this.list_actions(text, cx);
+                    TextEvent::Input { text: _ } => {
+                        this.list_actions(cx);
                     } //_ => {}
                 }
                 cx.notify();
@@ -419,16 +418,20 @@ impl ActionsModel {
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
-            model.global.update(cx, |this, _| {
+            model.global.update(cx, |this, cx| {
                 *this = actions;
+                cx.notify();
             });
+            model.list_actions(cx);
         });
     }
     pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
-            model.local.update(cx, |this, _| {
+            model.local.update(cx, |this, cx| {
                 *this = actions;
+                cx.notify();
             });
+            model.list_actions(cx);
         });
     }
     pub fn get(&self, cx: &mut WindowContext) -> Vec<Action> {
