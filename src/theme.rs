@@ -13,7 +13,7 @@ fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
 impl From<catppuccin::FlavourColours> for Theme {
     fn from(colors: catppuccin::FlavourColours) -> Self {
         Self {
-            font_sans: "Inter Variable".into(),
+            font_sans: "Inter".into(),
             font_mono: "JetBrains Mono".into(),
             flamingo: color_to_hsla(colors.flamingo),
             pink: color_to_hsla(colors.pink),
