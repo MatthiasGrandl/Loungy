@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use gpui::*;
 
 fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
@@ -90,16 +92,40 @@ fn load_fonts(cx: &mut AppContext) -> gpui::Result<()> {
 impl Theme {
     pub fn init(cx: &mut AppContext) {
         load_fonts(cx).expect("Failed to load fonts");
-        cx.set_global(Theme::new())
+        let mut mode = dark_light::detect();
+        cx.set_global(Theme::mode(mode));
+        // Spawn a background task to detect changes in dark/light mode
+        // TODO: Currently bugged see: https://github.com/frewsxcv/rust-dark-light/issues/29
+        cx.spawn(|mut cx| async move {
+            loop {
+                let m = dark_light::detect();
+                if m != mode {
+                    mode = m;
+                    let _ = cx.update_global::<Theme, _>(|theme: &mut Theme, cx| {
+                        *theme = Theme::mode(mode);
+                        cx.refresh();
+                    });
+                }
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+            }
+        })
+        .detach();
     }
-
+    pub fn mode(mode: dark_light::Mode) -> Theme {
+        match mode {
+            dark_light::Mode::Dark | dark_light::Mode::Default => {
+                Theme::new(catppuccin::Flavour::Mocha)
+            }
+            dark_light::Mode::Light => Theme::new(catppuccin::Flavour::Latte),
+        }
+    }
     pub fn change(flavor: catppuccin::Flavour, cx: &mut WindowContext) {
         cx.set_global(Self::from(flavor.colours()));
         cx.refresh();
     }
 
-    fn new() -> Self {
-        Self::from(catppuccin::Flavour::Mocha.colours())
+    fn new(flavor: catppuccin::Flavour) -> Self {
+        Self::from(flavor.colours())
     }
 }
 
