@@ -41,8 +41,18 @@ These features exist in the old Tauri based app and will be ported soon:
 
 ## Development
 
-To run simply:
+### Requirements
+
+- Xcode Apple Swift 5.9.2
+- Rust v1.75.0
+
+### Running
 
 ```
 cargo run dev
 ```
+
+## Caveats
+
+- It is MacOS only, but I would love to support a Linux build in the future. That won't happen until GPUI adds Linux support.
+- Accessibility is still a nightmare. GPUI is lacking a proper accessibile text input so currently I am implementing one myself. Screen readers or people with impairments please don't try to use this yet.
