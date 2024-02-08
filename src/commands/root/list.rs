@@ -81,7 +81,7 @@ impl Root {
                         .into(),
                         None,
                         vec![Action::new(
-                            Img::list_icon(Icon::ArrowUpRightFromSquare),
+                            Img::list_icon(Icon::ArrowUpRightFromSquare, None),
                             format!("Open {}", tag),
                             None,
                             Box::new(move |cx| {
@@ -120,7 +120,7 @@ impl Root {
                     vec!["Search Process", "Kill", "Task Manager", "Memory", "CPU"],
                     cx.new_view(|_| {
                         ListItem::new(
-                            Some(Img::list_icon(Icon::Cpu)),
+                            Some(Img::list_icon(Icon::Cpu, None)),
                             "Search Process",
                             Some("Task Manager".to_string()),
                             Vec::<Accessory>::new(),
@@ -129,7 +129,7 @@ impl Root {
                     .into(),
                     None,
                     vec![Action::new(
-                        Img::list_icon(Icon::Skull),
+                        Img::list_icon(Icon::Skull, None),
                         "Search Process",
                         None,
                         Box::new(|cx| {
@@ -145,7 +145,7 @@ impl Root {
                     vec!["Menu Items", "Navigation"],
                     cx.new_view(|_| {
                         ListItem::new(
-                            Some(Img::list_icon(Icon::Library)),
+                            Some(Img::list_icon(Icon::Library, None)),
                             "Search Menu Items",
                             Some("Navigation".to_string()),
                             Vec::<Accessory>::new(),
@@ -154,7 +154,7 @@ impl Root {
                     .into(),
                     None,
                     vec![Action::new(
-                        Img::list_icon(Icon::Library),
+                        Img::list_icon(Icon::Library, None),
                         "Search Menu Items",
                         None,
                         Box::new(|cx| {
@@ -176,7 +176,7 @@ impl Root {
                         self.numbat.clone().into(),
                         None,
                         vec![Action::new(
-                            Img::list_icon(Icon::Copy),
+                            Img::list_icon(Icon::Copy, None),
                             "Copy",
                             None,
                             Box::new(move |cx| {

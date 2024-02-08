@@ -21,6 +21,7 @@ use crate::{
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, Shortcut, StateView},
     swift::get_application_data,
+    theme::Theme,
 };
 
 static CPU: AtomicBool = AtomicBool::new(false);
@@ -80,7 +81,7 @@ impl ProcessList {
         let sort_by_cpu = CPU.load(Ordering::Relaxed);
         let sort_action = if sort_by_cpu {
             Action::new(
-                Img::list_icon(Icon::MemoryStick),
+                Img::list_icon(Icon::MemoryStick, None),
                 "Sort by Memory",
                 Some(Shortcut::simple("tab")),
                 Box::new(move |_| {
@@ -91,7 +92,7 @@ impl ProcessList {
             )
         } else {
             Action::new(
-                Img::list_icon(Icon::Cpu),
+                Img::list_icon(Icon::Cpu, None),
                 "Sort by CPU",
                 Some(Shortcut::simple("tab")),
                 Box::new(move |_| {
@@ -170,19 +171,25 @@ impl ProcessList {
                 let s1 = self.sender.clone();
                 Item::new(
                     vec![name.clone()],
-                    cx.new_view(|_| {
+                    cx.new_view(|cx| {
+                        let theme = cx.global::<Theme>();
+                        let (m, c) = if sort_by_cpu {
+                            (None, Some(theme.lavender))
+                        } else {
+                            (Some(theme.lavender), None)
+                        };
                         ListItem::new(
                             Some(image),
                             name.clone(),
                             None,
                             vec![
                                 Accessory::new(
-                                    format_bytes(p.mem * 1024),
-                                    Some(Img::accessory_icon(Icon::MemoryStick)),
+                                    format!("{: >6}", format_bytes(p.mem * 1024)),
+                                    Some(Img::accessory_icon(Icon::MemoryStick, m)),
                                 ),
                                 Accessory::new(
-                                    format!("{:.2}%", p.cpu),
-                                    Some(Img::accessory_icon(Icon::Cpu)),
+                                    format!("{: >6.2}%", p.cpu),
+                                    Some(Img::accessory_icon(Icon::Cpu, c)),
                                 ),
                             ],
                         )
@@ -190,7 +197,7 @@ impl ProcessList {
                     .into(),
                     None,
                     vec![Action::new(
-                        Img::list_icon(Icon::Skull),
+                        Img::list_icon(Icon::Skull, None),
                         "Kill Process",
                         None,
                         Box::new(move |_| {

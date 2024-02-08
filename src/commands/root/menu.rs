@@ -30,7 +30,7 @@ impl MenuList {
                     let actions = if let Some(indices) = item.path_indices {
                         let indices = indices.clone();
                         vec![Action::new(
-                            Img::list_icon(Icon::BookOpen),
+                            Img::list_icon(Icon::BookOpen, None),
                             "Select Menu Item",
                             None,
                             Box::new(move |_| {

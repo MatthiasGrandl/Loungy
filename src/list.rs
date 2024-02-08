@@ -19,7 +19,7 @@ pub enum ImgMask {
 #[derive(Clone)]
 pub enum ImgSource {
     Base(ImageSource),
-    Icon(Icon),
+    Icon { icon: Icon, color: Option<Hsla> },
 }
 
 #[derive(Clone)]
@@ -40,16 +40,16 @@ impl Img {
     pub fn new(src: ImgSource, mask: ImgMask, size: ImgSize) -> Self {
         Self { src, mask, size }
     }
-    pub fn list_icon(icon: Icon) -> Self {
+    pub fn list_icon(icon: Icon, color: Option<Hsla>) -> Self {
         Self {
-            src: ImgSource::Icon(icon),
+            src: ImgSource::Icon { icon, color },
             mask: ImgMask::Rounded,
             size: ImgSize::Medium,
         }
     }
-    pub fn accessory_icon(icon: Icon) -> Self {
+    pub fn accessory_icon(icon: Icon, color: Option<Hsla>) -> Self {
         Self {
-            src: ImgSource::Icon(icon),
+            src: ImgSource::Icon { icon, color },
             mask: ImgMask::None,
             size: ImgSize::Small,
         }
@@ -78,14 +78,17 @@ impl RenderOnce for Img {
             ImgSize::Large => el.size_8(),
         };
         let img = match self.src {
-            ImgSource::Icon(icon) => {
+            ImgSource::Icon { icon, color } => {
                 match self.mask {
                     ImgMask::None => {}
                     _ => {
                         el = el.p_1();
                     }
                 }
-                let svg = svg().path(icon.path()).text_color(theme.text).size_full();
+                let svg = svg()
+                    .path(icon.path())
+                    .text_color(color.unwrap_or(theme.text))
+                    .size_full();
                 svg.into_any_element()
             }
             ImgSource::Base(src) => {
@@ -121,13 +124,24 @@ impl RenderOnce for Accessory {
         let theme = cx.global::<Theme>();
         match self {
             Accessory::Tag { tag, img } => {
-                let el = div().flex().items_center().text_color(theme.subtext0);
-                let el = if let Some(img) = img {
-                    el.child(div().mr_1().child(img))
+                let el = div()
+                    .flex()
+                    .items_center()
+                    .text_color(theme.subtext0)
+                    .font(theme.font_mono.clone());
+                let el = if let Some(mut img) = img {
+                    img.src = match img.src {
+                        ImgSource::Icon { icon, color } => ImgSource::Icon {
+                            icon,
+                            color: color.or(Some(theme.subtext0)),
+                        },
+                        src => src,
+                    };
+                    el.child(div().mr_3().child(img))
                 } else {
                     el
                 };
-                el.child(tag).ml_2()
+                el.child(tag).ml_6()
             }
             Accessory::Shortcut(shortcut) => div().child(shortcut),
         }

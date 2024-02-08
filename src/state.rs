@@ -150,7 +150,7 @@ fn key_icon(el: Div, icon: Icon) -> Div {
     el.child(
         div()
             .child(Img::new(
-                ImgSource::Icon(icon),
+                ImgSource::Icon { icon, color: None },
                 ImgMask::Rounded,
                 ImgSize::Small,
             ))
@@ -287,7 +287,7 @@ impl Actions {
         if let Some(action) = combined.get_mut(0) {
             action.shortcut = Some(Shortcut::simple("enter"));
             combined.push(Action::new(
-                Img::list_icon(Icon::BookOpen),
+                Img::list_icon(Icon::BookOpen, None),
                 "Actions",
                 Some(Shortcut::cmd("k")),
                 self.toggle.clone(),

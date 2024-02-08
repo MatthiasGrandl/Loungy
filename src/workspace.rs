@@ -34,7 +34,7 @@ impl Render for Workspace {
                     });
                 })
                 .mr_2()
-                .child(Img::list_icon(Icon::ArrowLeft));
+                .child(Img::list_icon(Icon::ArrowLeft, None));
         }
         div()
             .full()
