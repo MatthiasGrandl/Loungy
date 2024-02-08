@@ -41,7 +41,6 @@ impl Render for Workspace {
             .flex()
             .flex_col()
             .bg(theme.base)
-            .font("Inter")
             .text_color(theme.text)
             .child(
                 div()
