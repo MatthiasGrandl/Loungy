@@ -13,7 +13,7 @@ I got the idea while writing a Raycast plugin and getting frustrated with their 
 
 ## How
 
-Initially I wrote it using Tauri as I am familiar with web technoligies, but quickly got fed up with moving info from rust side to the webview. Around the same time the awesome folks from [Zed](https://zed.dev/) open sourced [GPUI](https://www.gpui.rs/), which is a Rust based GPU accelerated application framework. It instantly intrigued me due to its Tailwind CSS inspiration.
+Initially I wrote it using Tauri as I am familiar with web technologies, but quickly got fed up with moving info from rust side to the webview. Around the same time the awesome folks from [Zed](https://zed.dev/) open sourced [GPUI](https://www.gpui.rs/), which is a Rust based GPU accelerated application framework. It instantly intrigued me due to its Tailwind CSS inspiration.
 
 ### Credits
 
