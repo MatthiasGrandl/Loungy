@@ -58,7 +58,7 @@ impl Loading {
                         })
                     });
                     cx.background_executor()
-                        .timer(Duration::from_millis(1000 / 60))
+                        .timer(Duration::from_millis(1000 / 120))
                         .await;
                 }
             })
@@ -77,7 +77,7 @@ impl Render for Loading {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
         let mut bg = theme.lavender;
-        bg.fade_out(0.5);
+        bg.fade_out(0.2);
         let el = div().w_full().h_px().bg(theme.mantle).relative();
         if self.inner {
             el.child(

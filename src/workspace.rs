@@ -28,6 +28,7 @@ impl Render for Workspace {
         let mut back = div();
         if stack.len() > 1 {
             back = div()
+                .ml_2()
                 .on_mouse_down(MouseButton::Left, move |_, cx| {
                     cx.update_global::<StateModel, _>(|this, cx| {
                         this.pop(cx);
