@@ -14,10 +14,27 @@ pub struct StateItem {
     pub query: TextInput,
     pub view: AnyView,
     pub actions: ActionsModel,
+    pub loading: View<Loading>,
+}
+
+pub struct Loading {
+    pub inner: bool,
+}
+
+impl Render for Loading {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+        if self.inner {
+            div().child("Loading...").text_color(theme.text)
+        } else {
+            div()
+        }
+    }
 }
 
 impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
+        let loading = cx.new_view(|_| Loading { inner: true });
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
         //let actions_clone = actions.clone();
@@ -41,17 +58,28 @@ impl StateItem {
             _ => {}
         })
         .detach();
-        let view = view.build(&query, &actions, cx);
+        let view = view.build(&query, &actions, &loading, cx);
+        loading.update(cx, |this, cx| {
+            this.inner = false;
+            cx.notify();
+        });
         Self {
             query,
             view,
             actions,
+            loading,
         }
     }
 }
 
 pub trait StateView {
-    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView;
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        loading: &View<Loading>,
+        cx: &mut WindowContext,
+    ) -> AnyView;
 }
 
 pub struct State {

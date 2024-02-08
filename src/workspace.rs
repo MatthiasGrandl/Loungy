@@ -33,10 +33,10 @@ impl Render for Workspace {
                         this.pop(cx);
                     });
                 })
-                .mr_2()
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }
         div()
+            .child(item.loading.clone())
             .full()
             .flex()
             .flex_col()

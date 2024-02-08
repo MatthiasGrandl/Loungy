@@ -19,7 +19,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Shortcut, StateView},
+    state::{Action, ActionsModel, Loading, Shortcut, StateView},
     swift::get_application_data,
     theme::Theme,
 };
@@ -77,8 +77,8 @@ struct ProcessList {
 
 impl ProcessList {
     fn update(&mut self, cx: &mut WindowContext) {
-        let s1 = self.sender.clone();
         let sort_by_cpu = CPU.load(Ordering::Relaxed);
+        let s1 = self.sender.clone();
         let sort_action = if sort_by_cpu {
             Action::new(
                 Img::list_icon(Icon::MemoryStick, None),
@@ -103,6 +103,7 @@ impl ProcessList {
             )
         };
         self.actions.update_global(vec![sort_action], cx);
+        let lavender = cx.global::<Theme>().lavender.clone();
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
         let ps = Command::new("ps")
@@ -171,12 +172,11 @@ impl ProcessList {
                 let s1 = self.sender.clone();
                 Item::new(
                     vec![name.clone()],
-                    cx.new_view(|cx| {
-                        let theme = cx.global::<Theme>();
+                    cx.new_view(|_cx| {
                         let (m, c) = if sort_by_cpu {
-                            (None, Some(theme.lavender))
+                            (None, Some(lavender))
                         } else {
-                            (Some(theme.lavender), None)
+                            (Some(lavender), None)
                         };
                         ListItem::new(
                             Some(image),
@@ -235,9 +235,15 @@ impl Render for ProcessList {
 
 pub struct ProcessBuilder {}
 impl StateView for ProcessBuilder {
-    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        loading: &View<Loading>,
+        cx: &mut WindowContext,
+    ) -> AnyView {
         let (s, r) = channel::<bool>();
-        let comp = ProcessList {
+        let mut comp = ProcessList {
             list: List::new(query, Some(actions), cx),
             query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
@@ -245,19 +251,17 @@ impl StateView for ProcessBuilder {
             actions: actions.clone(),
         };
         query.set_placeholder("Search for running processes...", cx);
+        comp.update(cx);
         let mut acomp = comp.clone();
-
         cx.new_view(|cx| {
             cx.spawn(|view, mut cx| async move {
-                // set last to something old so it updates immediately
-                let mut last = std::time::Instant::now() - Duration::from_secs(10);
+                let mut last = std::time::Instant::now();
                 loop {
                     if view.upgrade().is_none() {
                         break;
                     }
                     // if message in channel or last update was more than 5s ago
-
-                    if r.try_recv().is_ok() || last.elapsed().as_secs() > 5 {
+                    if last.elapsed().as_secs() > 5 || r.try_recv().is_ok() {
                         let _ = cx.update(|cx| {
                             acomp.update(cx);
                             last = std::time::Instant::now();

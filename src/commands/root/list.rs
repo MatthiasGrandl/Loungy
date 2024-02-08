@@ -8,7 +8,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, StateModel, StateView},
+    state::{Action, ActionsModel, Loading, StateModel, StateView},
     swift::get_application_data,
 };
 
@@ -206,7 +206,13 @@ impl Render for Root {
 pub struct RootBuilder;
 
 impl StateView for RootBuilder {
-    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        loading: &View<Loading>,
+        cx: &mut WindowContext,
+    ) -> AnyView {
         let list = List::new(query, Some(&actions), cx);
         let numbat = Numbat::init(&query, cx);
         let mut root = Root {

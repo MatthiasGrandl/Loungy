@@ -6,7 +6,7 @@ use crate::{
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Shortcut, StateView},
+    state::{Action, ActionsModel, Loading, Shortcut, StateView},
     swift::{menu_item_select, menu_items, MenuItem},
 };
 
@@ -83,7 +83,13 @@ impl Render for MenuList {
 
 pub struct MenuBuilder {}
 impl StateView for MenuBuilder {
-    fn build(&self, query: &TextInput, actions: &ActionsModel, cx: &mut WindowContext) -> AnyView {
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        loading: &View<Loading>,
+        cx: &mut WindowContext,
+    ) -> AnyView {
         let mut comp = MenuList {
             list: List::new(query, Some(actions), cx),
             query: query.clone(),
