@@ -261,6 +261,7 @@ impl Render for TextView {
 
         let mut style = TextStyle::default();
         style.color = theme.text;
+        style.font_family = theme.font_sans.clone();
         if text.len() == 0 {
             text = self.placeholder.to_string();
             style.color = theme.subtext0;

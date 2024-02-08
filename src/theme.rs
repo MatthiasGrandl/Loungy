@@ -13,6 +13,8 @@ fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
 impl From<catppuccin::FlavourColours> for Theme {
     fn from(colors: catppuccin::FlavourColours) -> Self {
         Self {
+            font_sans: "Inter Variable".into(),
+            font_mono: "JetBrains Mono".into(),
             flamingo: color_to_hsla(colors.flamingo),
             pink: color_to_hsla(colors.pink),
             mauve: color_to_hsla(colors.mauve),
@@ -44,6 +46,8 @@ impl From<catppuccin::FlavourColours> for Theme {
 
 #[derive(Debug)]
 pub struct Theme {
+    pub font_sans: SharedString,
+    pub font_mono: SharedString,
     pub flamingo: Hsla,
     pub pink: Hsla,
     pub mauve: Hsla,
@@ -71,8 +75,21 @@ pub struct Theme {
     pub crust: Hsla,
 }
 
+fn load_fonts(cx: &mut AppContext) -> gpui::Result<()> {
+    let font_paths = cx.asset_source().list("fonts")?;
+    let mut embedded_fonts = Vec::new();
+    for font_path in font_paths {
+        if font_path.ends_with(".ttf") {
+            let font_bytes = cx.asset_source().load(&font_path)?;
+            embedded_fonts.push(font_bytes);
+        }
+    }
+    cx.text_system().add_fonts(embedded_fonts)
+}
+
 impl Theme {
     pub fn init(cx: &mut AppContext) {
+        load_fonts(cx).expect("Failed to load fonts");
         cx.set_global(Theme::new())
     }
 
