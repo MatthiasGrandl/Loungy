@@ -8,6 +8,9 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager,
 };
 
+pub static WIDTH: f64 = 800.0;
+pub static HEIGHT: f64 = 450.0;
+
 fn window_options() -> WindowOptions {
     let mut options = WindowOptions::default();
     let bounds: Bounds<GlobalPixels> = Bounds::new(
@@ -16,8 +19,8 @@ fn window_options() -> WindowOptions {
             y: GlobalPixels::from(320.0),
         },
         Size {
-            width: GlobalPixels::from(800.0),
-            height: GlobalPixels::from(450.0),
+            width: GlobalPixels::from(WIDTH),
+            height: GlobalPixels::from(HEIGHT),
         },
     );
     options.bounds = WindowBounds::Fixed(bounds);

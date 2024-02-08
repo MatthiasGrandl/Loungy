@@ -1993,6 +1993,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "simple-easing",
  "swift-rs",
  "whoami",
 ]
@@ -3165,6 +3166,12 @@ checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "simple-easing"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "832ddd7df0d98d6fd93b973c330b7c8e0742d5cb8f1afc7dea89dba4d2531aa1"
 
 [[package]]
 name = "simplecss"

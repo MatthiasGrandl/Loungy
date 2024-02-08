@@ -1,7 +1,10 @@
+use ::simple_easing::linear;
 use gpui::*;
 use serde::Deserialize;
+use std::time::{self, Duration};
 
 use crate::{
+    app::WIDTH,
     commands::root::list::RootBuilder,
     icon::Icon,
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
@@ -19,22 +22,83 @@ pub struct StateItem {
 
 pub struct Loading {
     pub inner: bool,
+    left: f32,
+    width: f32,
+}
+
+impl Loading {
+    fn init(cx: &mut WindowContext) -> View<Self> {
+        cx.new_view(|cx| {
+            cx.spawn(|view, mut cx| async move {
+                let easing: fn(f32) -> f32 = linear;
+                let ts = time::Instant::now();
+                let w = WIDTH as f32;
+                let w_start = w * 0.4;
+                let w_stop = w * 0.5;
+                loop {
+                    if view.upgrade().is_none() {
+                        break;
+                    }
+                    let i = (ts.elapsed().as_millis() as f32 % 1000.0) / 1000.0;
+                    let (left, width) = if i > 0.4 {
+                        let i = (i - 0.4) / 0.6;
+                        let e = easing(i);
+                        let left = e * w;
+                        let width = e * (w_stop - w_start) + w_start;
+                        (left, width)
+                    } else {
+                        let i = i / 0.4;
+                        (0.0, easing(i) * w_start)
+                    };
+                    let _ = cx.update(|cx| {
+                        view.update(cx, |this: &mut Loading, cx| {
+                            this.left = left;
+                            this.width = width;
+                            cx.notify();
+                        })
+                    });
+                    cx.background_executor()
+                        .timer(Duration::from_millis(1000 / 60))
+                        .await;
+                }
+            })
+            .detach();
+
+            Self {
+                inner: true,
+                left: 0.0,
+                width: 0.0,
+            }
+        })
+    }
 }
 
 impl Render for Loading {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
+        let mut bg = theme.lavender;
+        bg.fade_out(0.5);
+        let el = div().w_full().h_px().bg(theme.mantle).relative();
         if self.inner {
-            div().child("Loading...").text_color(theme.text)
+            el.child(
+                div()
+                    .absolute()
+                    .h_full()
+                    .top_0()
+                    .bottom_0()
+                    .bg(bg)
+                    .left(Pixels(self.left))
+                    .w(Pixels(self.width)),
+            )
         } else {
-            div()
+            el
         }
     }
 }
 
 impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
-        let loading = cx.new_view(|_| Loading { inner: true });
+        let loading = Loading::init(cx);
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(&actions, cx);
         //let actions_clone = actions.clone();
@@ -59,10 +123,6 @@ impl StateItem {
         })
         .detach();
         let view = view.build(&query, &actions, &loading, cx);
-        loading.update(cx, |this, cx| {
-            this.inner = false;
-            cx.notify();
-        });
         Self {
             query,
             view,
@@ -93,9 +153,11 @@ pub struct StateModel {
 
 impl StateModel {
     pub fn init(cx: &mut WindowContext) -> Self {
-        let item = StateItem::init(RootBuilder {}, cx);
-        let state = cx.new_model(|_| State { stack: vec![item] });
-        Self { inner: state }
+        let this = Self {
+            inner: cx.new_model(|_| State { stack: vec![] }),
+        };
+        this.push(RootBuilder {}, cx);
+        return this;
     }
     pub fn pop(&self, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
@@ -107,9 +169,22 @@ impl StateModel {
     }
     pub fn push(&self, view: impl StateView, cx: &mut WindowContext) {
         let item = StateItem::init(view, cx);
+        let loading = item.loading.clone();
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
             cx.notify();
+        });
+        loading.update(cx, |_, cx| {
+            cx.spawn(|view, mut cx| async move {
+                cx.background_executor()
+                    .timer(Duration::from_millis(1000))
+                    .await;
+                let _ = view.update(&mut cx, |this, cx| {
+                    this.inner = false;
+                    cx.notify();
+                });
+            })
+            .detach();
         });
     }
 }

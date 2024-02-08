@@ -36,7 +36,6 @@ impl Render for Workspace {
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }
         div()
-            .child(item.loading.clone())
             .full()
             .flex()
             .flex_col()
@@ -51,10 +50,9 @@ impl Render for Workspace {
                     .child(item.query.clone())
                     .text_lg()
                     .p_2()
-                    .w_full()
-                    .border_b_1()
-                    .border_color(theme.mantle),
+                    .w_full(),
             )
+            .child(item.loading.clone())
             .child(div().child(item.view.clone()).p_2())
             .child(
                 div()
