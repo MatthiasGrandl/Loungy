@@ -56,3 +56,4 @@ cargo run dev
 
 - It is MacOS only, but I would love to support a Linux build in the future. That won't happen until GPUI adds Linux support.
 - Accessibility is still a nightmare. GPUI is lacking a proper accessibile text input so currently I am implementing one myself. Screen readers or people with impairments please don't try to use this yet.
+- The window position is currently hardcoded, so depending on your screen resolution it might not be in the best position. Will be fixed as soon as there is an API for it in GPUI.
