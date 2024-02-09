@@ -2,24 +2,19 @@ use std::ops::Range;
 
 use gpui::*;
 
-use crate::{state::ActionsModel, theme::Theme};
+use crate::theme::Theme;
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
     focus_handle: FocusHandle,
     pub view: View<TextView>,
-    actions: ActionsModel,
 }
 
 impl TextInput {
-    pub fn new(actions: &ActionsModel, cx: &mut WindowContext) -> Self {
+    pub fn new(cx: &mut WindowContext) -> Self {
         let focus_handle = cx.focus_handle();
         let view = TextView::init(cx, &focus_handle);
-        Self {
-            focus_handle,
-            view,
-            actions: actions.clone(),
-        }
+        Self { focus_handle, view }
     }
     pub fn set_placeholder(&self, placeholder: impl ToString, cx: &mut WindowContext) {
         self.view.update(cx, |editor, cx| {
@@ -135,14 +130,6 @@ impl RenderOnce for TextInput {
         div()
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
-                if let Some(action) = self.actions.check(&ev.keystroke, cx) {
-                    if ev.is_held {
-                        return;
-                    }
-                    (action.action)(cx);
-                    return;
-                };
-
                 self.view.update(cx, |editor, cx| {
                     let prev = editor.text.clone();
                     cx.emit(TextEvent::KeyDown(ev.clone()));

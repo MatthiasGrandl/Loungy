@@ -100,20 +100,29 @@ impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let loading = Loading::init(cx);
         let actions = ActionsModel::init(cx);
-        let query = TextInput::new(&actions, cx);
-        //let actions_clone = actions.clone();
+        let query = TextInput::new(cx);
+        let actions_clone = actions.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
                 // if !actions_clone.inner.read(cx).show {
                 //     cx.hide();
                 // };
             }
-            TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
-                "escape" => {
-                    cx.hide();
+            TextEvent::KeyDown(ev) => {
+                if let Some(action) = &actions_clone.check(&ev.keystroke, cx) {
+                    if ev.is_held {
+                        return;
+                    }
+                    (action.action)(cx);
+                    return;
+                };
+                match ev.keystroke.key.as_str() {
+                    "escape" => {
+                        cx.hide();
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             TextEvent::Back => {
                 cx.update_global::<StateModel, _>(|this, cx| {
                     this.pop(cx);
@@ -384,7 +393,7 @@ pub struct Actions {
 }
 
 impl Actions {
-    fn combined(&self, cx: &mut ViewContext<Self>) -> Vec<Action> {
+    fn combined(&self, cx: &WindowContext) -> Vec<Action> {
         let mut combined = self.local.read(cx).clone();
         combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
@@ -515,10 +524,12 @@ impl ActionsModel {
         let model = Self {
             inner: inner.clone(),
         };
-        let query = TextInput::new(&model, cx);
+        //let clone = model.clone();
+        let query = TextInput::new(cx);
         let list = List::new(&query, None, cx);
         inner.update(cx, |this, cx| {
             this.toggle = toggle;
+            let list_clone = list.clone();
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
@@ -526,13 +537,31 @@ impl ActionsModel {
                         this.show = false;
                         cx.notify();
                     }
-                    TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
-                        "escape" => {
-                            this.show = false;
-                            cx.notify();
+                    TextEvent::KeyDown(ev) => {
+                        if Shortcut::simple("enter").inner.eq(&ev.keystroke) {
+                            let _ = &list_clone.update(cx, |this, cx| {
+                                if let Some(action) = this.default_action() {
+                                    (action.action)(cx);
+                                }
+                            });
+                            return;
                         }
-                        _ => {}
-                    },
+                        // why does this not work?
+                        // if let Some(action) = &clone.check(&ev.keystroke, cx) {
+                        //     if ev.is_held {
+                        //         return;
+                        //     }
+                        //     (action.action)(cx);
+                        //     return;
+                        // };
+                        match ev.keystroke.key.as_str() {
+                            "escape" => {
+                                this.show = false;
+                                cx.notify();
+                            }
+                            _ => {}
+                        }
+                    }
                     TextEvent::Input { text: _ } => {
                         this.list_actions(cx);
                     } //_ => {}
@@ -565,15 +594,11 @@ impl ActionsModel {
             model.list_actions(cx);
         });
     }
-    pub fn get(&self, cx: &mut WindowContext) -> Vec<Action> {
-        let mut outer: Option<Vec<Action>> = None;
-        self.inner.update(cx, |model, cx| {
-            outer = Some(model.combined(cx));
-        });
-        outer.unwrap()
+    pub fn get(&self, cx: &WindowContext) -> Vec<Action> {
+        self.inner.read(cx).combined(cx)
     }
-    pub fn check(&self, keystroke: &Keystroke, cx: &mut WindowContext) -> Option<Action> {
-        let actions = &self.get(cx);
+    pub fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
+        let actions = self.get(cx);
         for action in actions {
             if let Some(shortcut) = &action.shortcut {
                 if shortcut.inner.eq(keystroke) {

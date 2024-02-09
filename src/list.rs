@@ -271,7 +271,6 @@ impl RenderOnce for Item {
             if let Some(action) = actions.first() {
                 (action.action)(cx);
             }
-            //
         })
     }
 }
@@ -345,6 +344,12 @@ impl List {
             };
             cx.notify();
         }
+    }
+    pub fn selected(&self) -> Option<&Item> {
+        self.items.get(self.selected)
+    }
+    pub fn default_action(&self) -> Option<&Action> {
+        self.selected().and_then(|item| item.actions.first())
     }
     pub fn new(
         query: &TextInput,
