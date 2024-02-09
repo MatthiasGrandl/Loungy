@@ -115,6 +115,16 @@ impl ToastState {
             .child(div().size_1p5().bg(color).rounded_full())
             .into_any_element()
     }
+    pub fn timeout(&mut self, duration: Duration, cx: &mut ViewContext<Self>) {
+        cx.spawn(move |view, mut cx| async move {
+            cx.background_executor().timer(duration).await;
+            let _ = view.update(&mut cx, |this, cx| {
+                *this = ToastState::Idle;
+                cx.notify();
+            });
+        })
+        .detach();
+    }
 }
 
 impl Render for ToastState {
@@ -162,36 +172,24 @@ impl Toast {
         let state = cx.new_view(|_| ToastState::Idle);
         Self { state }
     }
-    pub fn new(&mut self, message: impl ToString, cx: &mut WindowContext) {
+    pub fn loading(&mut self, message: impl ToString, cx: &mut WindowContext) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Loading(message.to_string());
             cx.notify();
         });
     }
-    pub fn transition(&mut self, success: bool, cx: &mut WindowContext) {
+    pub fn success(&mut self, message: impl ToString, cx: &mut WindowContext) {
         self.state.update(cx, |this, cx| {
-            let message = match this {
-                ToastState::Loading(message)
-                | ToastState::Success(message)
-                | ToastState::Error(message) => message.clone(),
-                _ => success
-                    .then(|| "Success".to_string())
-                    .unwrap_or("Error".to_string()),
-            };
-            *this = if success {
-                ToastState::Success(message)
-            } else {
-                ToastState::Error(message)
-            };
+            *this = ToastState::Success(message.to_string());
             cx.notify();
-            cx.spawn(|view, mut cx| async move {
-                cx.background_executor().timer(Duration::from_secs(2)).await;
-                let _ = view.update(&mut cx, |this, cx| {
-                    *this = ToastState::Idle;
-                    cx.notify();
-                });
-            })
-            .detach();
+            this.timeout(Duration::from_secs(2), cx);
+        });
+    }
+    pub fn error(&mut self, message: impl ToString, cx: &mut WindowContext) {
+        self.state.update(cx, |this, cx| {
+            *this = ToastState::Error(message.to_string());
+            cx.notify();
+            this.timeout(Duration::from_secs(2), cx);
         });
     }
 }

@@ -15,6 +15,7 @@ struct ThemeList {
     list: View<List>,
     query: TextInput,
     model: Model<Vec<Item>>,
+    toast: Toast,
 }
 
 impl ThemeList {
@@ -26,6 +27,8 @@ impl ThemeList {
                 let clone = theme.clone();
                 let n1 = theme.name.clone();
                 let n2 = theme.name.clone();
+                let toast1 = self.toast.clone();
+                let toast2 = self.toast.clone();
                 Item::new(
                     vec![theme.name.clone()],
                     cx.new_view(|_| {
@@ -56,13 +59,19 @@ impl ThemeList {
                             "Default Light Theme",
                             Some(Shortcut::cmd("l")),
                             Box::new(move |cx| {
-                                cx.update_global::<Db, _>(|this, _| {
+                                cx.update_global::<Db, _>(|this, cx| {
+                                    let mut toast = toast1.clone();
                                     let mut settings =
                                         this.get::<ThemeSettings>("theme").unwrap_or_default();
                                     settings.light = n1.clone().to_string();
                                     // TODO: Catch error with future toast API
-                                    let _ = this.set::<ThemeSettings>("theme", &settings);
+                                    if this.set::<ThemeSettings>("theme", &settings).is_err() {
+                                        let _ = &toast.error("Failed to change light theme", cx);
+                                    } else {
+                                        let _ = &toast.success("Changed light theme", cx);
+                                    }
                                 });
+
                                 cx.refresh();
                             }),
                             false,
@@ -72,13 +81,19 @@ impl ThemeList {
                             "Default Dark Theme",
                             Some(Shortcut::cmd("d")),
                             Box::new(move |cx| {
-                                cx.update_global::<Db, _>(|this, _| {
+                                cx.update_global::<Db, _>(|this, cx| {
+                                    let mut toast = toast2.clone();
                                     let mut settings =
                                         this.get::<ThemeSettings>("theme").unwrap_or_default();
                                     settings.dark = n2.clone().to_string();
                                     // TODO: Catch error with future toast API
-                                    let _ = this.set::<ThemeSettings>("theme", &settings);
+                                    if this.set::<ThemeSettings>("theme", &settings).is_err() {
+                                        let _ = &toast.error("Failed to change dark theme", cx);
+                                    } else {
+                                        let _ = &toast.success("Changed dark theme", cx);
+                                    }
                                 });
+
                                 cx.refresh();
                             }),
                             false,
@@ -118,13 +133,14 @@ impl StateView for ThemeListBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
-        _toast: &Toast,
+        toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let mut comp = ThemeList {
             list: List::new(query, Some(actions), cx),
             query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::new()),
+            toast: toast.clone(),
         };
         query.set_placeholder("Search for themes...", cx);
         comp.update(cx);
