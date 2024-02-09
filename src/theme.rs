@@ -2,7 +2,7 @@ use gpui::*;
 use log::*;
 use serde::{Deserialize, Serialize};
 
-use crate::db::Db;
+use crate::{db::Db, paths::Paths};
 
 fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
     Rgba {
@@ -146,7 +146,7 @@ impl Theme {
             .global::<Db>()
             .get::<ThemeSettings>("theme")
             .unwrap_or_default();
-        let list = Theme::list();
+        let list = Theme::list(cx);
         let name = match mode {
             dark_light::Mode::Dark | dark_light::Mode::Default => settings.dark,
             dark_light::Mode::Light => settings.light,
@@ -165,12 +165,41 @@ impl Theme {
         cx.refresh();
     }
 
-    pub fn list() -> Vec<Theme> {
-        let standard: Vec<Theme> = catppuccin::Flavour::all()
+    pub fn list(cx: &AppContext) -> Vec<Theme> {
+        let config = cx.global::<Paths>().config.clone().join("themes");
+        let mut user_themes: Vec<Theme> = match std::fs::read_dir(config) {
+            Ok(themes) => themes
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    let path = entry.path();
+                    let theme: Theme = match std::fs::read_to_string(path) {
+                        Ok(theme) => match toml::from_str(&theme) {
+                            Ok(theme) => theme,
+                            Err(e) => {
+                                error!("Failed to parse theme: {}", e);
+                                return None;
+                            }
+                        },
+                        Err(e) => {
+                            error!("Failed to read theme: {}", e);
+                            return None;
+                        }
+                    };
+                    Some(theme)
+                })
+                .collect(),
+            Err(e) => {
+                error!("Failed to read themes: {}", e);
+                vec![]
+            }
+        };
+        let mut themes: Vec<Theme> = catppuccin::Flavour::all()
             .into_iter()
             .map(|f| Self::from(f))
             .collect();
-        standard
+        themes.append(&mut user_themes);
+
+        themes
     }
 }
 

@@ -20,6 +20,7 @@ pub enum ImgMask {
 pub enum ImgSource {
     Base(ImageSource),
     Icon { icon: Icon, color: Option<Hsla> },
+    Dot(Hsla),
 }
 
 #[derive(Clone)]
@@ -61,12 +62,23 @@ impl Img {
             size: ImgSize::Medium,
         }
     }
+    pub fn list_dot(color: Hsla) -> Self {
+        Self {
+            src: ImgSource::Dot(color),
+            mask: ImgMask::None,
+            size: ImgSize::Medium,
+        }
+    }
 }
 
 impl RenderOnce for Img {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        let el = div().overflow_hidden();
+        let el = div()
+            .overflow_hidden()
+            .flex()
+            .items_center()
+            .justify_center();
         let el = match self.mask {
             ImgMask::Circle => el.rounded_full().bg(theme.surface0),
             ImgMask::Rounded => el.rounded_md().bg(theme.surface0),
@@ -95,6 +107,7 @@ impl RenderOnce for Img {
                 let img = img(src).size_full();
                 img.into_any_element()
             }
+            ImgSource::Dot(color) => div().rounded_full().bg(color).size_2_3().into_any(),
         };
 
         el.child(img)

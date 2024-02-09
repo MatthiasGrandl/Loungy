@@ -3,7 +3,7 @@ use gpui::*;
 use crate::{
     db::Db,
     icon::Icon,
-    list::{Accessory, Img, Item, List, ListItem},
+    list::{Accessory, Img, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, Loading, Shortcut, StateView},
@@ -19,7 +19,7 @@ struct ThemeList {
 
 impl ThemeList {
     fn update(&mut self, cx: &mut WindowContext) {
-        let themes = Theme::list();
+        let themes = Theme::list(cx);
         let items: Vec<Item> = themes
             .into_iter()
             .map(|theme| {
@@ -30,7 +30,7 @@ impl ThemeList {
                     vec![theme.name.clone()],
                     cx.new_view(|_| {
                         ListItem::new(
-                            Some(Img::list_icon(Icon::Palette, None)),
+                            Some(Img::list_dot(theme.base)),
                             theme.name.clone(),
                             None,
                             vec![],

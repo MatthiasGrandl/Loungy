@@ -17,6 +17,7 @@ mod theme;
 mod workspace;
 
 fn main() {
+    env_logger::init();
     let app = App::new();
 
     run_app(app)
