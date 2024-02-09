@@ -5,7 +5,7 @@ use std::time::{self, Duration};
 
 use crate::{
     app::WIDTH,
-    commands::root::list::RootBuilder,
+    commands::root::list::RootListBuilder,
     icon::Icon,
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
@@ -195,7 +195,7 @@ impl Toast {
 }
 
 impl StateItem {
-    pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
+    pub fn init(view: impl StateViewBuilder, cx: &mut WindowContext) -> Self {
         let loading = Loading::init(cx);
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(cx);
@@ -241,7 +241,7 @@ impl StateItem {
     }
 }
 
-pub trait StateView {
+pub trait StateViewBuilder: Clone {
     fn build(
         &self,
         query: &TextInput,
@@ -266,7 +266,7 @@ impl StateModel {
         let this = Self {
             inner: cx.new_model(|_| State { stack: vec![] }),
         };
-        this.push(RootBuilder {}, cx);
+        this.push(RootListBuilder {}, cx);
         return this;
     }
     pub fn pop(&self, cx: &mut WindowContext) {
@@ -277,7 +277,7 @@ impl StateModel {
             };
         });
     }
-    pub fn push(&self, view: impl StateView, cx: &mut WindowContext) {
+    pub fn push(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
         let item = StateItem::init(view, cx);
         let loading = item.loading.clone();
         self.inner.update(cx, |model, cx| {

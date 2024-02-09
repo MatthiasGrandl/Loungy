@@ -2,11 +2,12 @@ use gpui::*;
 use swift_rs::SRData;
 
 use crate::{
+    commands::{RootCommand, RootCommandBuilder},
     icon::Icon,
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
+    state::{Action, ActionsModel, Loading, Shortcut, StateModel, StateViewBuilder, Toast},
     swift::{menu_item_select, menu_items, MenuItem},
 };
 
@@ -81,8 +82,9 @@ impl Render for MenuList {
     }
 }
 
-pub struct MenuBuilder {}
-impl StateView for MenuBuilder {
+#[derive(Clone)]
+pub struct MenuListBuilder;
+impl StateViewBuilder for MenuListBuilder {
     fn build(
         &self,
         query: &TextInput,
@@ -113,5 +115,22 @@ impl StateView for MenuBuilder {
             comp
         })
         .into()
+    }
+}
+
+pub struct MenuCommandBuilder;
+
+impl RootCommandBuilder for MenuCommandBuilder {
+    fn build(&self, _cx: &mut WindowContext) -> RootCommand {
+        RootCommand::new(
+            "Search Menu Items",
+            "Navigation",
+            Icon::Library,
+            vec!["MacOS", "Apple"],
+            None,
+            Box::new(|cx| {
+                cx.update_global::<StateModel, _>(|model, cx| model.push(MenuListBuilder {}, cx));
+            }),
+        )
     }
 }

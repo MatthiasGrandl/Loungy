@@ -3,26 +3,28 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use gpui::*;
 
 use crate::{
+    commands::RootCommands,
     icon::Icon,
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, StateModel, StateView, Toast},
+    state::{Action, ActionsModel, Loading, StateModel, StateViewBuilder, Toast},
     swift::get_application_data,
 };
 
-use super::{menu::MenuBuilder, numbat::Numbat, process::ProcessBuilder, theme::ThemeListBuilder};
+use super::{numbat::Numbat, theme::ThemeListBuilder};
 
-struct Root {
+struct RootList {
     model: Model<Vec<Item>>,
     query: TextInput,
     list: View<List>,
     numbat: View<Numbat>,
+    commands: Vec<Item>,
     toast: Toast,
 }
 
-impl Root {
+impl RootList {
     fn update(&mut self, cx: &mut WindowContext) {
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -118,83 +120,7 @@ impl Root {
     fn list(&mut self, cx: &mut WindowContext) {
         self.list.update(cx, |this, cx| {
             let mut items = self.model.read(cx).clone();
-            items.append(&mut vec![
-                Item::new(
-                    vec!["Search Process", "Kill", "Task Manager", "Memory", "CPU"],
-                    cx.new_view(|_| {
-                        ListItem::new(
-                            Some(Img::list_icon(Icon::Cpu, None)),
-                            "Search Process",
-                            Some("Task Manager".to_string()),
-                            Vec::<Accessory>::new(),
-                        )
-                    })
-                    .into(),
-                    None,
-                    vec![Action::new(
-                        Img::list_icon(Icon::Skull, None),
-                        "Search Process",
-                        None,
-                        Box::new(|cx| {
-                            cx.update_global::<StateModel, _>(|this, cx| {
-                                this.push(ProcessBuilder {}, cx);
-                            });
-                        }),
-                        false,
-                    )],
-                    Some(3),
-                ),
-                Item::new(
-                    vec!["Menu Items", "Navigation"],
-                    cx.new_view(|_| {
-                        ListItem::new(
-                            Some(Img::list_icon(Icon::Library, None)),
-                            "Search Menu Items",
-                            Some("Navigation".to_string()),
-                            Vec::<Accessory>::new(),
-                        )
-                    })
-                    .into(),
-                    None,
-                    vec![Action::new(
-                        Img::list_icon(Icon::Library, None),
-                        "Search Menu Items",
-                        None,
-                        Box::new(|cx| {
-                            cx.update_global::<StateModel, _>(|this, cx| {
-                                this.push(MenuBuilder {}, cx);
-                            });
-                        }),
-                        false,
-                    )],
-                    Some(3),
-                ),
-                Item::new(
-                    vec!["Search Themes", "Customization"],
-                    cx.new_view(|_| {
-                        ListItem::new(
-                            Some(Img::list_icon(Icon::Palette, None)),
-                            "Search Themes",
-                            Some("Customization".to_string()),
-                            Vec::<Accessory>::new(),
-                        )
-                    })
-                    .into(),
-                    None,
-                    vec![Action::new(
-                        Img::list_icon(Icon::Palette, None),
-                        "Search Themes",
-                        None,
-                        Box::new(|cx| {
-                            cx.update_global::<StateModel, _>(|this, cx| {
-                                this.push(ThemeListBuilder {}, cx);
-                            });
-                        }),
-                        false,
-                    )],
-                    Some(3),
-                ),
-            ]);
+            items.append(&mut self.commands.clone());
 
             let query = self.query.view.read(cx).text.clone();
             let mut items = fuzzy_match(&query, items, false);
@@ -230,15 +156,16 @@ impl Root {
     }
 }
 
-impl Render for Root {
+impl Render for RootList {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         self.list.clone()
     }
 }
 
-pub struct RootBuilder;
+#[derive(Clone)]
+pub struct RootListBuilder;
 
-impl StateView for RootBuilder {
+impl StateViewBuilder for RootListBuilder {
     fn build(
         &self,
         query: &TextInput,
@@ -249,19 +176,20 @@ impl StateView for RootBuilder {
     ) -> AnyView {
         let list = List::new(query, Some(&actions), cx);
         let numbat = Numbat::init(&query, cx);
-        let mut root = Root {
+        let mut root = RootList {
             list,
             query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
             numbat,
             toast: toast.clone(),
+            commands: RootCommands::list(cx),
         };
         root.update(cx);
         query.set_placeholder("Search for apps and commands...", cx);
         cx.new_view(|cx| {
             cx.subscribe(
                 &query.view,
-                move |subscriber: &mut Root, _emitter, event, cx| match event {
+                move |subscriber: &mut RootList, _emitter, event, cx| match event {
                     TextEvent::Input { text: _ } => {
                         subscriber.list(cx);
                     }

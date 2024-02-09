@@ -14,12 +14,13 @@ use std::{
 use regex::Regex;
 
 use crate::{
+    commands::{RootCommand, RootCommandBuilder},
     icon::Icon,
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
+    state::{Action, ActionsModel, Loading, Shortcut, StateModel, StateViewBuilder, Toast},
     swift::get_application_data,
     theme::Theme,
 };
@@ -248,8 +249,9 @@ impl Render for ProcessList {
     }
 }
 
-pub struct ProcessBuilder {}
-impl StateView for ProcessBuilder {
+#[derive(Clone)]
+pub struct ProcessListBuilder;
+impl StateViewBuilder for ProcessListBuilder {
     fn build(
         &self,
         query: &TextInput,
@@ -303,5 +305,24 @@ impl StateView for ProcessBuilder {
             comp
         })
         .into()
+    }
+}
+
+pub struct ProcessCommandBuilder;
+
+impl RootCommandBuilder for ProcessCommandBuilder {
+    fn build(&self, _cx: &mut WindowContext) -> RootCommand {
+        RootCommand::new(
+            "Search Process",
+            "Task Manager",
+            Icon::Cpu,
+            vec!["Kill", "Memory", "CPU"],
+            None,
+            Box::new(|cx| {
+                cx.update_global::<StateModel, _>(|model, cx| {
+                    model.push(ProcessListBuilder {}, cx)
+                });
+            }),
+        )
     }
 }

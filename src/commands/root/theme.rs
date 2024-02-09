@@ -1,12 +1,13 @@
 use gpui::*;
 
 use crate::{
+    commands::{RootCommand, RootCommandBuilder},
     db::Db,
     icon::Icon,
     list::{Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
+    state::{Action, ActionsModel, Loading, Shortcut, StateModel, StateViewBuilder, Toast},
     theme::{Theme, ThemeSettings},
 };
 
@@ -133,8 +134,9 @@ impl Render for ThemeList {
     }
 }
 
-pub struct ThemeListBuilder {}
-impl StateView for ThemeListBuilder {
+#[derive(Clone)]
+pub struct ThemeListBuilder;
+impl StateViewBuilder for ThemeListBuilder {
     fn build(
         &self,
         query: &TextInput,
@@ -166,5 +168,22 @@ impl StateView for ThemeListBuilder {
             comp
         })
         .into()
+    }
+}
+
+pub struct ThemeCommandBuilder;
+
+impl RootCommandBuilder for ThemeCommandBuilder {
+    fn build(&self, _cx: &mut WindowContext) -> RootCommand {
+        RootCommand::new(
+            "Search Themes",
+            "Customization",
+            Icon::Palette,
+            vec!["Appearance"],
+            None,
+            Box::new(|cx| {
+                cx.update_global::<StateModel, _>(|model, cx| model.push(ThemeListBuilder {}, cx));
+            }),
+        )
     }
 }
