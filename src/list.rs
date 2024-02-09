@@ -257,6 +257,7 @@ impl RenderOnce for Item {
         let theme = cx.global::<Theme>();
         let mut bg_hover = theme.mantle;
         bg_hover.fade_out(0.5);
+        let actions = self.actions.clone();
         if self.selected {
             div().border_color(theme.crust).bg(theme.mantle)
         } else {
@@ -266,6 +267,12 @@ impl RenderOnce for Item {
         .border_1()
         .rounded_xl()
         .child(self.component)
+        .on_mouse_down(MouseButton::Left, move |_, cx| {
+            if let Some(action) = actions.first() {
+                (action.action)(cx);
+            }
+            //
+        })
     }
 }
 
