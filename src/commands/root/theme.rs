@@ -3,7 +3,7 @@ use gpui::*;
 use crate::{
     db::Db,
     icon::Icon,
-    list::{Accessory, Img, ImgSource, Item, List, ListItem},
+    list::{Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, Loading, Shortcut, StateView},
@@ -117,7 +117,7 @@ impl StateView for ThemeListBuilder {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        loading: &View<Loading>,
+        _loading: &View<Loading>,
         cx: &mut WindowContext,
     ) -> AnyView {
         let mut comp = ThemeList {

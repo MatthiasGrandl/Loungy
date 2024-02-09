@@ -473,6 +473,17 @@ impl Actions {
             cx.notify();
         });
     }
+    fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
+        let actions = self.combined(cx);
+        for action in actions {
+            if let Some(shortcut) = &action.shortcut {
+                if shortcut.inner.eq(keystroke) {
+                    return Some(action.clone());
+                }
+            }
+        }
+        None
+    }
 }
 
 impl Render for Actions {
@@ -524,7 +535,6 @@ impl ActionsModel {
         let model = Self {
             inner: inner.clone(),
         };
-        //let clone = model.clone();
         let query = TextInput::new(cx);
         let list = List::new(&query, None, cx);
         inner.update(cx, |this, cx| {
@@ -546,14 +556,13 @@ impl ActionsModel {
                             });
                             return;
                         }
-                        // why does this not work?
-                        // if let Some(action) = &clone.check(&ev.keystroke, cx) {
-                        //     if ev.is_held {
-                        //         return;
-                        //     }
-                        //     (action.action)(cx);
-                        //     return;
-                        // };
+                        if let Some(action) = this.check(&ev.keystroke, cx) {
+                            if ev.is_held {
+                                return;
+                            }
+                            (action.action)(cx);
+                            return;
+                        }
                         match ev.keystroke.key.as_str() {
                             "escape" => {
                                 this.show = false;
@@ -594,18 +603,7 @@ impl ActionsModel {
             model.list_actions(cx);
         });
     }
-    pub fn get(&self, cx: &WindowContext) -> Vec<Action> {
-        self.inner.read(cx).combined(cx)
-    }
     pub fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
-        let actions = self.get(cx);
-        for action in actions {
-            if let Some(shortcut) = &action.shortcut {
-                if shortcut.inner.eq(keystroke) {
-                    return Some(action.clone());
-                }
-            }
-        }
-        None
+        self.inner.read(cx).check(keystroke, cx)
     }
 }

@@ -87,7 +87,7 @@ impl StateView for MenuBuilder {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        loading: &View<Loading>,
+        _loading: &View<Loading>,
         cx: &mut WindowContext,
     ) -> AnyView {
         let mut comp = MenuList {

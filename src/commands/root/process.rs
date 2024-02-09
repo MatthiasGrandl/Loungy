@@ -239,7 +239,7 @@ impl StateView for ProcessBuilder {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        loading: &View<Loading>,
+        _loading: &View<Loading>,
         cx: &mut WindowContext,
     ) -> AnyView {
         let (s, r) = channel::<bool>();

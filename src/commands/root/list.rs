@@ -235,7 +235,7 @@ impl StateView for RootBuilder {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        loading: &View<Loading>,
+        _loading: &View<Loading>,
         cx: &mut WindowContext,
     ) -> AnyView {
         let list = List::new(query, Some(&actions), cx);
