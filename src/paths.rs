@@ -17,9 +17,12 @@ impl Paths {
         let username = whoami::username();
         let user_dir = PathBuf::from("/Users").join(username);
         cx.set_global(Self {
-            cache: user_dir.clone().join("Library/Caches"),
-            config: user_dir.clone().join("Library/Preferences"),
-            data: user_dir.clone().join("Library/Application Support"),
+            cache: user_dir.clone().join("Library/Caches").join(NAME),
+            config: user_dir.clone().join("Library/Preferences").join(NAME),
+            data: user_dir
+                .clone()
+                .join("Library/Application Support")
+                .join(NAME),
         })
     }
 }

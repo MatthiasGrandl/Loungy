@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use gpui::*;
 
-use crate::{assets::Assets, paths::Paths, theme::Theme, workspace::Workspace};
+use crate::{assets::Assets, db::Db, paths::Paths, theme::Theme, workspace::Workspace};
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
     GlobalHotKeyEvent, GlobalHotKeyManager,
@@ -46,8 +46,9 @@ pub fn run_app(app: gpui::App) {
     let receiver = GlobalHotKeyEvent::receiver().clone();
     app.with_assets(Assets).run(move |cx: &mut AppContext| {
         cx.set_global(Window {});
-        Theme::init(cx);
         Paths::init(cx);
+        Db::init(cx);
+        Theme::init(cx);
         cx.open_window(window_options(), |cx| {
             cx.spawn(|mut cx| async move {
                 loop {

@@ -4,6 +4,7 @@ use gpui::App;
 mod app;
 mod assets;
 mod commands;
+mod db;
 mod icon;
 mod lazy;
 mod list;
