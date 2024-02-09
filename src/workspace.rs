@@ -70,38 +70,6 @@ impl Render for Workspace {
                     .text_color(theme.subtext0)
                     .text_xs()
                     .flex()
-                    .child(
-                        div()
-                            .mr_2()
-                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
-                                Theme::change(catppuccin::Flavour::Latte, cx);
-                            })
-                            .child("Latte"),
-                    )
-                    .child(
-                        div()
-                            .mr_2()
-                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
-                                Theme::change(catppuccin::Flavour::Mocha, cx);
-                            })
-                            .child("Mocha"),
-                    )
-                    .child(
-                        div()
-                            .mr_2()
-                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
-                                Theme::change(catppuccin::Flavour::Frappe, cx);
-                            })
-                            .child("Frappe"),
-                    )
-                    .child(
-                        div()
-                            .mr_2()
-                            .on_mouse_down(MouseButton::Left, |_ev, cx| {
-                                Theme::change(catppuccin::Flavour::Macchiato, cx);
-                            })
-                            .child("Macchiato"),
-                    )
                     .child(item.actions.inner.clone()),
             )
     }

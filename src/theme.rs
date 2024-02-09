@@ -1,6 +1,6 @@
-use std::time::Duration;
-
 use gpui::*;
+use log::*;
+use serde::{Deserialize, Serialize};
 
 use crate::db::Db;
 
@@ -14,9 +14,20 @@ fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
     .into()
 }
 
-impl From<catppuccin::FlavourColours> for Theme {
-    fn from(colors: catppuccin::FlavourColours) -> Self {
+impl From<catppuccin::Flavour> for Theme {
+    fn from(flavor: catppuccin::Flavour) -> Self {
+        let colors = flavor.colours();
+        let name = flavor.name();
+        // name capitalized
+        let name = name
+            .chars()
+            .next()
+            .unwrap()
+            .to_uppercase()
+            .collect::<String>()
+            + &name[1..];
         Self {
+            name: format!("Catppuccin {}", name).into(),
             font_sans: "Inter".into(),
             font_mono: "JetBrains Mono".into(),
             flamingo: color_to_hsla(colors.flamingo),
@@ -48,8 +59,9 @@ impl From<catppuccin::FlavourColours> for Theme {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Theme {
+    pub name: SharedString,
     pub font_sans: SharedString,
     pub font_mono: SharedString,
     pub flamingo: Hsla,
@@ -91,11 +103,27 @@ fn load_fonts(cx: &mut AppContext) -> gpui::Result<()> {
     cx.text_system().add_fonts(embedded_fonts)
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ThemeSettings {
+    pub light: String,
+    pub dark: String,
+}
+
+impl Default for ThemeSettings {
+    fn default() -> Self {
+        Self {
+            light: "Catppuccin Latte".into(),
+            dark: "Catppuccin Mocha".into(),
+        }
+    }
+}
+
 impl Theme {
     pub fn init(cx: &mut AppContext) {
         load_fonts(cx).expect("Failed to load fonts");
         let mode = dark_light::detect();
-        cx.set_global(Theme::mode(mode));
+        let theme = Theme::mode(mode, cx);
+        cx.set_global(theme);
         // Spawn a background task to detect changes in dark/light mode
         // TODO: Currently bugged see: https://github.com/frewsxcv/rust-dark-light/issues/29
         // cx.spawn(|mut cx| async move {
@@ -113,21 +141,36 @@ impl Theme {
         // })
         // .detach();
     }
-    pub fn mode(mode: dark_light::Mode) -> Theme {
-        match mode {
-            dark_light::Mode::Dark | dark_light::Mode::Default => {
-                Theme::new(catppuccin::Flavour::Mocha)
-            }
-            dark_light::Mode::Light => Theme::new(catppuccin::Flavour::Latte),
-        }
+    pub fn mode(mode: dark_light::Mode, cx: &mut AppContext) -> Theme {
+        let settings = cx
+            .global::<Db>()
+            .get::<ThemeSettings>("theme")
+            .unwrap_or_default();
+        let list = Theme::list();
+        let name = match mode {
+            dark_light::Mode::Dark | dark_light::Mode::Default => settings.dark,
+            dark_light::Mode::Light => settings.light,
+        };
+        list.clone()
+            .into_iter()
+            .find(|t| t.name == name)
+            .unwrap_or_else(|| {
+                error!("Theme not found: {}", name);
+                list.first().unwrap().clone()
+            })
+            .clone()
     }
     pub fn change(flavor: catppuccin::Flavour, cx: &mut WindowContext) {
-        cx.set_global(Self::from(flavor.colours()));
+        cx.set_global(Self::from(flavor));
         cx.refresh();
     }
 
-    fn new(flavor: catppuccin::Flavour) -> Self {
-        Self::from(flavor.colours())
+    pub fn list() -> Vec<Theme> {
+        let standard: Vec<Theme> = catppuccin::Flavour::all()
+            .into_iter()
+            .map(|f| Self::from(f))
+            .collect();
+        standard
     }
 }
 

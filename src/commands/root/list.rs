@@ -12,7 +12,7 @@ use crate::{
     swift::get_application_data,
 };
 
-use super::{menu::MenuBuilder, numbat::Numbat, process::ProcessBuilder};
+use super::{menu::MenuBuilder, numbat::Numbat, process::ProcessBuilder, theme::ThemeListBuilder};
 
 struct Root {
     model: Model<Vec<Item>>,
@@ -160,6 +160,31 @@ impl Root {
                         Box::new(|cx| {
                             cx.update_global::<StateModel, _>(|this, cx| {
                                 this.push(MenuBuilder {}, cx);
+                            });
+                        }),
+                        false,
+                    )],
+                    Some(3),
+                ),
+                Item::new(
+                    vec!["Search Themes", "Customization"],
+                    cx.new_view(|_| {
+                        ListItem::new(
+                            Some(Img::list_icon(Icon::Palette, None)),
+                            "Search Themes",
+                            Some("Customization".to_string()),
+                            Vec::<Accessory>::new(),
+                        )
+                    })
+                    .into(),
+                    None,
+                    vec![Action::new(
+                        Img::list_icon(Icon::Palette, None),
+                        "Search Themes",
+                        None,
+                        Box::new(|cx| {
+                            cx.update_global::<StateModel, _>(|this, cx| {
+                                this.push(ThemeListBuilder {}, cx);
                             });
                         }),
                         false,
