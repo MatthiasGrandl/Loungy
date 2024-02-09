@@ -6,7 +6,7 @@ use crate::{
     list::{Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView},
+    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
     theme::{Theme, ThemeSettings},
 };
 
@@ -118,6 +118,7 @@ impl StateView for ThemeListBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
+        _toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let mut comp = ThemeList {

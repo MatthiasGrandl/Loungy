@@ -4,7 +4,7 @@ use gpui::SharedString;
 
 fn to_kebap(s: &str) -> String {
     s.chars().fold(String::new(), |mut s, c| {
-        if c.is_uppercase() {
+        if c.is_uppercase() || c.is_numeric() {
             if !s.is_empty() {
                 s.push('-');
             }

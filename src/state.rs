@@ -18,6 +18,7 @@ pub struct StateItem {
     pub view: AnyView,
     pub actions: ActionsModel,
     pub loading: View<Loading>,
+    pub toast: Toast,
 }
 
 pub struct Loading {
@@ -96,11 +97,111 @@ impl Render for Loading {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub enum ToastState {
+    Success(String),
+    Error(String),
+    Loading(String),
+    Idle,
+}
+
+impl ToastState {
+    fn dot(color: Hsla) -> AnyElement {
+        div()
+            .size_6()
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(div().size_1p5().bg(color).rounded_full())
+            .into_any_element()
+    }
+}
+
+impl Render for ToastState {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+        if let Some((el, mut bg, message)) = match self {
+            ToastState::Success(message) => {
+                Some((ToastState::dot(theme.green), theme.green, message))
+            }
+            ToastState::Error(message) => Some((ToastState::dot(theme.red), theme.red, message)),
+            ToastState::Loading(message) => Some((
+                Img::accessory_icon(Icon::Loader2, None).into_any_element(),
+                theme.blue,
+                message,
+            )),
+            ToastState::Idle => None,
+        } {
+            bg.fade_out(0.95);
+
+            div()
+                .absolute()
+                .inset_0()
+                .bottom_px()
+                .p_2()
+                .bg(bg)
+                .flex()
+                .items_center()
+                .child(div().child(el).mr_2().flex_shrink_0())
+                .text_color(theme.text)
+                .font_weight(FontWeight::MEDIUM)
+                .child(message.to_string())
+        } else {
+            div()
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Toast {
+    pub state: View<ToastState>,
+}
+
+impl Toast {
+    pub fn init(cx: &mut WindowContext) -> Self {
+        let state = cx.new_view(|_| ToastState::Idle);
+        Self { state }
+    }
+    pub fn new(&mut self, message: impl ToString, cx: &mut WindowContext) {
+        self.state.update(cx, |this, cx| {
+            *this = ToastState::Loading(message.to_string());
+            cx.notify();
+        });
+    }
+    pub fn transition(&mut self, success: bool, cx: &mut WindowContext) {
+        self.state.update(cx, |this, cx| {
+            let message = match this {
+                ToastState::Loading(message)
+                | ToastState::Success(message)
+                | ToastState::Error(message) => message.clone(),
+                _ => success
+                    .then(|| "Success".to_string())
+                    .unwrap_or("Error".to_string()),
+            };
+            *this = if success {
+                ToastState::Success(message)
+            } else {
+                ToastState::Error(message)
+            };
+            cx.notify();
+            cx.spawn(|view, mut cx| async move {
+                cx.background_executor().timer(Duration::from_secs(2)).await;
+                let _ = view.update(&mut cx, |this, cx| {
+                    *this = ToastState::Idle;
+                    cx.notify();
+                });
+            })
+            .detach();
+        });
+    }
+}
+
 impl StateItem {
     pub fn init(view: impl StateView, cx: &mut WindowContext) -> Self {
         let loading = Loading::init(cx);
         let actions = ActionsModel::init(cx);
         let query = TextInput::new(cx);
+        let toast = Toast::init(cx);
         let actions_clone = actions.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
@@ -131,12 +232,13 @@ impl StateItem {
             _ => {}
         })
         .detach();
-        let view = view.build(&query, &actions, &loading, cx);
+        let view = view.build(&query, &actions, &loading, &toast, cx);
         Self {
             query,
             view,
             actions,
             loading,
+            toast,
         }
     }
 }
@@ -147,6 +249,7 @@ pub trait StateView {
         query: &TextInput,
         actions: &ActionsModel,
         loading: &View<Loading>,
+        toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView;
 }
@@ -264,7 +367,7 @@ fn key_icon(el: Div, icon: Icon) -> Div {
             .child(Img::new(
                 ImgSource::Icon { icon, color: None },
                 ImgMask::Rounded,
-                ImgSize::Small,
+                ImgSize::SM,
             ))
             .ml_0p5(),
     )

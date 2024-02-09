@@ -19,7 +19,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView},
+    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
     swift::get_application_data,
     theme::Theme,
 };
@@ -240,6 +240,7 @@ impl StateView for ProcessBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
+        _toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let (s, r) = channel::<bool>();

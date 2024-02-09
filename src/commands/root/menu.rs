@@ -6,7 +6,7 @@ use crate::{
     list::{Accessory, Img, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateView},
+    state::{Action, ActionsModel, Loading, Shortcut, StateView, Toast},
     swift::{menu_item_select, menu_items, MenuItem},
 };
 
@@ -88,6 +88,7 @@ impl StateView for MenuBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
+        _toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let mut comp = MenuList {

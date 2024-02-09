@@ -25,9 +25,10 @@ pub enum ImgSource {
 
 #[derive(Clone)]
 pub enum ImgSize {
-    Small,
-    Medium,
-    Large,
+    XS,
+    SM,
+    MD,
+    LG,
 }
 
 #[derive(Clone, IntoElement)]
@@ -45,28 +46,35 @@ impl Img {
         Self {
             src: ImgSource::Icon { icon, color },
             mask: ImgMask::Rounded,
-            size: ImgSize::Medium,
+            size: ImgSize::MD,
         }
     }
     pub fn accessory_icon(icon: Icon, color: Option<Hsla>) -> Self {
         Self {
             src: ImgSource::Icon { icon, color },
             mask: ImgMask::None,
-            size: ImgSize::Small,
+            size: ImgSize::SM,
         }
     }
     pub fn list_file(src: PathBuf) -> Self {
         Self {
             src: ImgSource::Base(ImageSource::File(Arc::new(src))),
             mask: ImgMask::None,
-            size: ImgSize::Medium,
+            size: ImgSize::MD,
+        }
+    }
+    pub fn tiny_dot(color: Hsla) -> Self {
+        Self {
+            src: ImgSource::Dot(color),
+            mask: ImgMask::None,
+            size: ImgSize::XS,
         }
     }
     pub fn list_dot(color: Hsla) -> Self {
         Self {
             src: ImgSource::Dot(color),
             mask: ImgMask::None,
-            size: ImgSize::Medium,
+            size: ImgSize::MD,
         }
     }
 }
@@ -85,9 +93,10 @@ impl RenderOnce for Img {
             ImgMask::None => el,
         };
         let mut el = match self.size {
-            ImgSize::Small => el.size_5(),
-            ImgSize::Medium => el.size_6(),
-            ImgSize::Large => el.size_8(),
+            ImgSize::XS => el.size_4(),
+            ImgSize::SM => el.size_5(),
+            ImgSize::MD => el.size_6(),
+            ImgSize::LG => el.size_8(),
         };
         let img = match self.src {
             ImgSource::Icon { icon, color } => {

@@ -70,6 +70,7 @@ impl Render for Workspace {
                     .text_color(theme.subtext0)
                     .text_xs()
                     .flex()
+                    .child(item.toast.state.clone())
                     .child(item.actions.inner.clone()),
             )
     }

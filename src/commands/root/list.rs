@@ -8,7 +8,7 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, StateModel, StateView},
+    state::{Action, ActionsModel, Loading, StateModel, StateView, Toast},
     swift::get_application_data,
 };
 
@@ -236,6 +236,7 @@ impl StateView for RootBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
+        _toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let list = List::new(query, Some(&actions), cx);
