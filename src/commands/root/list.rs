@@ -16,8 +16,10 @@ use super::{menu::MenuBuilder, numbat::Numbat, process::ProcessBuilder, theme::T
 
 struct Root {
     model: Model<Vec<Item>>,
+    query: TextInput,
     list: View<List>,
     numbat: View<Numbat>,
+    toast: Toast,
 }
 
 impl Root {
@@ -111,8 +113,9 @@ impl Root {
             *model = apps;
             cx.notify();
         });
+        self.list(cx);
     }
-    fn list(&mut self, query: &str, cx: &mut WindowContext) {
+    fn list(&mut self, cx: &mut WindowContext) {
         self.list.update(cx, |this, cx| {
             let mut items = self.model.read(cx).clone();
             items.append(&mut vec![
@@ -193,7 +196,8 @@ impl Root {
                 ),
             ]);
 
-            let mut items = fuzzy_match(query, items, false);
+            let query = self.query.view.read(cx).text.clone();
+            let mut items = fuzzy_match(&query, items, false);
             if items.len() == 0 {
                 if let Some(result) = self.numbat.read(cx).result.clone() {
                     items.push(Item::new(
@@ -204,12 +208,16 @@ impl Root {
                             Img::list_icon(Icon::Copy, None),
                             "Copy",
                             None,
-                            Box::new(move |cx| {
-                                cx.write_to_clipboard(ClipboardItem::new(
-                                    result.result.to_string(),
-                                ));
-                                cx.hide();
-                            }),
+                            {
+                                let toast = self.toast.clone();
+                                Box::new(move |cx| {
+                                    cx.write_to_clipboard(ClipboardItem::new(
+                                        result.result.to_string(),
+                                    ));
+                                    cx.hide();
+                                    toast.clone().success("Copied to clipboard", cx);
+                                })
+                            },
                             false,
                         )],
                         None,
@@ -236,25 +244,26 @@ impl StateView for RootBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
-        _toast: &Toast,
+        toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let list = List::new(query, Some(&actions), cx);
         let numbat = Numbat::init(&query, cx);
         let mut root = Root {
             list,
+            query: query.clone(),
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
             numbat,
+            toast: toast.clone(),
         };
         root.update(cx);
-        root.list("", cx);
         query.set_placeholder("Search for apps and commands...", cx);
         cx.new_view(|cx| {
             cx.subscribe(
                 &query.view,
                 move |subscriber: &mut Root, _emitter, event, cx| match event {
-                    TextEvent::Input { text } => {
-                        subscriber.list(text.as_str(), cx);
+                    TextEvent::Input { text: _ } => {
+                        subscriber.list(cx);
                     }
                     _ => {}
                 },

@@ -73,36 +73,39 @@ struct ProcessList {
     model: Model<Vec<Item>>,
     sender: Sender<bool>,
     actions: ActionsModel,
+    toast: Toast,
 }
 
 impl ProcessList {
     fn update(&mut self, cx: &mut WindowContext) {
         let sort_by_cpu = CPU.load(Ordering::Relaxed);
-        let s1 = self.sender.clone();
-        let sort_action = if sort_by_cpu {
-            Action::new(
-                Img::list_icon(Icon::MemoryStick, None),
-                "Sort by Memory",
-                Some(Shortcut::simple("tab")),
-                Box::new(move |_| {
-                    CPU.store(false, Ordering::Relaxed);
-                    let _ = s1.clone().send(true);
-                }),
-                false,
-            )
-        } else {
-            Action::new(
-                Img::list_icon(Icon::Cpu, None),
-                "Sort by CPU",
-                Some(Shortcut::simple("tab")),
-                Box::new(move |_| {
-                    CPU.store(true, Ordering::Relaxed);
-                    let _ = s1.clone().send(true);
-                }),
-                false,
-            )
-        };
-        self.actions.update_global(vec![sort_action], cx);
+        {
+            let sender = self.sender.clone();
+            let sort_action = if sort_by_cpu {
+                Action::new(
+                    Img::list_icon(Icon::MemoryStick, None),
+                    "Sort by Memory",
+                    Some(Shortcut::simple("tab")),
+                    Box::new(move |_| {
+                        CPU.store(false, Ordering::Relaxed);
+                        let _ = sender.clone().send(true);
+                    }),
+                    false,
+                )
+            } else {
+                Action::new(
+                    Img::list_icon(Icon::Cpu, None),
+                    "Sort by CPU",
+                    Some(Shortcut::simple("tab")),
+                    Box::new(move |_| {
+                        CPU.store(true, Ordering::Relaxed);
+                        let _ = sender.clone().send(true);
+                    }),
+                    false,
+                )
+            };
+            self.actions.update_global(vec![sort_action], cx);
+        }
         let lavender = cx.global::<Theme>().lavender.clone();
         let cache_dir = cx.global::<Paths>().cache.clone();
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -168,8 +171,6 @@ impl ProcessList {
                         )
                     }
                 };
-                let pid = p.pid.to_string();
-                let s1 = self.sender.clone();
                 Item::new(
                     vec![name.clone()],
                     cx.new_view(|_cx| {
@@ -200,10 +201,24 @@ impl ProcessList {
                         Img::list_icon(Icon::Skull, None),
                         "Kill Process",
                         None,
-                        Box::new(move |_| {
-                            let _ = Command::new("kill").arg("-9").arg(pid.clone()).output();
-                            let _ = s1.clone().send(true);
-                        }),
+                        {
+                            let sender = self.sender.clone();
+                            let pid = p.pid.to_string();
+                            let toast = self.toast.clone();
+                            Box::new(move |cx| {
+                                if Command::new("kill")
+                                    .arg("-9")
+                                    .arg(pid.clone())
+                                    .output()
+                                    .is_err()
+                                {
+                                    toast.clone().error("Failed to kill process", cx);
+                                } else {
+                                    toast.clone().success("Killed process", cx);
+                                }
+                                let _ = sender.clone().send(true);
+                            })
+                        },
                         false,
                     )],
                     None,
@@ -240,7 +255,7 @@ impl StateView for ProcessBuilder {
         query: &TextInput,
         actions: &ActionsModel,
         _loading: &View<Loading>,
-        _toast: &Toast,
+        toast: &Toast,
         cx: &mut WindowContext,
     ) -> AnyView {
         let (s, r) = channel::<bool>();
@@ -250,6 +265,7 @@ impl StateView for ProcessBuilder {
             model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
             sender: s,
             actions: actions.clone(),
+            toast: toast.clone(),
         };
         query.set_placeholder("Search for running processes...", cx);
         comp.update(cx);
