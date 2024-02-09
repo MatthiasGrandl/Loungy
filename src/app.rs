@@ -11,13 +11,12 @@ use global_hotkey::{
 pub static WIDTH: f64 = 800.0;
 pub static HEIGHT: f64 = 450.0;
 
-fn window_options() -> WindowOptions {
+fn window_options(center: Point<GlobalPixels>) -> WindowOptions {
+    let x: GlobalPixels = center.x - GlobalPixels::from(WIDTH / 2.0);
+    let y: GlobalPixels = center.y - GlobalPixels::from(HEIGHT / 2.0);
     let mut options = WindowOptions::default();
     let bounds: Bounds<GlobalPixels> = Bounds::new(
-        Point {
-            x: GlobalPixels::from(500.0),
-            y: GlobalPixels::from(320.0),
-        },
+        Point { x, y },
         Size {
             width: GlobalPixels::from(WIDTH),
             height: GlobalPixels::from(HEIGHT),
@@ -38,6 +37,7 @@ impl Global for Window {}
 pub fn run_app(app: gpui::App) {
     let manager = GlobalHotKeyManager::new().unwrap();
     let mut mods = Modifiers::empty();
+
     mods.set(Modifiers::CONTROL, true);
     mods.set(Modifiers::ALT, true);
     mods.set(Modifiers::META, true);
@@ -49,7 +49,14 @@ pub fn run_app(app: gpui::App) {
         Paths::init(cx);
         Db::init(cx);
         Theme::init(cx);
-        cx.open_window(window_options(), |cx| {
+        // TODO: This still only works for a single display
+        let center = cx
+            .displays()
+            .first()
+            .expect("No Display found")
+            .bounds()
+            .center();
+        cx.open_window(window_options(center), |cx| {
             cx.spawn(|mut cx| async move {
                 loop {
                     if let Ok(event) = receiver.try_recv() {
