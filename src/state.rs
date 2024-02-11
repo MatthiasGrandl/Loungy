@@ -4,22 +4,14 @@ use serde::Deserialize;
 use std::time::{self, Duration};
 
 use crate::{
-    app::WIDTH,
     commands::root::list::RootListBuilder,
     icon::Icon,
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     theme,
+    window::{Window, WindowStyle, WIDTH},
 };
-
-pub struct StateItem {
-    pub query: TextInput,
-    pub view: AnyView,
-    pub actions: ActionsModel,
-    pub loading: View<Loading>,
-    pub toast: Toast,
-}
 
 pub struct Loading {
     pub inner: bool,
@@ -192,6 +184,70 @@ impl Toast {
             this.timeout(Duration::from_secs(2), cx);
         });
     }
+    /*
+       TODO: This works in theory, but cx.hide() will hide the entire app so the toast won't show.
+       I experimented with instead removing the main window with cx.remove_window() and restoring it on hotkey press, but then we lose all state.
+       So right now I have a good solution. I am leaving this here for future reference investigation.
+    */
+    pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut AppContext) {
+        cx.open_window(
+            WindowStyle::Toast.options(cx.displays().first().expect("No Display found").bounds()),
+            |cx| {
+                cx.spawn(|mut cx| async move {
+                    cx.background_executor().timer(Duration::from_secs(2)).await;
+                    let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                        cx.remove_window();
+                    });
+                })
+                .detach();
+                cx.new_view(|_| PopupToast {
+                    message: message.to_string(),
+                    icon,
+                })
+            },
+        );
+    }
+}
+pub struct PopupToast {
+    message: String,
+    icon: Option<Icon>,
+}
+
+impl Render for PopupToast {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+
+        let icon = if let Some(icon) = self.icon.clone() {
+            svg()
+                .path(icon.path())
+                .text_color(theme.text)
+                .size_5()
+                .mr_2()
+                .into_any_element()
+        } else {
+            div().into_any_element()
+        };
+
+        div()
+            .bg(theme.base)
+            .text_color(theme.text)
+            .font_weight(FontWeight::BOLD)
+            .size_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(icon)
+            .child(self.message.clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct StateItem {
+    pub query: TextInput,
+    pub view: AnyView,
+    pub actions: ActionsModel,
+    pub loading: View<Loading>,
+    pub toast: Toast,
 }
 
 impl StateItem {
@@ -217,7 +273,7 @@ impl StateItem {
                 };
                 match ev.keystroke.key.as_str() {
                     "escape" => {
-                        cx.hide();
+                        Window::close(cx);
                     }
                     _ => {}
                 }
@@ -267,7 +323,8 @@ impl StateModel {
             inner: cx.new_model(|_| State { stack: vec![] }),
         };
         this.push(RootListBuilder {}, cx);
-        return this;
+        cx.set_global(this.clone());
+        this
     }
     pub fn pop(&self, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {

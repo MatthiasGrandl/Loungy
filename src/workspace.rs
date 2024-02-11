@@ -13,7 +13,6 @@ impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
         let view = cx.new_view(|cx| {
             let state = StateModel::init(cx);
-            cx.set_global(state.clone());
             Workspace { state }
         });
         view

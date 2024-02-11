@@ -9,11 +9,12 @@ use crate::{
     nucleo::fuzzy_match,
     paths::Paths,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, StateModel, StateViewBuilder, Toast},
+    state::{Action, ActionsModel, Loading, StateViewBuilder, Toast},
     swift::get_application_data,
+    window::Window,
 };
 
-use super::{numbat::Numbat, theme::ThemeListBuilder};
+use super::numbat::Numbat;
 
 struct RootList {
     model: Model<Vec<Item>>,
@@ -89,7 +90,7 @@ impl RootList {
                             format!("Open {}", tag),
                             None,
                             Box::new(move |cx| {
-                                cx.hide();
+                                Window::close(cx);
                                 let id = id.clone();
                                 let mut command = std::process::Command::new("open");
                                 if ex {
@@ -136,12 +137,16 @@ impl RootList {
                             None,
                             {
                                 let toast = self.toast.clone();
-                                Box::new(move |cx| {
+                                Box::new(move |cx: &mut WindowContext| {
                                     cx.write_to_clipboard(ClipboardItem::new(
                                         result.result.to_string(),
                                     ));
-                                    cx.hide();
-                                    toast.clone().success("Copied to clipboard", cx);
+                                    toast.clone().floating(
+                                        "Copied to clipboard",
+                                        Some(Icon::Clipboard),
+                                        cx,
+                                    );
+                                    Window::close(cx);
                                 })
                             },
                             false,

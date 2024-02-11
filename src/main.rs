@@ -14,6 +14,7 @@ mod query;
 mod state;
 mod swift;
 mod theme;
+mod window;
 mod workspace;
 
 fn main() {
