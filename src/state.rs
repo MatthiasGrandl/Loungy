@@ -611,9 +611,10 @@ impl Actions {
             .shadow_lg()
             .flex()
             .flex_col()
-            .child(div().child(self.list.clone().unwrap()).p_2())
+            .child(div().child(self.list.clone().unwrap()).p_2().flex_shrink())
             .child(
                 div()
+                    .flex_shrink_0()
                     .child(query)
                     .mt_auto()
                     .px_2()

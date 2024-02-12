@@ -1,4 +1,12 @@
-use std::{collections::HashMap, process::Command, sync::mpsc::Receiver, time::Duration};
+use std::{
+    collections::HashMap,
+    process::Command,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::Receiver,
+    },
+    time::Duration,
+};
 
 use gpui::*;
 use serde::Deserialize;
@@ -41,6 +49,8 @@ struct Status {
     peer: HashMap<String, Peer>,
 }
 
+static OFFLINE: AtomicBool = AtomicBool::new(false);
+
 #[derive(Clone)]
 pub struct TailscaleListBuilder;
 impl StateViewBuilder for TailscaleListBuilder {
@@ -55,7 +65,34 @@ impl StateViewBuilder for TailscaleListBuilder {
         List::new(
             query,
             &actions,
-            |_, cx| {
+            |this, cx| {
+                let offline = OFFLINE.load(Ordering::Relaxed);
+                {
+                    let filter_action = if offline {
+                        Action::new(
+                            Img::list_icon(Icon::EyeOff, None),
+                            "Hide Offline",
+                            Some(Shortcut::simple("tab")),
+                            move |this, _| {
+                                OFFLINE.store(false, Ordering::Relaxed);
+                                this.update();
+                            },
+                            false,
+                        )
+                    } else {
+                        Action::new(
+                            Img::list_icon(Icon::Eye, None),
+                            "Show Offline",
+                            Some(Shortcut::simple("tab")),
+                            move |this, _| {
+                                OFFLINE.store(true, Ordering::Relaxed);
+                                this.update();
+                            },
+                            false,
+                        )
+                    };
+                    this.actions.update_global(vec![filter_action], cx);
+                }
                 let theme = cx.global::<Theme>().clone();
                 let status = Command::new("tailscale")
                     .arg("status")
@@ -63,10 +100,14 @@ impl StateViewBuilder for TailscaleListBuilder {
                     .output()?
                     .stdout;
                 let json = serde_json::from_slice::<Status>(&status)?;
+
                 let mut items: Vec<Item> = json
                     .peer
                     .values()
-                    .map(|p| {
+                    .filter_map(|p| {
+                        if !offline && !p.online {
+                            return None;
+                        }
                         let name = p.dns_name.split('.').next().unwrap();
                         let (tag, color) = match p.online {
                             true => ("Connected".to_string(), theme.green),
@@ -78,7 +119,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                         let ip = p.tailscale_ips.first().unwrap();
                         let ipv6 = p.tailscale_ips.last().unwrap();
                         let url = format!("https://{}", &ip);
-                        Item::new(
+                        Some(Item::new(
                             vec![name],
                             cx.new_view(|_| {
                                 ListItem::new(
@@ -149,7 +190,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                 ),
                             ],
                             None,
-                        )
+                        ))
                     })
                     .collect();
                 items.sort_unstable_by_key(|i| i.keywords.first().unwrap().clone());

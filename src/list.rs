@@ -423,10 +423,11 @@ impl List {
                         let poll = interval.map(|i| last.elapsed() > i).unwrap_or(false);
                         if poll || update_receiver.try_recv().is_ok() {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
-                                if this.query.has_focus(cx) {
-                                    this.update(cx);
-                                    last = std::time::Instant::now();
-                                }
+                                // This is needed in the future when there are focused preview components
+                                //if this.query.has_focus(cx) {
+                                this.update(cx);
+                                last = std::time::Instant::now();
+                                //}
                             });
                         }
                         cx.background_executor()
