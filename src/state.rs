@@ -559,7 +559,7 @@ pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
     show: bool,
-    query: Option<TextInput>,
+    pub query: Option<TextInput>,
     list: Option<View<List>>,
     update_sender: Sender<bool>,
     pub loading: View<Loading>,
