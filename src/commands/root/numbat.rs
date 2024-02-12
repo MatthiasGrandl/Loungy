@@ -61,6 +61,9 @@ impl Numbat {
                                 let mut unit: Option<String> = None;
                                 for part in &result.0 {
                                     match part.1 {
+                                        numbat::markup::FormatType::String => {
+                                            value = Some(part.2.clone())
+                                        }
                                         numbat::markup::FormatType::Value => {
                                             value = Some(part.2.clone());
                                         }
@@ -84,7 +87,10 @@ impl Numbat {
                                     None
                                 }
                             }
-                            _ => None,
+                            Err(e) => {
+                                //eprintln!("{:#?}", e);
+                                None
+                            }
                         };
                         cx.notify();
                     }
@@ -104,42 +110,54 @@ impl Render for Numbat {
             return div();
         }
         let result = self.result.as_ref().unwrap().clone();
-        div()
-            .flex()
-            .text_xl()
-            .font_weight(FontWeight::SEMIBOLD)
-            .relative()
-            .child(
-                div()
-                    .w_1_2()
-                    .h_24()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(result.equation),
-            )
-            .child(
-                div()
-                    .w_1_2()
-                    .h_24()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(format!("{} {}", result.result, result.unit)),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .inset_0()
-                    .child(
-                        svg()
-                            .path(Icon::MoveRight.path())
-                            .size_12()
-                            .text_color(theme.surface0),
-                    ),
-            )
+        let len = result
+            .equation
+            .len()
+            .max(format!("{} {}", result.result, result.unit).len());
+
+        if len > 30 {
+            div().text_sm()
+        } else if len > 25 {
+            div()
+        } else if len > 20 {
+            div().text_lg()
+        } else {
+            div().text_xl()
+        }
+        .flex()
+        .font_weight(FontWeight::SEMIBOLD)
+        .relative()
+        .child(
+            div()
+                .w_1_2()
+                .h_24()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(result.equation),
+        )
+        .child(
+            div()
+                .w_1_2()
+                .h_24()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(format!("{} {}", result.result, result.unit)),
+        )
+        .child(
+            div()
+                .absolute()
+                .flex()
+                .items_center()
+                .justify_center()
+                .inset_0()
+                .child(
+                    svg()
+                        .path(Icon::MoveRight.path())
+                        .size_12()
+                        .text_color(theme.surface0),
+                ),
+        )
     }
 }
