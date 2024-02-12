@@ -213,7 +213,7 @@ impl RootCommandBuilder for TailscaleCommandBuilder {
         RootCommand::new(
             "Search Peers",
             "Tailscale",
-            Icon::Palette,
+            Icon::Waypoints,
             vec!["VPN"],
             None,
             Box::new(|_, cx| {

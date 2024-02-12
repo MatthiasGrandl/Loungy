@@ -1,6 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc::Receiver, Arc},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -283,6 +286,7 @@ pub struct List {
     selected: usize,
     skip: usize,
     update_actions: bool,
+    selection_sender: Sender<usize>,
     pub actions: ActionsModel,
     pub items_all: Vec<Item>,
     pub items: Vec<Item>,
@@ -323,11 +327,18 @@ impl Render for List {
                     //
                     let actions = self.actions.inner.read(cx).clone();
                     let action = item.actions.first().cloned();
-                    move |_, cx| {
-                        let mut actions = actions.clone();
-                        if let Some(action) = &action {
-                            (action.action)(&mut actions, cx);
+                    let sender = self.selection_sender.clone();
+                    move |ev, cx| match ev.click_count {
+                        1 => {
+                            let _ = sender.send(i);
                         }
+                        2 => {
+                            let mut actions = actions.clone();
+                            if let Some(action) = &action {
+                                (action.action)(&mut actions, cx);
+                            }
+                        }
+                        _ => {}
                     }
                 })
             }))
@@ -401,6 +412,7 @@ impl List {
         update_actions: bool,
         cx: &mut WindowContext,
     ) -> View<Self> {
+        let (selection_sender, r) = channel::<usize>();
         let mut list = Self {
             selected: 0,
             skip: 0,
@@ -409,11 +421,12 @@ impl List {
             actions: actions.clone(),
             query: query.clone(),
             update: Box::new(update),
-            update_actions,
             filter: filter.unwrap_or(Box::new(|this, cx| {
                 let text = this.query.clone().view.read(cx).text.clone();
                 fuzzy_match(&text, this.items_all.clone(), false)
             })),
+            update_actions,
+            selection_sender,
         };
         let view = cx.new_view(|cx| {
             cx.spawn(|view, mut cx| async move {
@@ -421,6 +434,12 @@ impl List {
                 loop {
                     if let Some(view) = view.upgrade() {
                         let poll = interval.map(|i| last.elapsed() > i).unwrap_or(false);
+                        if let Ok(selected) = r.try_recv() {
+                            let _ = view.update(&mut cx, |this: &mut Self, cx| {
+                                this.selected = selected;
+                                cx.notify();
+                            });
+                        }
                         if poll || update_receiver.try_recv().is_ok() {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
                                 if this.query.has_focus(cx)

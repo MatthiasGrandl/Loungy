@@ -32,11 +32,11 @@ Loungy wouldn't be possible without the awesome open source ecosystem:
 - [x] Calculator (including unit/currency conversions, thanks to [Numbat](https://numbat.dev/))
 - [x] Task manager (killing processes)
 - [x] MacOS menu search
+- [x] Tailscale peer list
 
 These features exist in the old Tauri based app and will be ported soon:
 
 - [ ] Bitwarden password manager
-- [ ] Tailscale peer list
 - [ ] Matrix Chat client
 
 ## Development
