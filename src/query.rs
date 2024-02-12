@@ -28,11 +28,6 @@ impl TextInput {
         }
         return false;
     }
-    pub fn reset(&self, cx: &mut WindowContext) {
-        self.view.update(cx, |editor, cx| {
-            editor.reset(cx);
-        });
-    }
 }
 
 pub struct TextView {
@@ -72,6 +67,7 @@ impl TextView {
         .detach();
         view
     }
+    #[allow(dead_code)]
     pub fn reset(&mut self, cx: &mut ViewContext<Self>) {
         self.text = "".to_string();
         self.selection = 0..0;

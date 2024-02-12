@@ -1,13 +1,15 @@
 use ::simple_easing::linear;
 use gpui::*;
 use serde::Deserialize;
-use std::time::{self, Duration};
+use std::{
+    sync::mpsc::{channel, Receiver, Sender},
+    time::{self, Duration},
+};
 
 use crate::{
     commands::root::list::RootListBuilder,
     icon::Icon,
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
-    nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     theme,
     window::{Window, WindowStyle, WIDTH},
@@ -253,9 +255,11 @@ pub struct StateItem {
 impl StateItem {
     pub fn init(view: impl StateViewBuilder, cx: &mut WindowContext) -> Self {
         let loading = Loading::init(cx);
-        let actions = ActionsModel::init(cx);
-        let query = TextInput::new(cx);
         let toast = Toast::init(cx);
+        let (s, r) = channel::<bool>();
+        let actions = ActionsModel::init(&loading, &toast, s, cx);
+        let query = TextInput::new(cx);
+
         let actions_clone = actions.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
@@ -264,13 +268,16 @@ impl StateItem {
                 // };
             }
             TextEvent::KeyDown(ev) => {
-                if let Some(action) = &actions_clone.check(&ev.keystroke, cx) {
-                    if ev.is_held {
+                actions_clone.inner.update(cx, |this, cx| {
+                    if let Some(action) = this.check(&ev.keystroke, cx) {
+                        if ev.is_held {
+                            return;
+                        }
+                        (action.action)(this, cx);
                         return;
-                    }
-                    (action.action)(cx);
-                    return;
-                };
+                    };
+                });
+
                 match ev.keystroke.key.as_str() {
                     "escape" => {
                         Window::close(cx);
@@ -286,7 +293,7 @@ impl StateItem {
             _ => {}
         })
         .detach();
-        let view = view.build(&query, &actions, &loading, &toast, cx);
+        let view = view.build(&query, &actions, r, cx);
         Self {
             query,
             view,
@@ -302,8 +309,7 @@ pub trait StateViewBuilder: Clone {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        loading: &View<Loading>,
-        toast: &Toast,
+        update_receiver: Receiver<bool>,
         cx: &mut WindowContext,
     ) -> AnyView;
 }
@@ -360,7 +366,7 @@ impl Global for StateModel {}
 
 // Actions
 
-pub trait CloneableFn: Fn(&mut WindowContext) -> () {
+pub trait CloneableFn: Fn(&mut Actions, &mut WindowContext) -> () {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
         Self: 'a;
@@ -368,7 +374,7 @@ pub trait CloneableFn: Fn(&mut WindowContext) -> () {
 
 impl<F> CloneableFn for F
 where
-    F: Fn(&mut WindowContext) -> () + Clone,
+    F: Fn(&mut Actions, &mut WindowContext) -> () + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
@@ -528,26 +534,29 @@ impl Action {
         image: Img,
         label: impl ToString,
         shortcut: Option<Shortcut>,
-        action: Box<dyn CloneableFn>,
+        action: impl CloneableFn + 'static,
         hide: bool,
     ) -> Self {
         Self {
             label: label.to_string(),
             shortcut,
-            action,
+            action: Box::new(action),
             image,
             hide,
         }
     }
 }
 
+#[derive(Clone)]
 pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
-    toggle: Box<dyn CloneableFn>,
+    update_sender: Sender<bool>,
+    pub loading: View<Loading>,
+    pub toast: Toast,
 }
 
 impl Actions {
@@ -560,11 +569,20 @@ impl Actions {
                 Img::list_icon(Icon::BookOpen, None),
                 "Actions",
                 Some(Shortcut::cmd("k")),
-                self.toggle.clone(),
+                |this, _| {
+                    this.show = !this.show;
+                },
                 true,
             ))
         }
         combined
+    }
+    fn update_list(&self, cx: &mut WindowContext) {
+        if let Some(list) = &self.list {
+            list.update(cx, |this, cx| {
+                this.update(cx);
+            });
+        }
     }
     fn popup(&mut self, cx: &mut ViewContext<Self>) -> Div {
         if !self.show {
@@ -597,40 +615,6 @@ impl Actions {
                     .text_base(),
             )
     }
-    fn list_actions(&self, cx: &mut ViewContext<Self>) {
-        let text = self.query.clone().unwrap().view.read(cx).text.clone();
-        let items: Vec<Item> = self
-            .combined(cx)
-            .into_iter()
-            .filter_map(|item| {
-                if item.hide {
-                    return None;
-                }
-                let action = item.clone();
-                let accessories = if let Some(shortcut) = item.shortcut {
-                    vec![Accessory::shortcut(shortcut)]
-                } else {
-                    vec![]
-                };
-                Some(Item::new(
-                    vec![item.label.clone()],
-                    cx.new_view(|_| {
-                        ListItem::new(Some(action.image.clone()), item.label, None, accessories)
-                    })
-                    .into(),
-                    None,
-                    vec![action],
-                    None,
-                ))
-            })
-            .collect();
-
-        let items = fuzzy_match(&text, items, false);
-        self.list.clone().unwrap().update(cx, |this, cx| {
-            this.items = items;
-            cx.notify();
-        });
-    }
     fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
         let actions = self.combined(cx);
         for action in actions {
@@ -641,6 +625,9 @@ impl Actions {
             }
         }
         None
+    }
+    pub fn update(&self) {
+        let _ = self.update_sender.send(true);
     }
 }
 
@@ -671,7 +658,12 @@ pub struct ActionsModel {
 }
 
 impl ActionsModel {
-    pub fn init(cx: &mut WindowContext) -> Self {
+    pub fn init(
+        loading: &View<Loading>,
+        toast: &Toast,
+        update_sender: Sender<bool>,
+        cx: &mut WindowContext,
+    ) -> Self {
         let global = cx.new_model(|_| Vec::new());
         let local = cx.new_model(|_| Vec::new());
         let inner = cx.new_view(|_| Actions {
@@ -680,23 +672,60 @@ impl ActionsModel {
             show: false,
             query: None,
             list: None,
-            toggle: Box::new(|_| {}),
-        });
-        let clone = inner.clone();
-        let toggle: Box<dyn CloneableFn> = Box::new(move |cx| {
-            clone.update(cx, |model, cx| {
-                model.show = !model.show;
-                cx.notify();
-            });
+            loading: loading.clone(),
+            toast: toast.clone(),
+            update_sender,
         });
 
         let model = Self {
             inner: inner.clone(),
         };
-        let query = TextInput::new(cx);
-        let list = List::new(&query, None, cx);
         inner.update(cx, |this, cx| {
-            this.toggle = toggle;
+            let query = TextInput::new(cx);
+            let actions = this.clone();
+            let (_s, r) = channel::<bool>();
+            let list = List::new(
+                &query,
+                &model,
+                move |_, cx| {
+                    let actions = actions.combined(cx);
+                    let items: Vec<Item> = actions
+                        .into_iter()
+                        .filter_map(|item| {
+                            if item.hide {
+                                return None;
+                            }
+                            let action = item.clone();
+                            let accessories = if let Some(shortcut) = item.shortcut {
+                                vec![Accessory::shortcut(shortcut)]
+                            } else {
+                                vec![]
+                            };
+                            Some(Item::new(
+                                vec![item.label.clone()],
+                                cx.new_view(|_| {
+                                    ListItem::new(
+                                        Some(action.image.clone()),
+                                        item.label,
+                                        None,
+                                        accessories,
+                                    )
+                                })
+                                .into(),
+                                None,
+                                vec![action],
+                                None,
+                            ))
+                        })
+                        .collect();
+                    items
+                },
+                None,
+                None,
+                r,
+                false,
+                cx,
+            );
             let list_clone = list.clone();
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
@@ -707,9 +736,9 @@ impl ActionsModel {
                     }
                     TextEvent::KeyDown(ev) => {
                         if Shortcut::simple("enter").inner.eq(&ev.keystroke) {
-                            let _ = &list_clone.update(cx, |this, cx| {
-                                if let Some(action) = this.default_action() {
-                                    (action.action)(cx);
+                            let _ = list_clone.update(cx, |this2, cx| {
+                                if let Some(action) = this2.default_action() {
+                                    (action.action)(this, cx);
                                 }
                             });
                             return;
@@ -718,7 +747,7 @@ impl ActionsModel {
                             if ev.is_held {
                                 return;
                             }
-                            (action.action)(cx);
+                            (action.action)(this, cx);
                             return;
                         }
                         match ev.keystroke.key.as_str() {
@@ -729,9 +758,7 @@ impl ActionsModel {
                             _ => {}
                         }
                     }
-                    TextEvent::Input { text: _ } => {
-                        this.list_actions(cx);
-                    } //_ => {}
+                    _ => {}
                 }
                 cx.notify();
             })
@@ -749,7 +776,7 @@ impl ActionsModel {
                 *this = actions;
                 cx.notify();
             });
-            model.list_actions(cx);
+            model.update_list(cx);
         });
     }
     pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
@@ -758,10 +785,7 @@ impl ActionsModel {
                 *this = actions;
                 cx.notify();
             });
-            model.list_actions(cx);
+            model.update_list(cx);
         });
-    }
-    pub fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
-        self.inner.read(cx).check(keystroke, cx)
     }
 }

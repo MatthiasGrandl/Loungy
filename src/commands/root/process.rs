@@ -6,7 +6,7 @@ use std::{
     process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{channel, Sender},
+        mpsc::Receiver,
     },
     time::Duration,
 };
@@ -17,10 +17,9 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     icon::Icon,
     list::{Accessory, Img, Item, List, ListItem},
-    nucleo::fuzzy_match,
     paths::Paths,
-    query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Loading, Shortcut, StateModel, StateViewBuilder, Toast},
+    query::TextInput,
+    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::get_application_data,
     theme::Theme,
 };
@@ -67,187 +66,6 @@ fn format_bytes(bytes: u64) -> String {
         format!("{} B", bytes)
     }
 }
-#[derive(Clone)]
-struct ProcessList {
-    list: View<List>,
-    query: TextInput,
-    model: Model<Vec<Item>>,
-    sender: Sender<bool>,
-    actions: ActionsModel,
-    toast: Toast,
-}
-
-impl ProcessList {
-    fn update(&mut self, cx: &mut WindowContext) {
-        let sort_by_cpu = CPU.load(Ordering::Relaxed);
-        {
-            let sender = self.sender.clone();
-            let sort_action = if sort_by_cpu {
-                Action::new(
-                    Img::list_icon(Icon::MemoryStick, None),
-                    "Sort by Memory",
-                    Some(Shortcut::simple("tab")),
-                    Box::new(move |_| {
-                        CPU.store(false, Ordering::Relaxed);
-                        let _ = sender.clone().send(true);
-                    }),
-                    false,
-                )
-            } else {
-                Action::new(
-                    Img::list_icon(Icon::Cpu, None),
-                    "Sort by CPU",
-                    Some(Shortcut::simple("tab")),
-                    Box::new(move |_| {
-                        CPU.store(true, Ordering::Relaxed);
-                        let _ = sender.clone().send(true);
-                    }),
-                    false,
-                )
-            };
-            self.actions.update_global(vec![sort_action], cx);
-        }
-        let lavender = cx.global::<Theme>().lavender.clone();
-        let cache_dir = cx.global::<Paths>().cache.clone();
-        fs::create_dir_all(cache_dir.clone()).unwrap();
-        let ps = Command::new("ps")
-            .arg("-eo")
-            .arg("pid,ppid,pcpu,rss,comm")
-            .output()
-            .expect("failed to get process list")
-            .stdout;
-
-        let parsed: Vec<Process> = String::from_utf8(ps)
-            .unwrap()
-            .split("\n")
-            .skip(1)
-            .filter_map(|line| Process::parse(line).ok())
-            .collect();
-
-        let mut aggregated = HashMap::<u64, Process>::new();
-        parsed.iter().for_each(|p| {
-            if p.ppid == 1 {
-                aggregated.insert(p.pid, p.clone());
-            } else {
-                if let Some(parent) = aggregated.get(&p.ppid) {
-                    let mut parent = parent.clone();
-                    parent.cpu += p.cpu;
-                    parent.mem += p.mem;
-                    aggregated.insert(p.ppid, parent);
-                }
-            }
-        });
-        let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
-
-        if sort_by_cpu {
-            parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
-        } else {
-            parsed.sort_unstable_by_key(|p| Reverse(p.mem));
-        }
-
-        let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
-        let items: Vec<Item> = parsed
-            .iter()
-            .map(|p| {
-                let path = re
-                    .captures(p.name.as_str())
-                    .and_then(|caps| caps.get(1))
-                    .map(|m| String::from(m.as_str()))
-                    .unwrap_or_default();
-
-                let (name, image) = match unsafe {
-                    get_application_data(&cache_dir.to_str().unwrap().into(), &path.as_str().into())
-                } {
-                    Some(d) => {
-                        let mut icon_path = cache_dir.clone();
-                        icon_path.push(format!("{}.png", d.id.to_string()));
-                        (d.name.to_string(), Img::list_file(icon_path))
-                    }
-                    None => {
-                        let mut icon_path = cache_dir.clone();
-                        icon_path.push("com.apple.Terminal.png");
-                        (
-                            p.name.split("/").last().unwrap().to_string(),
-                            Img::list_file(icon_path),
-                        )
-                    }
-                };
-                Item::new(
-                    vec![name.clone()],
-                    cx.new_view(|_cx| {
-                        let (m, c) = if sort_by_cpu {
-                            (None, Some(lavender))
-                        } else {
-                            (Some(lavender), None)
-                        };
-                        ListItem::new(
-                            Some(image),
-                            name.clone(),
-                            None,
-                            vec![
-                                Accessory::new(
-                                    format!("{: >6}", format_bytes(p.mem * 1024)),
-                                    Some(Img::accessory_icon(Icon::MemoryStick, m)),
-                                ),
-                                Accessory::new(
-                                    format!("{: >6.2}%", p.cpu),
-                                    Some(Img::accessory_icon(Icon::Cpu, c)),
-                                ),
-                            ],
-                        )
-                    })
-                    .into(),
-                    None,
-                    vec![Action::new(
-                        Img::list_icon(Icon::Skull, None),
-                        "Kill Process",
-                        None,
-                        {
-                            let sender = self.sender.clone();
-                            let pid = p.pid.to_string();
-                            let toast = self.toast.clone();
-                            Box::new(move |cx| {
-                                if Command::new("kill")
-                                    .arg("-9")
-                                    .arg(pid.clone())
-                                    .output()
-                                    .is_err()
-                                {
-                                    toast.clone().error("Failed to kill process", cx);
-                                } else {
-                                    toast.clone().success("Killed process", cx);
-                                }
-                                let _ = sender.clone().send(true);
-                            })
-                        },
-                        false,
-                    )],
-                    None,
-                )
-            })
-            .collect();
-
-        self.model.update(cx, |model, _cx| {
-            *model = items;
-        });
-        self.list(cx);
-    }
-    fn list(&mut self, cx: &mut WindowContext) {
-        let query = self.query.view.read(cx).text.clone();
-        self.list.update(cx, |this, cx| {
-            let items = self.model.read(cx).clone();
-            let items = fuzzy_match(&query, items, false);
-            this.items = items;
-            cx.notify();
-        });
-    }
-}
-
-impl Render for ProcessList {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        self.list.clone()
-    }
-}
 
 #[derive(Clone)]
 pub struct ProcessListBuilder;
@@ -256,54 +74,168 @@ impl StateViewBuilder for ProcessListBuilder {
         &self,
         query: &TextInput,
         actions: &ActionsModel,
-        _loading: &View<Loading>,
-        toast: &Toast,
+        update_receiver: Receiver<bool>,
         cx: &mut WindowContext,
     ) -> AnyView {
-        let (s, r) = channel::<bool>();
-        let mut comp = ProcessList {
-            list: List::new(query, Some(actions), cx),
-            query: query.clone(),
-            model: cx.new_model(|_| Vec::<Item>::with_capacity(500)),
-            sender: s,
-            actions: actions.clone(),
-            toast: toast.clone(),
-        };
         query.set_placeholder("Search for running processes...", cx);
-        comp.update(cx);
-        let mut acomp = comp.clone();
-        cx.new_view(|cx| {
-            cx.spawn(|view, mut cx| async move {
-                let mut last = std::time::Instant::now();
-                loop {
-                    if view.upgrade().is_none() {
-                        break;
-                    }
-                    // if message in channel or last update was more than 5s ago
-                    if last.elapsed().as_secs() > 5 || r.try_recv().is_ok() {
-                        let _ = cx.update(|cx| {
-                            acomp.update(cx);
-                            last = std::time::Instant::now();
-                        });
-                    }
-                    cx.background_executor()
-                        .timer(Duration::from_millis(50))
-                        .await;
+        List::new(
+            query,
+            &actions,
+            |this, cx| {
+                let sort_by_cpu = CPU.load(Ordering::Relaxed);
+                {
+                    let sort_action = if sort_by_cpu {
+                        Action::new(
+                            Img::list_icon(Icon::MemoryStick, None),
+                            "Sort by Memory",
+                            Some(Shortcut::simple("tab")),
+                            move |this, _| {
+                                CPU.store(false, Ordering::Relaxed);
+                                this.update();
+                            },
+                            false,
+                        )
+                    } else {
+                        Action::new(
+                            Img::list_icon(Icon::Cpu, None),
+                            "Sort by CPU",
+                            Some(Shortcut::simple("tab")),
+                            move |this, _| {
+                                CPU.store(true, Ordering::Relaxed);
+                                this.update();
+                            },
+                            false,
+                        )
+                    };
+                    this.actions.update_global(vec![sort_action], cx);
                 }
-            })
-            .detach();
-            cx.subscribe(
-                &query.view,
-                move |subscriber: &mut ProcessList, _emitter, event, cx| match event {
-                    TextEvent::Input { text: _ } => {
-                        subscriber.list(cx);
+                let lavender = cx.global::<Theme>().lavender.clone();
+                let cache_dir = cx.global::<Paths>().cache.clone();
+                fs::create_dir_all(cache_dir.clone()).unwrap();
+                let ps = Command::new("ps")
+                    .arg("-eo")
+                    .arg("pid,ppid,pcpu,rss,comm")
+                    .output()
+                    .expect("failed to get process list")
+                    .stdout;
+
+                let parsed: Vec<Process> = String::from_utf8(ps)
+                    .unwrap()
+                    .split("\n")
+                    .skip(1)
+                    .filter_map(|line| Process::parse(line).ok())
+                    .collect();
+
+                let mut aggregated = HashMap::<u64, Process>::new();
+                parsed.iter().for_each(|p| {
+                    if p.ppid == 1 {
+                        aggregated.insert(p.pid, p.clone());
+                    } else {
+                        if let Some(parent) = aggregated.get(&p.ppid) {
+                            let mut parent = parent.clone();
+                            parent.cpu += p.cpu;
+                            parent.mem += p.mem;
+                            aggregated.insert(p.ppid, parent);
+                        }
                     }
-                    _ => {}
-                },
-            )
-            .detach();
-            comp
-        })
+                });
+                let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
+
+                if sort_by_cpu {
+                    parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
+                } else {
+                    parsed.sort_unstable_by_key(|p| Reverse(p.mem));
+                }
+
+                let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
+                parsed
+                    .iter()
+                    .map(|p| {
+                        let path = re
+                            .captures(p.name.as_str())
+                            .and_then(|caps| caps.get(1))
+                            .map(|m| String::from(m.as_str()))
+                            .unwrap_or_default();
+
+                        let (name, image) = match unsafe {
+                            get_application_data(
+                                &cache_dir.to_str().unwrap().into(),
+                                &path.as_str().into(),
+                            )
+                        } {
+                            Some(d) => {
+                                let mut icon_path = cache_dir.clone();
+                                icon_path.push(format!("{}.png", d.id.to_string()));
+                                (d.name.to_string(), Img::list_file(icon_path))
+                            }
+                            None => {
+                                let mut icon_path = cache_dir.clone();
+                                icon_path.push("com.apple.Terminal.png");
+                                (
+                                    p.name.split("/").last().unwrap().to_string(),
+                                    Img::list_file(icon_path),
+                                )
+                            }
+                        };
+                        Item::new(
+                            vec![name.clone()],
+                            cx.new_view(|_cx| {
+                                let (m, c) = if sort_by_cpu {
+                                    (None, Some(lavender))
+                                } else {
+                                    (Some(lavender), None)
+                                };
+                                ListItem::new(
+                                    Some(image),
+                                    name.clone(),
+                                    None,
+                                    vec![
+                                        Accessory::new(
+                                            format!("{: >6}", format_bytes(p.mem * 1024)),
+                                            Some(Img::accessory_icon(Icon::MemoryStick, m)),
+                                        ),
+                                        Accessory::new(
+                                            format!("{: >6.2}%", p.cpu),
+                                            Some(Img::accessory_icon(Icon::Cpu, c)),
+                                        ),
+                                    ],
+                                )
+                            })
+                            .into(),
+                            None,
+                            vec![Action::new(
+                                Img::list_icon(Icon::Skull, None),
+                                "Kill Process",
+                                None,
+                                {
+                                    let pid = p.pid.to_string();
+                                    move |this, cx| {
+                                        if Command::new("kill")
+                                            .arg("-9")
+                                            .arg(pid.clone())
+                                            .output()
+                                            .is_err()
+                                        {
+                                            this.toast.error("Failed to kill process", cx);
+                                        } else {
+                                            this.toast.success("Killed process", cx);
+                                        }
+                                        this.update();
+                                    }
+                                },
+                                false,
+                            )],
+                            None,
+                        )
+                    })
+                    .collect()
+            },
+            None,
+            Some(Duration::from_secs(5)),
+            update_receiver,
+            true,
+            cx,
+        )
         .into()
     }
 }
@@ -318,7 +250,7 @@ impl RootCommandBuilder for ProcessCommandBuilder {
             Icon::Cpu,
             vec!["Kill", "Memory", "CPU"],
             None,
-            Box::new(|cx| {
+            Box::new(|_, cx| {
                 cx.update_global::<StateModel, _>(|model, cx| {
                     model.push(ProcessListBuilder {}, cx)
                 });

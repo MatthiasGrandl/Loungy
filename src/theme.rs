@@ -160,10 +160,6 @@ impl Theme {
             })
             .clone()
     }
-    pub fn change(flavor: catppuccin::Flavour, cx: &mut WindowContext) {
-        cx.set_global(Self::from(flavor));
-        cx.refresh();
-    }
 
     pub fn list(cx: &AppContext) -> Vec<Theme> {
         let config = cx.global::<Paths>().config.clone().join("themes");

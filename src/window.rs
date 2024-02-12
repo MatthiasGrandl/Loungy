@@ -52,7 +52,7 @@ impl Window {
             hidden: false,
         });
     }
-    pub fn open(bounds: Bounds<GlobalPixels>, cx: &mut AsyncAppContext) {
+    pub fn open(cx: &mut AsyncAppContext) {
         let _ = cx.update_global::<Self, _>(|this, cx| {
             if this.hidden {
                 // let _ =

@@ -1,15 +1,21 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{mpsc::Receiver, Arc},
+    time::Duration,
+};
 
 use gpui::{ImageSource, *};
 
 use crate::{
     icon::Icon,
+    nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
     state::{Action, ActionsModel, Shortcut},
     theme::Theme,
 };
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum ImgMask {
     Circle,
     Rounded,
@@ -24,6 +30,7 @@ pub enum ImgSource {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum ImgSize {
     XS,
     SM,
@@ -61,13 +68,6 @@ impl Img {
             src: ImgSource::Base(ImageSource::File(Arc::new(src))),
             mask: ImgMask::None,
             size: ImgSize::MD,
-        }
-    }
-    pub fn tiny_dot(color: Hsla) -> Self {
-        Self {
-            src: ImgSource::Dot(color),
-            mask: ImgMask::None,
-            size: ImgSize::XS,
         }
     }
     pub fn list_dot(color: Hsla) -> Self {
@@ -233,6 +233,7 @@ impl Render for ListItem {
 }
 
 #[derive(IntoElement, Clone)]
+#[allow(dead_code)]
 pub struct Item {
     pub keywords: Vec<String>,
     component: AnyView,
@@ -266,7 +267,6 @@ impl RenderOnce for Item {
         let theme = cx.global::<Theme>();
         let mut bg_hover = theme.mantle;
         bg_hover.fade_out(0.5);
-        let actions = self.actions.clone();
         if self.selected {
             div().border_color(theme.crust).bg(theme.mantle)
         } else {
@@ -276,26 +276,25 @@ impl RenderOnce for Item {
         .border_1()
         .rounded_xl()
         .child(self.component)
-        .on_mouse_down(MouseButton::Left, move |_, cx| {
-            if let Some(action) = actions.first() {
-                (action.action)(cx);
-            }
-        })
     }
 }
 
 pub struct List {
     selected: usize,
     skip: usize,
-    actions: Option<ActionsModel>,
+    update_actions: bool,
+    pub actions: ActionsModel,
+    pub items_all: Vec<Item>,
     pub items: Vec<Item>,
-    query: TextInput,
+    pub query: TextInput,
+    pub update: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
+    pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
 }
 
 impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        if let Some(actions) = &self.actions {
-            self.selection_change(actions, cx);
+        if self.update_actions {
+            self.selection_change(&self.actions, cx);
         }
         let view = cx.view().clone();
         let mut items: Vec<(usize, Item)> = self
@@ -320,7 +319,17 @@ impl Render for List {
             })
             .children(items.into_iter().map(|(i, mut item)| {
                 item.selected = i == self.selected;
-                item
+                div().child(item.clone()).on_mouse_down(MouseButton::Left, {
+                    //
+                    let actions = self.actions.inner.read(cx).clone();
+                    let action = item.actions.first().cloned();
+                    move |_, cx| {
+                        let mut actions = actions.clone();
+                        if let Some(action) = &action {
+                            (action.action)(&mut actions, cx);
+                        }
+                    }
+                })
             }))
     }
 }
@@ -360,19 +369,68 @@ impl List {
     pub fn default_action(&self) -> Option<&Action> {
         self.selected().and_then(|item| item.actions.first())
     }
+    pub fn update(&mut self, cx: &mut ViewContext<Self>) {
+        let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _| vec![]));
+        self.items_all = update_fn(self, cx);
+        self.update = update_fn;
+        self.filter(cx);
+    }
+    pub fn filter(&mut self, cx: &mut ViewContext<Self>) {
+        let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
+        self.items = filter_fn(self, cx);
+        self.filter = filter_fn;
+        cx.notify();
+    }
     pub fn new(
         query: &TextInput,
-        actions: Option<&ActionsModel>,
+        actions: &ActionsModel,
+        update: impl Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item> + 'static,
+        filter: Option<Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>>,
+        interval: Option<Duration>,
+        update_receiver: Receiver<bool>,
+        update_actions: bool,
         cx: &mut WindowContext,
     ) -> View<Self> {
-        let list = Self {
+        let mut list = Self {
             selected: 0,
             skip: 0,
+            items_all: vec![],
             items: vec![],
-            actions: actions.cloned(),
+            actions: actions.clone(),
             query: query.clone(),
+            update: Box::new(update),
+            update_actions,
+            filter: filter.unwrap_or(Box::new(|this, cx| {
+                let text = this.query.clone().view.read(cx).text.clone();
+                fuzzy_match(&text, this.items_all.clone(), false)
+            })),
         };
-        let view = cx.new_view(|_| list);
+        let view = cx.new_view(|cx| {
+            cx.spawn(|view, mut cx| async move {
+                let mut last = std::time::Instant::now();
+                loop {
+                    if let Some(view) = view.upgrade() {
+                        let poll = interval.map(|i| last.elapsed() > i).unwrap_or(false);
+                        if poll || update_receiver.try_recv().is_ok() {
+                            let _ = view.update(&mut cx, |this: &mut Self, cx| {
+                                if this.query.has_focus(cx) {
+                                    this.update(cx);
+                                    last = std::time::Instant::now();
+                                }
+                            });
+                        }
+                        cx.background_executor()
+                            .timer(Duration::from_millis(50))
+                            .await;
+                    } else {
+                        break;
+                    }
+                }
+            })
+            .detach();
+            list.update(cx);
+            list
+        });
         let clone = view.clone();
 
         cx.subscribe(&query.view, move |_subscriber, emitter: &TextEvent, cx| {
@@ -382,7 +440,7 @@ impl List {
                     clone.update(cx, |this, cx| {
                         this.selected = 0;
                         this.skip = 0;
-                        cx.notify();
+                        this.filter(cx);
                     });
                 }
                 TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {

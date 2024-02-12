@@ -38,7 +38,7 @@ pub fn run_app(app: gpui::App) {
                 loop {
                     if let Ok(event) = receiver.try_recv() {
                         if event.state == global_hotkey::HotKeyState::Released {
-                            Window::open(bounds, &mut cx);
+                            Window::open(&mut cx);
                         }
                     }
                     cx.background_executor()
