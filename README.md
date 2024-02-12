@@ -58,3 +58,9 @@ cargo run dev
 - Accessibility is still a nightmare. GPUI is lacking a proper accessible text input so currently I am implementing one myself. Screen readers or people with impairments please don't try to use this yet.
 - ~~The window position is currently hardcoded, so depending on your screen resolution it might not be in the best position. Will be fixed as soon as there is an API for it in GPUI.~~ I kinda fixed this, but it's probably still wonky on multi display setups.
 - The hotkey is currently hardcoded to `Opt+Ctrl+Cmd+Space`
+
+## Features
+
+In the absence of a proper extension system (which is wanted, but still quite far out at this point) I am adding features I need, but that aren't universally useful behind cargo feature flags.
+
+So far there is `tailscale`.

@@ -119,7 +119,7 @@ impl StateViewBuilder for RootListBuilder {
                 }
                 let mut apps: Vec<Item> = apps.values().cloned().collect();
                 apps.sort_unstable_by_key(|a| a.keywords[0].clone());
-                apps
+                Ok(apps)
             },
             Some(Box::new(move |this, cx| {
                 let mut items = this.items_all.clone();

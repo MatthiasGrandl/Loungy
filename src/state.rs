@@ -191,9 +191,15 @@ impl Toast {
        I experimented with instead removing the main window with cx.remove_window() and restoring it on hotkey press, but then we lose all state.
        So right now I have a good solution. I am leaving this here for future reference investigation.
     */
-    pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut AppContext) {
+    pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut WindowContext) {
+        let display = cx.display().expect("No display?");
+        Window::close(cx);
         cx.open_window(
-            WindowStyle::Toast.options(cx.displays().first().expect("No Display found").bounds()),
+            WindowStyle::Toast {
+                width: message.to_string().len() as f64 * 12.0,
+                height: 50.0,
+            }
+            .options(display.bounds()),
             |cx| {
                 cx.spawn(|mut cx| async move {
                     cx.background_executor().timer(Duration::from_secs(2)).await;
@@ -225,6 +231,7 @@ impl Render for PopupToast {
                 .text_color(theme.text)
                 .size_5()
                 .mr_2()
+                .flex_shrink_0()
                 .into_any_element()
         } else {
             div().into_any_element()
@@ -689,7 +696,7 @@ impl ActionsModel {
                 &model,
                 move |_, cx| {
                     let actions = actions.combined(cx);
-                    let items: Vec<Item> = actions
+                    Ok(actions
                         .into_iter()
                         .filter_map(|item| {
                             if item.hide {
@@ -717,8 +724,7 @@ impl ActionsModel {
                                 None,
                             ))
                         })
-                        .collect();
-                    items
+                        .collect())
                 },
                 None,
                 None,

@@ -5,7 +5,7 @@ pub static HEIGHT: f64 = 450.0;
 
 pub enum WindowStyle {
     Main,
-    Toast,
+    Toast { width: f64, height: f64 },
 }
 
 impl WindowStyle {
@@ -22,10 +22,10 @@ impl WindowStyle {
                 let y: GlobalPixels = center.y - height / 2.0;
                 (width, height, x, y)
             }
-            WindowStyle::Toast => {
+            WindowStyle::Toast { width, height } => {
                 options.focus = false;
-                let width = GlobalPixels::from(200.0);
-                let height = GlobalPixels::from(50.0);
+                let width = GlobalPixels::from(*width);
+                let height = GlobalPixels::from(*height);
                 let x: GlobalPixels = center.x - width / 2.0;
                 let y: GlobalPixels = bounds.bottom() - height - GlobalPixels::from(200.0);
                 (width, height, x, y)

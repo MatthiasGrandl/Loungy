@@ -3039,6 +3039,7 @@ dependencies = [
  "serde_json",
  "simple-easing",
  "swift-rs",
+ "time",
  "toml 0.8.10",
  "whoami",
 ]

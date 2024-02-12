@@ -9,6 +9,8 @@ use crate::{
 use self::root::{menu, process, theme};
 
 pub mod root;
+#[cfg(feature = "tailscale")]
+pub mod tailscale;
 
 pub struct RootCommand {
     title: String,
@@ -50,6 +52,8 @@ impl RootCommands {
             Box::new(menu::MenuCommandBuilder),
             Box::new(process::ProcessCommandBuilder),
             Box::new(theme::ThemeCommandBuilder),
+            #[cfg(feature = "tailscale")]
+            Box::new(tailscale::list::TailscaleCommandBuilder),
         ];
         let items: Vec<Item> = commands
             .into_iter()

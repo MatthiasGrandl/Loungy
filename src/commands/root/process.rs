@@ -148,7 +148,7 @@ impl StateViewBuilder for ProcessListBuilder {
                 }
 
                 let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
-                parsed
+                Ok(parsed
                     .iter()
                     .map(|p| {
                         let path = re
@@ -228,7 +228,7 @@ impl StateViewBuilder for ProcessListBuilder {
                             None,
                         )
                     })
-                    .collect()
+                    .collect())
             },
             None,
             Some(Duration::from_secs(5)),

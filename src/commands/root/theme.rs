@@ -28,7 +28,7 @@ impl StateViewBuilder for ThemeListBuilder {
             &actions,
             |_, cx| {
                 let themes = Theme::list(cx);
-                themes
+                Ok(themes
                     .into_iter()
                     .map(|theme| {
                         Item::new(
@@ -125,7 +125,7 @@ impl StateViewBuilder for ThemeListBuilder {
                             None,
                         )
                     })
-                    .collect()
+                    .collect())
             },
             None,
             Some(Duration::from_secs(10)),

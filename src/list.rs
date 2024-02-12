@@ -116,7 +116,7 @@ impl RenderOnce for Img {
                 let img = img(src).size_full();
                 img.into_any_element()
             }
-            ImgSource::Dot(color) => div().rounded_full().bg(color).size_2_3().into_any(),
+            ImgSource::Dot(color) => div().rounded_full().bg(color).size_1_2().into_any(),
         };
 
         el.child(img)
@@ -287,7 +287,7 @@ pub struct List {
     pub items_all: Vec<Item>,
     pub items: Vec<Item>,
     pub query: TextInput,
-    pub update: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
+    pub update: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> anyhow::Result<Vec<Item>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
 }
 
@@ -370,10 +370,20 @@ impl List {
         self.selected().and_then(|item| item.actions.first())
     }
     pub fn update(&mut self, cx: &mut ViewContext<Self>) {
-        let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _| vec![]));
-        self.items_all = update_fn(self, cx);
+        let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _| Ok(vec![])));
+        let result = update_fn(self, cx);
         self.update = update_fn;
-        self.filter(cx);
+        match result {
+            Ok(items) => {
+                self.items_all = items;
+                self.filter(cx);
+            }
+            Err(_err) => {
+                self.actions.inner.update(cx, |this, cx| {
+                    this.toast.error("Failed to refresh list", cx);
+                });
+            }
+        }
     }
     pub fn filter(&mut self, cx: &mut ViewContext<Self>) {
         let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
@@ -384,7 +394,7 @@ impl List {
     pub fn new(
         query: &TextInput,
         actions: &ActionsModel,
-        update: impl Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item> + 'static,
+        update: impl Fn(&mut Self, &mut ViewContext<Self>) -> anyhow::Result<Vec<Item>> + 'static,
         filter: Option<Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>>,
         interval: Option<Duration>,
         update_receiver: Receiver<bool>,
