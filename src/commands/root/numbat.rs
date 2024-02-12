@@ -26,6 +26,13 @@ pub struct Numbat {
     pub result: Option<NumbatResult>,
 }
 
+fn rephraser(s: &str) -> String {
+    if s.contains(" from now") {
+        return format!("now() + {}", s.replace(" from now", ""));
+    }
+    s.to_string()
+}
+
 impl Numbat {
     pub fn init(query: &TextInput, cx: &mut WindowContext) -> View<Numbat> {
         let importer = BuiltinModuleImporter::default();
@@ -39,7 +46,8 @@ impl Numbat {
                 &query.view,
                 move |subscriber: &mut Numbat, _, event, cx| match event {
                     TextEvent::Input { text } => {
-                        let result = ctx.interpret(text, numbat::resolver::CodeSource::Text);
+                        let result =
+                            ctx.interpret(&rephraser(text), numbat::resolver::CodeSource::Text);
                         let formatter = PlainTextFormatter {};
                         subscriber.result = match result {
                             Ok((statements, result)) => {
@@ -87,7 +95,7 @@ impl Numbat {
                                     None
                                 }
                             }
-                            Err(e) => {
+                            Err(_e) => {
                                 //eprintln!("{:#?}", e);
                                 None
                             }
