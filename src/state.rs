@@ -271,7 +271,7 @@ impl StateItem {
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
                 // if !actions_clone.inner.read(cx).show {
-                //     cx.hide();
+                //     Window::close(cx);
                 // };
             }
             TextEvent::KeyDown(ev) => {
@@ -366,6 +366,12 @@ impl StateModel {
             })
             .detach();
         });
+    }
+    pub fn reset(&self, cx: &mut WindowContext) {
+        self.inner.update(cx, |model, _| {
+            model.stack.clear();
+        });
+        self.push(RootListBuilder {}, cx);
     }
 }
 

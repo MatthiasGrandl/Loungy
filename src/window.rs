@@ -1,4 +1,8 @@
+use std::time::Duration;
+
 use gpui::*;
+
+use crate::state::StateModel;
 
 pub static WIDTH: f64 = 800.0;
 pub static HEIGHT: f64 = 450.0;
@@ -68,6 +72,20 @@ impl Window {
             //cx.remove_window();
             cx.hide();
         });
+        // After 90 seconds, reset the state
+        cx.spawn(|mut cx| async move {
+            cx.background_executor()
+                .timer(Duration::from_secs(90))
+                .await;
+            let _ = cx.update_global::<Self, _>(|window, cx| {
+                if window.hidden {
+                    cx.update_global::<StateModel, _>(|model, cx| {
+                        model.reset(cx);
+                    });
+                }
+            });
+        })
+        .detach();
     }
 }
 
