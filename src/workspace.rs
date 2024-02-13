@@ -48,7 +48,6 @@ impl Render for Workspace {
                     .items_center()
                     .child(back)
                     .child(item.query.clone())
-                    .text_lg()
                     .p_2()
                     .w_full(),
             )

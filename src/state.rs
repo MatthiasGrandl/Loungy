@@ -639,7 +639,7 @@ impl Actions {
                     .px_2()
                     .border_t_1()
                     .border_color(theme.mantle)
-                    .text_base(),
+                    .text_sm(),
             )
     }
     fn check(&self, keystroke: &Keystroke, cx: &WindowContext) -> Option<Action> {
