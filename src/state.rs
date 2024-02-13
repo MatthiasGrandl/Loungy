@@ -587,7 +587,7 @@ impl Actions {
     fn update_list(&self, cx: &mut WindowContext) {
         if let Some(list) = &self.list {
             list.update(cx, |this, cx| {
-                this.update(cx);
+                this.update(true, cx);
             });
         }
     }
@@ -597,13 +597,22 @@ impl Actions {
         }
         let theme = cx.global::<theme::Theme>();
         let query = self.query.clone().unwrap();
+        let list = self.list.clone().unwrap();
+        let el_height = 42.0;
+        let count = list.read(cx).items.len();
+        let height = Pixels(if count == 0 {
+            0.0
+        } else if count > 4 {
+            4.0 * el_height + 20.0
+        } else {
+            count as f32 * el_height + 20.0
+        });
         div()
             .absolute()
             .bottom_10()
             .right_0()
             .z_index(1000)
             .w_80()
-            .max_h_48()
             .bg(theme.base)
             .rounded_xl()
             .border_1()
@@ -611,7 +620,17 @@ impl Actions {
             .shadow_lg()
             .flex()
             .flex_col()
-            .child(div().child(self.list.clone().unwrap()).p_2().flex_shrink())
+            .child(if count > 0 {
+                div().h(height).child(list)
+            } else {
+                div()
+                    .child("No results")
+                    .px_2()
+                    .py_8()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+            })
             .child(
                 div()
                     .flex_shrink_0()
@@ -744,7 +763,7 @@ impl ActionsModel {
                     TextEvent::KeyDown(ev) => {
                         if Shortcut::simple("enter").inner.eq(&ev.keystroke) {
                             let _ = list_clone.update(cx, |this2, cx| {
-                                if let Some(action) = this2.default_action() {
+                                if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
                                 }
                             });

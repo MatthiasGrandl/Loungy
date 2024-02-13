@@ -53,13 +53,10 @@ impl Render for Workspace {
                     .w_full(),
             )
             .child(item.loading.clone())
-            .child(div().child(item.view.clone()).p_2())
+            .child(div().flex_1().size_full().child(item.view.clone()))
             .child(
                 div()
-                    .absolute()
-                    .bottom_0()
-                    .left_0()
-                    .right_0()
+                    .mt_auto()
                     .bg(theme.mantle)
                     .w_full()
                     .border_t_1()

@@ -1,4 +1,5 @@
 use std::{
+    ops::Deref,
     path::PathBuf,
     sync::{
         mpsc::{channel, Receiver, Sender},
@@ -282,9 +283,14 @@ impl RenderOnce for Item {
     }
 }
 
+// pub struct ListStateInner {
+//     pub items: Vec<Item>,
+//     pub selected: usize,
+// }
+
 pub struct List {
-    selected: usize,
-    skip: usize,
+    state: ListState,
+    selected: Model<usize>,
     update_actions: bool,
     selection_sender: Sender<usize>,
     pub actions: ActionsModel,
@@ -300,48 +306,15 @@ impl Render for List {
         if self.update_actions {
             self.selection_change(&self.actions, cx);
         }
-        let view = cx.view().clone();
-        let mut items: Vec<(usize, Item)> = self
-            .items
-            .clone()
-            .into_iter()
-            .enumerate()
-            .skip(self.skip)
-            .collect();
-        items.truncate(8);
-        div()
-            .w_full()
-            .on_scroll_wheel(move |ev, cx| {
-                view.update(cx, |this, cx| {
-                    let y = ev.delta.pixel_delta(Pixels(1.0)).y.0;
-                    if y > 10.0 {
-                        this.up(cx);
-                    } else if y < -10.0 {
-                        this.down(cx);
-                    }
-                });
-            })
-            .children(items.into_iter().map(|(i, mut item)| {
-                item.selected = i == self.selected;
-                div().child(item.clone()).on_mouse_down(MouseButton::Left, {
-                    //
-                    let actions = self.actions.inner.read(cx).clone();
-                    let action = item.actions.first().cloned();
-                    let sender = self.selection_sender.clone();
-                    move |ev, cx| match ev.click_count {
-                        1 => {
-                            let _ = sender.send(i);
-                        }
-                        2 => {
-                            let mut actions = actions.clone();
-                            if let Some(action) = &action {
-                                (action.action)(&mut actions, cx);
-                            }
-                        }
-                        _ => {}
-                    }
-                })
-            }))
+
+        if self.items.len() == 0 {
+            div()
+        } else {
+            div()
+                .p_2()
+                .size_full()
+                .child(list(self.state.clone()).size_full())
+        }
     }
 }
 
@@ -350,44 +323,40 @@ impl List {
         if !self.query.has_focus(cx) {
             return;
         }
-        if self.selected > 0 {
-            self.selected -= 1;
-            self.skip = if self.skip > self.selected {
-                self.selected
-            } else {
-                self.skip
-            };
-            cx.notify();
-        }
+        self.selected.update(cx, |this, cx| {
+            if *this > 0 {
+                *this -= 1;
+                self.state.scroll_to_reveal_item(*this);
+                cx.notify();
+            }
+        });
     }
     pub fn down(&mut self, cx: &mut ViewContext<Self>) {
         if !self.query.has_focus(cx) {
             return;
         }
-        if self.selected < self.items.len() - 1 {
-            self.selected += 1;
-            self.skip = if self.selected > self.skip + 7 {
-                self.selected - 7
-            } else {
-                self.skip
-            };
-            cx.notify();
-        }
+        self.selected.update(cx, |this, cx| {
+            if *this < self.items.len() - 1 {
+                *this += 1;
+                self.state.scroll_to_reveal_item(*this);
+                cx.notify();
+            }
+        });
     }
-    pub fn selected(&self) -> Option<&Item> {
-        self.items.get(self.selected)
+    pub fn selected(&self, cx: &AppContext) -> Option<&Item> {
+        self.items.get(*self.selected.read(cx))
     }
-    pub fn default_action(&self) -> Option<&Action> {
-        self.selected().and_then(|item| item.actions.first())
+    pub fn default_action(&self, cx: &AppContext) -> Option<&Action> {
+        self.selected(cx).and_then(|item| item.actions.first())
     }
-    pub fn update(&mut self, cx: &mut ViewContext<Self>) {
+    pub fn update(&mut self, rerender: bool, cx: &mut ViewContext<Self>) {
         let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _| Ok(vec![])));
         let result = update_fn(self, cx);
         self.update = update_fn;
         match result {
             Ok(items) => {
                 self.items_all = items;
-                self.filter(cx);
+                self.filter(rerender, cx);
             }
             Err(_err) => {
                 self.actions.inner.update(cx, |this, cx| {
@@ -396,10 +365,50 @@ impl List {
             }
         }
     }
-    pub fn filter(&mut self, cx: &mut ViewContext<Self>) {
+    pub fn filter(&mut self, rerender: bool, cx: &mut ViewContext<Self>) {
         let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
         self.items = filter_fn(self, cx);
         self.filter = filter_fn;
+
+        let items = self.items.clone();
+        let s = self.selected.clone();
+        let actions = self.actions.clone();
+        let sender = self.selection_sender.clone();
+
+        let scroll = self.state.logical_scroll_top().clone();
+        self.state = ListState::new(
+            self.items.len(),
+            ListAlignment::Top,
+            Pixels(20.0),
+            move |i, cx| {
+                let selected = i.eq(s.read(cx));
+                let mut item = items[i].clone();
+                item.selected = selected;
+                let action = item.actions.first().cloned();
+                let actions = actions.inner.read(cx).clone();
+                let sender = sender.clone();
+                div()
+                    .child(item)
+                    .on_mouse_down(MouseButton::Left, {
+                        move |ev, cx| match ev.click_count {
+                            1 => {
+                                let _ = sender.send(i);
+                            }
+                            2 => {
+                                let mut actions = actions.clone();
+                                if let Some(action) = &action {
+                                    (action.action)(&mut actions, cx);
+                                }
+                            }
+                            _ => {}
+                        }
+                    })
+                    .into_any_element()
+            },
+        );
+        if !rerender {
+            self.state.scroll_to(scroll);
+        }
         cx.notify();
     }
     pub fn new(
@@ -414,8 +423,10 @@ impl List {
     ) -> View<Self> {
         let (selection_sender, r) = channel::<usize>();
         let mut list = Self {
-            selected: 0,
-            skip: 0,
+            state: ListState::new(0, ListAlignment::Top, Pixels(20.0), move |_, _| {
+                div().into_any_element()
+            }),
+            selected: cx.new_model(|_| 0),
             items_all: vec![],
             items: vec![],
             actions: actions.clone(),
@@ -436,11 +447,15 @@ impl List {
                         let poll = interval.map(|i| last.elapsed() > i).unwrap_or(false);
                         if let Ok(selected) = r.try_recv() {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
-                                this.selected = selected;
+                                this.selected.update(cx, |this, cx| {
+                                    *this = selected;
+                                    cx.notify();
+                                });
                                 cx.notify();
                             });
                         }
-                        if poll || update_receiver.try_recv().is_ok() {
+                        let triggered = update_receiver.try_recv().is_ok();
+                        if poll || triggered {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
                                 if this.query.has_focus(cx)
                                     || this
@@ -452,7 +467,7 @@ impl List {
                                         .unwrap()
                                         .has_focus(cx)
                                 {
-                                    this.update(cx);
+                                    this.update(triggered, cx);
                                     last = std::time::Instant::now();
                                 }
                             });
@@ -466,7 +481,7 @@ impl List {
                 }
             })
             .detach();
-            list.update(cx);
+            list.update(true, cx);
             list
         });
         let clone = view.clone();
@@ -476,9 +491,11 @@ impl List {
             match emitter {
                 TextEvent::Input { text: _ } => {
                     clone.update(cx, |this, cx| {
-                        this.selected = 0;
-                        this.skip = 0;
-                        this.filter(cx);
+                        this.selected.update(cx, |this, cx| {
+                            *this = 0;
+                            cx.notify();
+                        });
+                        this.filter(true, cx);
                     });
                 }
                 TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
@@ -501,7 +518,7 @@ impl List {
         view
     }
     pub fn selection_change(&self, actions: &ActionsModel, cx: &mut WindowContext) {
-        if let Some(item) = self.items.get(self.selected) {
+        if let Some(item) = self.selected(cx) {
             actions.update_local(item.actions.clone(), cx)
         }
     }

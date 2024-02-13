@@ -27,10 +27,14 @@ pub struct Numbat {
 }
 
 fn rephraser(s: &str) -> String {
-    if s.contains(" from now") {
-        return format!("now() + {}", s.replace(" from now", ""));
+    let mut s = s.to_string();
+    if s.contains(" and ") {
+        s = s.replace(" and ", " + ");
     }
-    s.to_string()
+    if s.contains(" from now") {
+        s = format!("now() + {}", s.replace(" from now", ""));
+    }
+    s
 }
 
 impl Numbat {
