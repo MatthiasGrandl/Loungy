@@ -2,6 +2,10 @@
 
 ![Loungy](./img/preview.webp)
 
+
+https://github.com/MatthiasGrandl/loungy/assets/50196894/689c4705-c325-44c9-a1d3-99f72bc7fa6f
+
+
 ## What
 
 Loungy is a WIP launcher in the vein of Spotlight, Alfred, Raycast.
