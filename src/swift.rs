@@ -1,7 +1,7 @@
 use gpui::Keystroke;
 use serde::Deserialize;
 use serde_json::Value;
-use swift_rs::{swift, SRData, SRObject, SRString};
+use swift_rs::{swift, Bool, SRData, SRObject, SRString};
 
 #[repr(C)]
 pub struct AppData {
@@ -16,7 +16,7 @@ swift!(pub fn get_application_data(cache_dir: &SRString, input: &SRString) -> Op
 swift!(pub fn keytap(value: SRString));
 
 // Function to wait for an input element to be focused and then using AX to fill it
-swift!(pub fn autofill(value: SRString, prev: SRString) -> Option<SRString>);
+swift!(pub fn autofill(value: SRString, password: Bool, prev: &SRString) -> Option<SRString>);
 
 #[derive(Deserialize)]
 #[allow(dead_code)]

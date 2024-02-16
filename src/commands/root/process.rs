@@ -81,7 +81,7 @@ impl StateViewBuilder for ProcessListBuilder {
         List::new(
             query,
             &actions,
-            |this, cx| {
+            |this, _, cx| {
                 let sort_by_cpu = CPU.load(Ordering::Relaxed);
                 {
                     let sort_action = if sort_by_cpu {
@@ -148,87 +148,89 @@ impl StateViewBuilder for ProcessListBuilder {
                 }
 
                 let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
-                Ok(parsed
-                    .iter()
-                    .map(|p| {
-                        let path = re
-                            .captures(p.name.as_str())
-                            .and_then(|caps| caps.get(1))
-                            .map(|m| String::from(m.as_str()))
-                            .unwrap_or_default();
+                Ok(Some(
+                    parsed
+                        .iter()
+                        .map(|p| {
+                            let path = re
+                                .captures(p.name.as_str())
+                                .and_then(|caps| caps.get(1))
+                                .map(|m| String::from(m.as_str()))
+                                .unwrap_or_default();
 
-                        let (name, image) = match unsafe {
-                            get_application_data(
-                                &cache_dir.to_str().unwrap().into(),
-                                &path.as_str().into(),
-                            )
-                        } {
-                            Some(d) => {
-                                let mut icon_path = cache_dir.clone();
-                                icon_path.push(format!("{}.png", d.id.to_string()));
-                                (d.name.to_string(), Img::list_file(icon_path))
-                            }
-                            None => {
-                                let mut icon_path = cache_dir.clone();
-                                icon_path.push("com.apple.Terminal.png");
-                                (
-                                    p.name.split("/").last().unwrap().to_string(),
-                                    Img::list_file(icon_path),
+                            let (name, image) = match unsafe {
+                                get_application_data(
+                                    &cache_dir.to_str().unwrap().into(),
+                                    &path.as_str().into(),
                                 )
-                            }
-                        };
-                        Item::new(
-                            vec![name.clone()],
-                            cx.new_view(|_cx| {
-                                let (m, c) = if sort_by_cpu {
-                                    (None, Some(lavender))
-                                } else {
-                                    (Some(lavender), None)
-                                };
-                                ListItem::new(
-                                    Some(image),
-                                    name.clone(),
-                                    None,
-                                    vec![
-                                        Accessory::new(
-                                            format!("{: >6}", format_bytes(p.mem * 1024)),
-                                            Some(Img::accessory_icon(Icon::MemoryStick, m)),
-                                        ),
-                                        Accessory::new(
-                                            format!("{: >6.2}%", p.cpu),
-                                            Some(Img::accessory_icon(Icon::Cpu, c)),
-                                        ),
-                                    ],
-                                )
-                            })
-                            .into(),
-                            None,
-                            vec![Action::new(
-                                Img::list_icon(Icon::Skull, None),
-                                "Kill Process",
+                            } {
+                                Some(d) => {
+                                    let mut icon_path = cache_dir.clone();
+                                    icon_path.push(format!("{}.png", d.id.to_string()));
+                                    (d.name.to_string(), Img::list_file(icon_path))
+                                }
+                                None => {
+                                    let mut icon_path = cache_dir.clone();
+                                    icon_path.push("com.apple.Terminal.png");
+                                    (
+                                        p.name.split("/").last().unwrap().to_string(),
+                                        Img::list_file(icon_path),
+                                    )
+                                }
+                            };
+                            Item::new(
+                                vec![name.clone()],
+                                cx.new_view(|_cx| {
+                                    let (m, c) = if sort_by_cpu {
+                                        (None, Some(lavender))
+                                    } else {
+                                        (Some(lavender), None)
+                                    };
+                                    ListItem::new(
+                                        Some(image),
+                                        name.clone(),
+                                        None,
+                                        vec![
+                                            Accessory::new(
+                                                format!("{: >6}", format_bytes(p.mem * 1024)),
+                                                Some(Img::accessory_icon(Icon::MemoryStick, m)),
+                                            ),
+                                            Accessory::new(
+                                                format!("{: >6.2}%", p.cpu),
+                                                Some(Img::accessory_icon(Icon::Cpu, c)),
+                                            ),
+                                        ],
+                                    )
+                                })
+                                .into(),
                                 None,
-                                {
-                                    let pid = p.pid.to_string();
-                                    move |this, cx| {
-                                        if Command::new("kill")
-                                            .arg("-9")
-                                            .arg(pid.clone())
-                                            .output()
-                                            .is_err()
-                                        {
-                                            this.toast.error("Failed to kill process", cx);
-                                        } else {
-                                            this.toast.success("Killed process", cx);
+                                vec![Action::new(
+                                    Img::list_icon(Icon::Skull, None),
+                                    "Kill Process",
+                                    None,
+                                    {
+                                        let pid = p.pid.to_string();
+                                        move |this, cx| {
+                                            if Command::new("kill")
+                                                .arg("-9")
+                                                .arg(pid.clone())
+                                                .output()
+                                                .is_err()
+                                            {
+                                                this.toast.error("Failed to kill process", cx);
+                                            } else {
+                                                this.toast.success("Killed process", cx);
+                                            }
+                                            this.update();
                                         }
-                                        this.update();
-                                    }
-                                },
-                                false,
-                            )],
-                            None,
-                        )
-                    })
-                    .collect())
+                                    },
+                                    false,
+                                )],
+                                None,
+                            )
+                        })
+                        .collect(),
+                ))
             },
             None,
             Some(Duration::from_secs(5)),

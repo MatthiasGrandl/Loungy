@@ -5,6 +5,7 @@ mod app;
 mod assets;
 mod commands;
 mod db;
+mod form;
 mod icon;
 mod lazy;
 mod list;

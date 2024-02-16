@@ -29,14 +29,14 @@ Loungy wouldn't be possible without the awesome open source ecosystem:
 ## Features
 
 - [x] Launching apps
-- [x] Calculator (including unit/currency conversions, thanks to [Numbat](https://numbat.dev/))
+- [x] Calculator (including unit/currency/date conversions, thanks to [Numbat](https://numbat.dev/))
 - [x] Task manager (killing processes)
 - [x] MacOS menu search
 - [x] Tailscale peer list
+- [x] Bitwarden password client (only viewing, not editing)
 
 These features exist in the old Tauri based app and will be ported soon:
 
-- [ ] Bitwarden password manager
 - [ ] Matrix Chat client
 
 ## Development
@@ -63,4 +63,4 @@ cargo run dev
 
 In the absence of a proper extension system (which is wanted, but still quite far out at this point) I am adding features I need, but that aren't universally useful behind cargo feature flags.
 
-So far there is `tailscale`.
+So far there is `tailscale` and `bitwarden`.

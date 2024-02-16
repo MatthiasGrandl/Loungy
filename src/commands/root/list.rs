@@ -33,7 +33,7 @@ impl StateViewBuilder for RootListBuilder {
         List::new(
             query,
             &actions,
-            |_, cx| {
+            |_, _, cx| {
                 let cache_dir = cx.global::<Paths>().cache.clone();
                 fs::create_dir_all(cache_dir.clone()).unwrap();
 
@@ -119,7 +119,7 @@ impl StateViewBuilder for RootListBuilder {
                 }
                 let mut apps: Vec<Item> = apps.values().cloned().collect();
                 apps.sort_unstable_by_key(|a| a.keywords[0].clone());
-                Ok(apps)
+                Ok(Some(apps))
             },
             Some(Box::new(move |this, cx| {
                 let mut items = this.items_all.clone();

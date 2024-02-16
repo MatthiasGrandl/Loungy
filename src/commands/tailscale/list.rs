@@ -65,7 +65,7 @@ impl StateViewBuilder for TailscaleListBuilder {
         List::new(
             query,
             &actions,
-            |this, cx| {
+            |this, _, cx| {
                 let offline = OFFLINE.load(Ordering::Relaxed);
                 {
                     let filter_action = if offline {
@@ -194,7 +194,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                     })
                     .collect();
                 items.sort_unstable_by_key(|i| i.keywords.first().unwrap().clone());
-                Ok(items)
+                Ok(Some(items))
             },
             None,
             Some(Duration::from_secs(10)),

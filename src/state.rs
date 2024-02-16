@@ -11,7 +11,7 @@ use crate::{
     icon::Icon,
     list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
     query::{TextEvent, TextInput},
-    theme,
+    theme::{self, Theme},
     window::{Window, WindowStyle, WIDTH},
 };
 
@@ -60,7 +60,7 @@ impl Loading {
             .detach();
 
             Self {
-                inner: true,
+                inner: false,
                 left: 0.0,
                 width: 0.0,
             }
@@ -166,20 +166,20 @@ impl Toast {
         let state = cx.new_view(|_| ToastState::Idle);
         Self { state }
     }
-    pub fn loading(&mut self, message: impl ToString, cx: &mut WindowContext) {
+    pub fn loading<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Loading(message.to_string());
             cx.notify();
         });
     }
-    pub fn success(&mut self, message: impl ToString, cx: &mut WindowContext) {
+    pub fn success<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Success(message.to_string());
             cx.notify();
             this.timeout(Duration::from_secs(2), cx);
         });
     }
-    pub fn error(&mut self, message: impl ToString, cx: &mut WindowContext) {
+    pub fn error<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Error(message.to_string());
             cx.notify();
@@ -349,23 +349,14 @@ impl StateModel {
     }
     pub fn push(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
         let item = StateItem::init(view, cx);
-        let loading = item.loading.clone();
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
             cx.notify();
         });
-        loading.update(cx, |_, cx| {
-            cx.spawn(|view, mut cx| async move {
-                cx.background_executor()
-                    .timer(Duration::from_millis(1000))
-                    .await;
-                let _ = view.update(&mut cx, |this, cx| {
-                    this.inner = false;
-                    cx.notify();
-                });
-            })
-            .detach();
-        });
+    }
+    pub fn replace(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
+        self.pop(cx);
+        self.push(view, cx);
     }
     pub fn reset(&self, cx: &mut WindowContext) {
         self.inner.update(cx, |model, _| {
@@ -447,6 +438,23 @@ fn key_icon(el: Div, icon: Icon) -> Div {
     )
 }
 
+fn key_string(el: Div, theme: &Theme, string: impl ToString) -> Div {
+    el.child(
+        div()
+            .size_5()
+            .p_1()
+            .rounded_md()
+            .bg(theme.surface0)
+            .text_color(theme.text)
+            .font_weight(FontWeight::MEDIUM)
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(string.to_string())
+            .ml_0p5(),
+    )
+}
+
 impl RenderOnce for Shortcut {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
@@ -495,21 +503,30 @@ impl RenderOnce for Shortcut {
             "right" => {
                 el = key_icon(el, Icon::ArrowRight);
             }
+            "comma" => {
+                el = key_string(el, &theme, ",");
+            }
+            "dot" => {
+                el = key_string(el, &theme, ".");
+            }
+            "questionmark" => {
+                el = key_string(el, &theme, "?");
+            }
+            "exclamationmark" => {
+                el = key_string(el, &theme, "!");
+            }
+            "slash" => {
+                el = key_string(el, &theme, "/");
+            }
+            "backslash" => {
+                el = key_string(el, &theme, "\\");
+            }
             _ => {
-                el = el.child(
-                    div()
-                        .size_5()
-                        .p_1()
-                        .rounded_md()
-                        .bg(theme.surface0)
-                        .text_color(theme.text)
-                        .font_weight(FontWeight::MEDIUM)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .child(shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase())
-                        .ml_0p5(),
-                )
+                el = key_string(
+                    el,
+                    &theme,
+                    shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase(),
+                );
             }
         }
         el
@@ -680,7 +697,7 @@ impl Render for Actions {
                 .child(open)
                 .child(self.popup(cx))
         } else {
-            div()
+            div().child(" ")
         }
     }
 }
@@ -720,37 +737,39 @@ impl ActionsModel {
             let list = List::new(
                 &query,
                 &model,
-                move |_, cx| {
+                move |_, _, cx| {
                     let actions = actions.combined(cx);
-                    Ok(actions
-                        .into_iter()
-                        .filter_map(|item| {
-                            if item.hide {
-                                return None;
-                            }
-                            let action = item.clone();
-                            let accessories = if let Some(shortcut) = item.shortcut {
-                                vec![Accessory::shortcut(shortcut)]
-                            } else {
-                                vec![]
-                            };
-                            Some(Item::new(
-                                vec![item.label.clone()],
-                                cx.new_view(|_| {
-                                    ListItem::new(
-                                        Some(action.image.clone()),
-                                        item.label,
-                                        None,
-                                        accessories,
-                                    )
-                                })
-                                .into(),
-                                None,
-                                vec![action],
-                                None,
-                            ))
-                        })
-                        .collect())
+                    Ok(Some(
+                        actions
+                            .into_iter()
+                            .filter_map(|item| {
+                                if item.hide {
+                                    return None;
+                                }
+                                let action = item.clone();
+                                let accessories = if let Some(shortcut) = item.shortcut {
+                                    vec![Accessory::shortcut(shortcut)]
+                                } else {
+                                    vec![]
+                                };
+                                Some(Item::new(
+                                    vec![item.label.clone()],
+                                    cx.new_view(|_| {
+                                        ListItem::new(
+                                            Some(action.image.clone()),
+                                            item.label,
+                                            None,
+                                            accessories,
+                                        )
+                                    })
+                                    .into(),
+                                    None,
+                                    vec![action],
+                                    None,
+                                ))
+                            })
+                            .collect(),
+                    ))
                 },
                 None,
                 None,

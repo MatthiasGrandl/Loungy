@@ -2,7 +2,7 @@ import Cocoa
 import CoreGraphics
 import SwiftRs
 
-func getFocused(app: AXUIElement, prev: String) -> (AXUIElement, String)? {
+func getFocused(app: AXUIElement, password: Bool, prev: String) -> (AXUIElement, String)? {
     var focusedElementValue: AnyObject?
 
     let result = AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focusedElementValue)
@@ -14,9 +14,15 @@ func getFocused(app: AXUIElement, prev: String) -> (AXUIElement, String)? {
 
     var roleValue: AnyObject?
     _ = AXUIElementCopyAttributeValue(axElement, kAXRoleAttribute as CFString, &roleValue)
+
+    var subroleValue: AnyObject?
+    _ = AXUIElementCopyAttributeValue(axElement, kAXSubroleAttribute as CFString, &subroleValue)
+
+    let passwordCheck = !password || (password && subroleValue as? String == kAXSecureTextFieldSubrole)
+
     let key = String(axElement.hashValue)
 
-    if let role = roleValue as? String, role == kAXTextFieldRole || role == kAXTextAreaRole, key != prev {
+    if let role = roleValue as? String, role == kAXTextFieldRole || role == kAXTextAreaRole, passwordCheck, key != prev {
         return (axElement, key)
     }
 
@@ -24,7 +30,7 @@ func getFocused(app: AXUIElement, prev: String) -> (AXUIElement, String)? {
 }
 
 @_cdecl("autofill")
-public func autofill(value: SRString, prev: SRString) -> SRString? {
+public func autofill(value: SRString, password: Bool, prev: SRString) -> SRString? {
     guard let currentApp = NSWorkspace.shared.frontmostApplication else {
         return nil
     }
@@ -37,20 +43,9 @@ public func autofill(value: SRString, prev: SRString) -> SRString? {
 
     let maxRetries = 1200
     var retries = 0
-    var result: (AXUIElement, String)?
-    repeat {
-        result = getFocused(app: axApp, prev: prev)
-        retries += 1
-        if retries >= maxRetries {
-            break
-        }
-        // Optionally, sleep or wait, if necessary, to avoid a busy loop
-        // sleep(1) or Thread.sleep(forTimeInterval: 1)
-        Thread.sleep(forTimeInterval: 0.1)
-    } while result == nil
+    let result = getFocused(app: axApp, password: password, prev: prev)
 
     guard let result = result else {
-        print("autofill timed out")
         return nil
     }
 

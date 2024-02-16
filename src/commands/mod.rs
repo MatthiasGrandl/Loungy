@@ -8,6 +8,8 @@ use crate::{
 
 use self::root::{menu, process, theme};
 
+#[cfg(feature = "bitwarden")]
+pub mod bitwarden;
 pub mod root;
 #[cfg(feature = "tailscale")]
 pub mod tailscale;
@@ -54,6 +56,8 @@ impl RootCommands {
             Box::new(theme::ThemeCommandBuilder),
             #[cfg(feature = "tailscale")]
             Box::new(tailscale::list::TailscaleCommandBuilder),
+            #[cfg(feature = "bitwarden")]
+            Box::new(bitwarden::list::BitwardenCommandBuilder),
         ];
         let items: Vec<Item> = commands
             .into_iter()

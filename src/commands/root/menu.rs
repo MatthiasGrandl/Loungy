@@ -26,49 +26,53 @@ impl StateViewBuilder for MenuListBuilder {
         List::new(
             query,
             &actions,
-            |_, cx| {
+            |_, _, cx| {
                 let data = unsafe { menu_items() };
                 if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {
-                    Ok(items
-                        .into_iter()
-                        .map(|item| {
-                            let mut path = item.path.clone();
-                            let name = path.pop().unwrap();
-                            let subtitle = path.join(" -> ");
-                            let actions = if let Some(indices) = item.path_indices {
-                                let indices = indices.clone();
-                                vec![Action::new(
-                                    Img::list_icon(Icon::BookOpen, None),
-                                    "Select Menu Item",
-                                    None,
-                                    move |this, cx| {
-                                        let data = serde_json::to_vec(&indices).unwrap();
-                                        unsafe { menu_item_select(SRData::from(data.as_slice())) };
-                                        this.toast.success("Menu item selected", cx);
-                                    },
-                                    false,
-                                )]
-                            } else {
-                                vec![]
-                            };
-                            let accessories = if let Some(shortcut) = item.shortcut {
-                                vec![Accessory::Shortcut(Shortcut::new(shortcut))]
-                            } else {
-                                vec![]
-                            };
+                    Ok(Some(
+                        items
+                            .into_iter()
+                            .map(|item| {
+                                let mut path = item.path.clone();
+                                let name = path.pop().unwrap();
+                                let subtitle = path.join(" -> ");
+                                let actions = if let Some(indices) = item.path_indices {
+                                    let indices = indices.clone();
+                                    vec![Action::new(
+                                        Img::list_icon(Icon::BookOpen, None),
+                                        "Select Menu Item",
+                                        None,
+                                        move |this, cx| {
+                                            let data = serde_json::to_vec(&indices).unwrap();
+                                            unsafe {
+                                                menu_item_select(SRData::from(data.as_slice()))
+                                            };
+                                            this.toast.success("Menu item selected", cx);
+                                        },
+                                        false,
+                                    )]
+                                } else {
+                                    vec![]
+                                };
+                                let accessories = if let Some(shortcut) = item.shortcut {
+                                    vec![Accessory::Shortcut(Shortcut::new(shortcut))]
+                                } else {
+                                    vec![]
+                                };
 
-                            Item::new(
-                                vec![name.clone(), subtitle.clone()],
-                                cx.new_view(|_| {
-                                    ListItem::new(None, name, Some(subtitle), accessories)
-                                })
-                                .into(),
-                                None,
-                                actions,
-                                None,
-                            )
-                        })
-                        .collect())
+                                Item::new(
+                                    vec![name.clone(), subtitle.clone()],
+                                    cx.new_view(|_| {
+                                        ListItem::new(None, name, Some(subtitle), accessories)
+                                    })
+                                    .into(),
+                                    None,
+                                    actions,
+                                    None,
+                                )
+                            })
+                            .collect(),
+                    ))
                 } else {
                     Err(anyhow::Error::msg("Failed to deserialize menu list"))
                 }

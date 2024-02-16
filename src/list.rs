@@ -1,5 +1,4 @@
 use std::{
-    ops::Deref,
     path::PathBuf,
     sync::{
         mpsc::{channel, Receiver, Sender},
@@ -74,6 +73,13 @@ impl Img {
             size: ImgSize::MD,
         }
     }
+    pub fn list_url(src: impl ToString) -> Self {
+        Self {
+            src: ImgSource::Base(ImageSource::Uri(SharedUri::from(src.to_string()))),
+            mask: ImgMask::Rounded,
+            size: ImgSize::MD,
+        }
+    }
     pub fn list_dot(color: Hsla) -> Self {
         Self {
             src: ImgSource::Dot(color),
@@ -117,6 +123,12 @@ impl RenderOnce for Img {
                 svg.into_any_element()
             }
             ImgSource::Base(src) => {
+                match self.mask {
+                    ImgMask::None => {}
+                    _ => {
+                        el = el.p_0p5();
+                    }
+                }
                 let img = img(src).size_full();
                 img.into_any_element()
             }
@@ -297,7 +309,8 @@ pub struct List {
     pub items_all: Vec<Item>,
     pub items: Vec<Item>,
     pub query: TextInput,
-    pub update: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> anyhow::Result<Vec<Item>>>,
+    pub update:
+        Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
 }
 
@@ -349,15 +362,16 @@ impl List {
     pub fn default_action(&self, cx: &AppContext) -> Option<&Action> {
         self.selected(cx).and_then(|item| item.actions.first())
     }
-    pub fn update(&mut self, rerender: bool, cx: &mut ViewContext<Self>) {
-        let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _| Ok(vec![])));
-        let result = update_fn(self, cx);
+    pub fn update(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
+        let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _, _| Ok(None)));
+        let result = update_fn(self, no_scroll, cx);
         self.update = update_fn;
         match result {
-            Ok(items) => {
+            Ok(Some(items)) => {
                 self.items_all = items;
-                self.filter(rerender, cx);
+                self.filter(no_scroll, cx);
             }
+            Ok(None) => {}
             Err(_err) => {
                 self.actions.inner.update(cx, |this, cx| {
                     this.toast.error("Failed to refresh list", cx);
@@ -365,7 +379,7 @@ impl List {
             }
         }
     }
-    pub fn filter(&mut self, rerender: bool, cx: &mut ViewContext<Self>) {
+    pub fn filter(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
         let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
         self.items = filter_fn(self, cx);
         self.filter = filter_fn;
@@ -406,7 +420,7 @@ impl List {
                     .into_any_element()
             },
         );
-        if !rerender {
+        if !no_scroll {
             self.state.scroll_to(scroll);
         }
         cx.notify();
@@ -414,7 +428,8 @@ impl List {
     pub fn new(
         query: &TextInput,
         actions: &ActionsModel,
-        update: impl Fn(&mut Self, &mut ViewContext<Self>) -> anyhow::Result<Vec<Item>> + 'static,
+        update: impl Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>
+            + 'static,
         filter: Option<Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>>,
         interval: Option<Duration>,
         update_receiver: Receiver<bool>,
@@ -467,7 +482,7 @@ impl List {
                                         .unwrap()
                                         .has_focus(cx)
                                 {
-                                    this.update(triggered, cx);
+                                    this.update(false, cx);
                                     last = std::time::Instant::now();
                                 }
                             });
@@ -520,6 +535,56 @@ impl List {
     pub fn selection_change(&self, actions: &ActionsModel, cx: &mut WindowContext) {
         if let Some(item) = self.selected(cx) {
             actions.update_local(item.actions.clone(), cx)
+        } else {
+            actions.update_local(vec![], cx)
         }
     }
 }
+
+pub struct AsyncListItems {
+    pub items: Vec<Item>,
+    pub initialized: bool,
+}
+
+impl AsyncListItems {
+    pub fn update(&mut self, items: Vec<Item>, cx: &mut ViewContext<Self>) {
+        self.items = items;
+        if !self.initialized {
+            self.initialized = true;
+            cx.emit(AsyncListItemsEvent::Initialized);
+        };
+        cx.emit(AsyncListItemsEvent::Update);
+        cx.notify();
+    }
+    pub fn loader(view: &View<Self>, actions: &ActionsModel, cx: &mut WindowContext) {
+        if view.read(cx).initialized {
+            return;
+        }
+        let loading = actions.inner.read(cx).loading.clone();
+        loading.update(cx, |this, _| {
+            this.inner = true;
+        });
+        cx.subscribe(view, move |_, event, cx| match event {
+            AsyncListItemsEvent::Initialized => {
+                loading.update(cx, |this, _| {
+                    this.inner = false;
+                });
+            }
+            _ => {}
+        })
+        .detach();
+    }
+}
+
+impl Render for AsyncListItems {
+    fn render(&mut self, _: &mut ViewContext<Self>) -> impl IntoElement {
+        div()
+    }
+}
+
+pub enum AsyncListItemsEvent {
+    Initialized,
+    Update,
+}
+
+impl EventEmitter<AsyncListItemsEvent> for AsyncListItems {}

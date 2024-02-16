@@ -36,6 +36,10 @@ time = { version = "0.3.32", features = [
     "parsing",
     "serde-well-known",
 ] }
+url = "2.5.0"
+async-std = { version = "1.12.0", features = ["unstable"] }
+futures = "0.3.30"
 
 [features]
 tailscale = []
+bitwarden = []

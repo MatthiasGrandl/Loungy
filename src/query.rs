@@ -6,7 +6,7 @@ use crate::theme::Theme;
 
 #[derive(IntoElement, Clone)]
 pub struct TextInput {
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
     pub view: View<TextView>,
 }
 
@@ -22,6 +22,16 @@ impl TextInput {
             cx.notify();
         });
     }
+    pub fn set_text(&self, text: impl ToString, cx: &mut WindowContext) {
+        self.view.update(cx, |editor, cx| {
+            editor.set_text(text, cx);
+        });
+    }
+    pub fn set_masked(&self, masked: bool, cx: &mut WindowContext) {
+        self.view.update(cx, |editor, cx| {
+            editor.set_masked(masked, cx);
+        });
+    }
     pub fn has_focus(&self, cx: &WindowContext) -> bool {
         if let Some(fh) = cx.focused() {
             return fh.eq(&self.focus_handle);
@@ -35,6 +45,7 @@ pub struct TextView {
     pub selection: Range<usize>,
     pub word_click: (usize, u16),
     pub placeholder: String,
+    pub masked: bool,
 }
 
 impl TextView {
@@ -44,6 +55,7 @@ impl TextView {
             selection: 0..0,
             word_click: (0, 0),
             placeholder: "Type here...".to_string(),
+            masked: false,
         };
         let view = cx.new_view(|cx| {
             cx.on_blur(focus_handle, |_: &mut TextView, cx| {
@@ -67,6 +79,18 @@ impl TextView {
         .detach();
         view
     }
+    pub fn set_text(&mut self, text: impl ToString, cx: &mut ViewContext<Self>) {
+        self.text = text.to_string();
+        self.selection = self.text.len()..self.text.len();
+        cx.notify();
+        cx.emit(TextEvent::Input {
+            text: self.text.clone(),
+        });
+    }
+    pub fn set_masked(&mut self, masked: bool, cx: &mut ViewContext<Self>) {
+        self.masked = masked;
+        cx.notify();
+    }
     #[allow(dead_code)]
     pub fn reset(&mut self, cx: &mut ViewContext<Self>) {
         self.text = "".to_string();
@@ -76,8 +100,21 @@ impl TextView {
             text: self.text.clone(),
         });
     }
+    pub fn char_range_to_text_range(&self, text: &str) -> Range<usize> {
+        let start = text
+            .chars()
+            .take(self.selection.start)
+            .collect::<String>()
+            .len();
+        let end = text
+            .chars()
+            .take(self.selection.end)
+            .collect::<String>()
+            .len();
+        start..end
+    }
     pub fn select_all(&mut self, cx: &mut ViewContext<Self>) {
-        self.selection = 0..self.text.len();
+        self.selection = 0..self.text.chars().count();
         cx.notify();
     }
     pub fn word_ranges(&self) -> Vec<Range<usize>> {
@@ -130,37 +167,48 @@ impl RenderOnce for TextInput {
                     let prev = editor.text.clone();
                     cx.emit(TextEvent::KeyDown(ev.clone()));
                     let keystroke = &ev.keystroke.key;
+                    let chars = editor.text.chars().collect::<Vec<char>>();
                     if ev.keystroke.modifiers.command {
                         match keystroke.as_str() {
                             "a" => {
-                                editor.selection = 0..editor.text.len();
+                                editor.selection = 0..chars.len();
                             }
                             "c" => {
-                                let selected_text =
-                                    editor.text[editor.selection.clone()].to_string();
-                                cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                                if !editor.masked {
+                                    let selected_text =
+                                        chars[editor.selection.clone()].iter().collect();
+                                    cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                                }
                             }
                             "v" => {
                                 let clipboard = cx.read_from_clipboard();
                                 if let Some(clipboard) = clipboard {
                                     let text = clipboard.text();
-                                    editor.text.replace_range(editor.selection.clone(), &text);
-                                    let i = editor.selection.start + text.len();
+                                    editor.text.replace_range(
+                                        editor.char_range_to_text_range(&editor.text),
+                                        &text,
+                                    );
+                                    let i = editor.selection.start + text.chars().count();
                                     editor.selection = i..i;
                                 }
                             }
                             "x" => {
                                 let selected_text =
-                                    editor.text[editor.selection.clone()].to_string();
+                                    chars[editor.selection.clone()].iter().collect();
                                 cx.write_to_clipboard(ClipboardItem::new(selected_text));
-                                editor.text.replace_range(editor.selection.clone(), "");
+                                editor.text.replace_range(
+                                    editor.char_range_to_text_range(&editor.text),
+                                    "",
+                                );
                                 editor.selection.end = editor.selection.start;
                             }
                             _ => {}
                         }
                     } else if let Some(ime_key) = &ev.keystroke.ime_key {
-                        editor.text.replace_range(editor.selection.clone(), ime_key);
-                        let i = editor.selection.start + ime_key.len();
+                        editor
+                            .text
+                            .replace_range(editor.char_range_to_text_range(&editor.text), ime_key);
+                        let i = editor.selection.start + 1;
                         editor.selection = i..i;
                     } else {
                         match keystroke.as_str() {
@@ -190,15 +238,15 @@ impl RenderOnce for TextInput {
                                 } else if editor.selection.start == editor.selection.end
                                     && editor.selection.start > 0
                                 {
-                                    let mut start = editor.text[..editor.selection.start].chars();
-                                    start.next_back();
-                                    let start = start.as_str();
-                                    let i = start.len();
                                     editor.text =
-                                        start.to_owned() + &editor.text[editor.selection.end..];
+                                        chars[0..editor.selection.start - 1].iter().collect();
+                                    let i = editor.selection.start - 1;
                                     editor.selection = i..i;
                                 } else {
-                                    editor.text.replace_range(editor.selection.clone(), "");
+                                    editor.text.replace_range(
+                                        editor.char_range_to_text_range(&editor.text),
+                                        "",
+                                    );
                                     editor.selection.end = editor.selection.start;
                                 }
                             }
@@ -239,8 +287,10 @@ impl Render for TextView {
         color.fade_out(0.8);
         selection_style.background_color = Some(color);
 
-        let sel = self.selection.clone();
-        let mut highlights = vec![(sel, selection_style)];
+        if self.masked {
+            text = "•".repeat(text.len());
+        }
+        let mut highlights = vec![(self.char_range_to_text_range(&text), selection_style)];
 
         let mut style = TextStyle::default();
         style.color = theme.text;
