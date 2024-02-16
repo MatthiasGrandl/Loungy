@@ -9,6 +9,11 @@ Bitwarden is a lovely password manager so I had to integrate it into Loungy.
 - [x] Autofilling/Typing using MacOS accessibility API
 - [x] Self-hosted instances
 
+## Limitations
+
+- So far only login items are supported
+- No way to add new items, only viewing
+
 ## Requirements
 
 It uses the official Bitwarden CLI so make sure you have that installed.
