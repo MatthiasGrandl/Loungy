@@ -37,13 +37,23 @@ impl StateViewBuilder for RootListBuilder {
                 let cache_dir = cx.global::<Paths>().cache.clone();
                 fs::create_dir_all(cache_dir.clone()).unwrap();
 
+                let user_dir = PathBuf::from("/Users")
+                    .join(whoami::username())
+                    .join("Applications");
+
                 let applications_folders = vec![
                     PathBuf::from("/Applications"),
+                    PathBuf::from("/Applications/Chromium Apps"),
                     PathBuf::from("/System/Applications/Utilities"),
                     PathBuf::from("/System/Applications"),
                     PathBuf::from("/System/Library/CoreServices/Applications"),
                     PathBuf::from("/Library/PreferencePanes"),
                     PathBuf::from("/System/Library/ExtensionKit/Extensions"),
+                    user_dir.clone(),
+                    user_dir.clone().join("Chromium Apps.localized"),
+                    // Not sure about the correct path for PWAs
+                    user_dir.clone().join("Chrome Apps.localized"),
+                    user_dir.clone().join("Brave Apps.localized"),
                 ];
                 // iterate this folder
                 // for each .app file, create an App struct
@@ -52,10 +62,11 @@ impl StateViewBuilder for RootListBuilder {
                 let mut apps = HashMap::<String, Item>::new();
 
                 for applications_folder in applications_folders {
-                    for entry in applications_folder
-                        .read_dir()
-                        .expect("Unable to read directory")
-                    {
+                    let dir = applications_folder.read_dir();
+                    if dir.is_err() {
+                        continue;
+                    }
+                    for entry in dir.unwrap() {
                         if let Ok(entry) = entry {
                             let path = entry.path();
                             let extension = match path.extension() {
