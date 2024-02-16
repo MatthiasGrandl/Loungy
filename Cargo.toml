@@ -43,3 +43,6 @@ futures = "0.3.30"
 [features]
 tailscale = []
 bitwarden = []
+
+[[bin]]
+name = "loungy"
