@@ -36,7 +36,7 @@ impl Render for Workspace {
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }
         div()
-            .full()
+            .size_full()
             .flex()
             .flex_col()
             .bg(theme.base)
