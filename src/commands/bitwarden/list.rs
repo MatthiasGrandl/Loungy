@@ -354,7 +354,6 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                         }
                     }
                     first = false;
-                    eprintln!("Updating Bitwarden list");
 
                     let mut items: Vec<Item> = vec![];
                     for mut account in accounts.values().cloned() {

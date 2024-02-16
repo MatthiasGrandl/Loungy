@@ -59,17 +59,18 @@ impl Window {
     pub fn open(cx: &mut AsyncAppContext) {
         let _ = cx.update_global::<Self, _>(|this, cx| {
             if this.hidden {
-                // let _ =
-                //     cx.open_window(WindowStyle::Main.options(bounds), |cx| Workspace::build(cx));
-                cx.activate(true);
-                this.hidden = false;
+                if let Some(wh) = cx.windows().first().cloned() {
+                    let _ = cx.update_window(wh, |_, cx| {
+                        cx.activate_window();
+                    });
+                    this.hidden = false;
+                }
             }
         });
     }
     pub fn close(cx: &mut WindowContext) {
         cx.update_global::<Self, _>(|this, cx| {
             this.hidden = true;
-            //cx.remove_window();
             cx.hide();
         });
         // After 90 seconds, reset the state
