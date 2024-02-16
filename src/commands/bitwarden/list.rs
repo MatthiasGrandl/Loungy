@@ -299,7 +299,6 @@ impl BitwardenAccount {
             }
             password
         };
-        eprintln!("Password: {}", password);
         let output = self
             .command(vec!["unlock", &password, "--raw", "--nointeraction"], cx)
             .await?;
@@ -311,10 +310,12 @@ impl BitwardenAccount {
         let session = String::from_utf8(output.stdout)?;
         self.session = Some(session);
         let _ = cx.update_global::<Db, _>(|db, _| {
-            if let Some(mut accounts) = db.get::<HashMap<String, BitwardenAccount>>("bitwarden") {
-                accounts.insert(self.id.clone(), self.clone());
-                let _ = db.set::<HashMap<String, BitwardenAccount>>("bitwarden", &accounts);
-            };
+            // TODO: This is a bit yolo, might overwrite other accounts
+            let mut accounts = db
+                .get::<HashMap<String, BitwardenAccount>>("bitwarden")
+                .unwrap_or_default();
+            accounts.insert(self.id.clone(), self.clone());
+            let _ = db.set::<HashMap<String, BitwardenAccount>>("bitwarden", &accounts);
         });
         Ok(())
     }
@@ -326,16 +327,35 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
         let view = cx.new_view(|cx| {
             cx.spawn(move |view, mut cx| async move {
+                let mut first = true;
+                let mut old_count = 0;
+                let mut last_update = std::time::Instant::now();
                 loop {
                     if view.upgrade().is_none() {
                         break;
                     }
-                    let accounts = cx
+                    let mut accounts = cx
                         .read_global::<Db, _>(|db, _| {
                             db.get::<HashMap<String, BitwardenAccount>>("bitwarden")
                                 .unwrap_or_default()
                         })
                         .unwrap_or_default();
+                    if accounts.len() == 0 || (accounts.len() == old_count && last_update.elapsed().as_secs() < 500) {
+                        cx.background_executor()
+                            .timer(Duration::from_millis(250))
+                            .await;
+                        continue;
+                    }
+                    old_count = accounts.len();
+                    last_update = std::time::Instant::now();
+                    if !first {
+                        for account in accounts.values_mut() {
+                            let _ = account.auth_command(vec!["sync"], &mut cx).await;
+                        }
+                    }
+                    first = false;
+                    eprintln!("Updating Bitwarden list");
+
                     let mut items: Vec<Item> = vec![];
                     for mut account in accounts.values().cloned() {
                         if let Ok(output) = account
@@ -483,9 +503,6 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     } else {
                         break;
                     }
-                    cx.background_executor()
-                        .timer(Duration::from_secs(3600))
-                        .await
                 }
             })
             .detach();
