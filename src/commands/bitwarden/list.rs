@@ -4,6 +4,7 @@ use async_std::{
     channel,
     process::{Command, Output},
 };
+use bonsaidb::{core::{document::CollectionDocument, schema::{Collection, SerializedCollection}}, local::Database};
 use gpui::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -180,8 +181,10 @@ pub(super) enum BitwardenItem {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Collection)]
+#[collection(name = "bitwarden-accounts")]
 pub(super) struct BitwardenAccount {
+    #[natural_id]
     pub id: String,
     pub client_id: String,
     pub client_secret: String,
@@ -189,6 +192,7 @@ pub(super) struct BitwardenAccount {
     pub password: Option<String>,
     pub session: Option<String>,
 }
+
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -301,13 +305,11 @@ impl BitwardenAccount {
         };
         let session = String::from_utf8(output.stdout)?;
         self.session = Some(session);
-        let _ = cx.update_global::<Db, _>(|db, _| {
-            // TODO: This is a bit yolo, might overwrite other accounts
-            let mut accounts = db
-                .get::<HashMap<String, BitwardenAccount>>("bitwarden")
-                .unwrap_or_default();
-            accounts.insert(self.id.clone(), self.clone());
-            let _ = db.set::<HashMap<String, BitwardenAccount>>("bitwarden", &accounts);
+        let _ = cx.update_global::<BitwardenDb, _>(|db, _| {
+            let result = self.clone().push_into(&db.inner);
+            if let Err(result) = result {
+                error!("Failed to save account: {:?}", result.error);
+            }
         });
         Ok(())
     }
@@ -323,10 +325,17 @@ impl Render for Markdown {
     }
 }
 
+pub(super) struct BitwardenDb {
+    pub(super) inner: Database,
+
+}
+impl Global for BitwardenDb {}
+
 pub struct BitwardenCommandBuilder;
 
 impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
+        Db::new::<BitwardenAccount, BitwardenDb>("bitwarden", |db| BitwardenDb { inner: db }, cx);
         let view = cx.new_view(|cx| {
             cx.spawn(move |view, mut cx| async move {
                 let mut first = true;
@@ -336,30 +345,28 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     if view.upgrade().is_none() {
                         break;
                     }
-                    let mut accounts = cx
-                        .read_global::<Db, _>(|db, _| {
-                            db.get::<HashMap<String, BitwardenAccount>>("bitwarden")
-                                .unwrap_or_default()
-                        })
-                        .unwrap_or_default();
-                    if accounts.len() == 0 || (accounts.len() == old_count && last_update.elapsed().as_secs() < 500) {
+                    let accounts = &cx.read_global::<BitwardenDb, Vec<CollectionDocument<BitwardenAccount>>>(|db, _| {
+                        BitwardenAccount::all(&db.inner).query().unwrap()
+                    }).unwrap();
+                    let count = accounts.len();
+                    if count == 0 || (count == old_count && last_update.elapsed().as_secs() < 500) {
                         cx.background_executor()
                             .timer(Duration::from_millis(250))
                             .await;
                         continue;
                     }
-                    old_count = accounts.len();
+                    old_count = count;
                     last_update = std::time::Instant::now();
                     if !first {
-                        for account in accounts.values_mut() {
-                            let _ = account.auth_command(vec!["sync"], &mut cx).await;
+                        for mut account in accounts.clone() {
+                            let _ = account.contents.auth_command(vec!["sync"], &mut cx).await;
                         }
                     }
                     first = false;
 
                     let mut items: Vec<Item> = vec![];
-                    for mut account in accounts.values().cloned() {
-                        if let Ok(output) = account
+                    for mut account in accounts.clone() {
+                        if let Ok(output) = account.contents
                             .auth_command(vec!["list", "items", "--nointeraction"], &mut cx)
                             .await
                         {
@@ -434,7 +441,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                 loop {
                                                                     let value = login
                                                                     .get_field(
-                                                                        field, &id, &mut account,
+                                                                        field, &id, &mut account.contents,
                                                                         &mut cx,
                                                                     )
                                                                     .await.unwrap();
@@ -473,7 +480,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                         // }).ok();
                                         
-                                        actions.append(&mut login.get_actions(&id, &account));
+                                        actions.append(&mut login.get_actions(&id, &account.contents));
                                         items.push(Item::new(
                                             keywords,
                                             cx.new_view(|_| {
@@ -522,11 +529,9 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             Box::new(move |_, cx| {
                 let view = view.clone();
                 cx.update_global::<StateModel, _>(|model, cx| {
-                    let accounts = cx
-                        .global::<Db>()
-                        .get::<HashMap<String, BitwardenAccount>>("bitwarden")
-                        .unwrap_or_default();
-                    if accounts.is_empty() {
+                    let accounts = BitwardenAccount::all(&cx
+                        .global::<BitwardenDb>().inner);
+                    if accounts.count().unwrap_or_default() == 0 {
                         model.push(BitwardenAccountFormBuilder {}, cx);
                     } else {
                         model.push(BitwardenListBuilder { view }, cx);

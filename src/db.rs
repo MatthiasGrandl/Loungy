@@ -1,12 +1,14 @@
 use bonsaidb::{
     core::{
+        connection::StorageConnection,
         document::KeyId,
         keyvalue::{KeyStatus, KeyValue},
+        schema::Collection,
     },
     local::{
         config::{Builder, StorageConfiguration},
         vault::LocalVaultKeyStorage,
-        Database,
+        Database, Storage,
     },
 };
 use gpui::{AppContext, Global};
@@ -14,8 +16,10 @@ use serde::{de, Serialize};
 
 use crate::paths::Paths;
 
+#[derive(Clone)]
 pub struct Db {
-    inner: Database,
+    storage: Storage,
+    pub inner: Database,
 }
 
 impl Global for Db {}
@@ -28,9 +32,29 @@ impl Db {
         let config = StorageConfiguration::new(path)
             .vault_key_storage(LocalVaultKeyStorage::new(keys).expect("Failed to create vault"))
             .default_encryption_key(KeyId::Master);
-        let inner = Database::open::<()>(config).expect("Failed to open database");
+        let storage = Storage::open(config).expect("Failed to open storage");
+        storage
+            .register_schema::<()>()
+            .expect("Failed to register schema");
+        let inner = storage
+            .create_database::<()>("kv", true)
+            .expect("Failed to open database");
 
-        cx.set_global(Self { inner });
+        cx.set_global(Self { inner, storage });
+    }
+    pub fn new<'a, C: Collection + 'static, G: Global>(
+        name: &str,
+        f: fn(Database) -> G,
+        cx: &mut AppContext,
+    ) {
+        let storage = cx.global::<Db>().storage.clone();
+        storage
+            .register_schema::<C>()
+            .expect("Failed to register schema");
+        let db = storage
+            .create_database::<C>(name, true)
+            .expect("Failed to open database");
+        cx.set_global::<G>(f(db));
     }
     pub fn get<T: de::DeserializeOwned>(&self, id: &str) -> Option<T> {
         if let Ok(value) = self.inner.get_key(id).into() {

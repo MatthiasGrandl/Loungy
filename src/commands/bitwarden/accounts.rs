@@ -1,19 +1,20 @@
-use std::{collections::HashMap, fs, sync::mpsc::Receiver, time::Duration};
+use std::{fs, sync::mpsc::Receiver, time::Duration};
 
 use async_std::channel::Sender;
+use bonsaidb::core::schema::SerializedCollection;
 use gpui::*;
+use log::error;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::form::{Form, Input, InputKind},
     components::list::{Accessory, Item, List, ListItem},
     components::shared::{Icon, Img},
-    db::Db,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
 };
 
-use super::list::BitwardenAccount;
+use super::list::{BitwardenAccount, BitwardenDb};
 
 #[derive(Clone)]
 pub(super) struct BitwardenPasswordPromptBuilder {
@@ -158,17 +159,17 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                 ),
             ],
             |values, actions, cx| {
-                let accounts = cx
-                    .global::<Db>()
-                    .get::<HashMap<String, BitwardenAccount>>("bitwarden")
-                    .unwrap_or_default();
-                let id = values["id"].value::<String>();
-                if accounts.get(&id).is_some() {
+                if BitwardenAccount::get(
+                    &values["id"].value::<String>(),
+                    &cx.global::<BitwardenDb>().inner,
+                )
+                .unwrap()
+                .is_some()
+                {
                     actions
                         .clone()
                         .toast
                         .error("Account Identifier already used", cx);
-                    return;
                 }
                 let mut actions = actions.clone();
                 cx.spawn(|mut cx| async move {
@@ -239,16 +240,15 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
             query,
             &actions,
             |_, _, cx| {
-                let accounts = cx
-                    .global::<Db>()
-                    .get::<HashMap<String, BitwardenAccount>>("bitwarden")
-                    .unwrap_or_default();
+                let accounts = BitwardenAccount::all(&cx.global::<BitwardenDb>().inner)
+                    .descending()
+                    .query()
+                    .unwrap();
 
-                let mut items: Vec<Item> = accounts
-                    .values()
-                    .cloned()
+                let items: Vec<Item> = accounts
                     .into_iter()
                     .map(|account| {
+                        let account = account.contents;
                         Item::new(
                             vec![account.id.clone()],
                             cx.new_view({
@@ -287,33 +287,21 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                         let path = account.path(cx);
                                         let id = account.id.clone();
                                         move |actions, cx| {
-                                            if fs::remove_dir_all(path.clone()).is_err() {
+                                            if let Err(err) = fs::remove_dir_all(path.clone()) {
+                                                error!("Failed to delete account: {}", err);
                                                 actions.toast.error("Failed to delete account", cx);
                                             }
-                                            cx.update_global::<Db, _>(|db, cx| {
-                                                let mut accounts = db
-                                                    .get::<HashMap<String, BitwardenAccount>>(
-                                                        "bitwarden",
-                                                    )
-                                                    .unwrap_or_default();
-                                                accounts.remove(&id.clone());
-                                                if db
-                                                    .set::<HashMap<String, BitwardenAccount>>(
-                                                        "bitwarden",
-                                                        &accounts,
-                                                    )
-                                                    .is_err()
+                                            cx.update_global::<BitwardenDb, _>(|db, cx| {
+                                                if let Some(account) =
+                                                    BitwardenAccount::get(&id, &db.inner).unwrap()
                                                 {
-                                                    actions
-                                                        .toast
-                                                        .error("Failed to delete account", cx);
-                                                } else {
-                                                    actions.toast.success(
-                                                        "Successfully deleted account",
-                                                        cx,
-                                                    );
-                                                    actions.update();
-                                                }
+                                                    if let Err(err) = account.delete(&db.inner) {
+                                                        error!("Failed to delete account: {}", err);
+                                                        actions
+                                                            .toast
+                                                            .error("Failed to delete account", cx);
+                                                    }
+                                                };
                                             });
                                         }
                                     },
@@ -324,7 +312,6 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                         )
                     })
                     .collect();
-                items.sort_by_key(|i| i.keywords.first().unwrap().clone());
                 Ok(Some(items))
             },
             None,
