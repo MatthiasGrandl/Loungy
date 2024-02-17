@@ -13,7 +13,7 @@ use crate::{
     icon::Icon,
     nucleo::fuzzy_match,
     query::{TextEvent, TextInput},
-    state::{Action, ActionsModel, Shortcut},
+    state::{Action, ActionsModel, Shortcut, StateItem},
     theme::Theme,
 };
 
@@ -253,7 +253,7 @@ impl Render for ListItem {
 pub struct Item {
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<AnyView>,
+    preview: Option<StateItem>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -263,7 +263,7 @@ impl Item {
     pub fn new(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<AnyView>,
+        preview: Option<StateItem>,
         actions: Vec<Action>,
         weight: Option<u16>,
     ) -> Self {
@@ -320,13 +320,27 @@ impl Render for List {
             self.selection_change(&self.actions, cx);
         }
 
+        let selected = self.selected(cx);
+        let preview = selected
+            .map(|s| {
+                s.preview
+                    .clone()
+                    .map(|p| div().child(p.view.clone()).w_1_2().pl_1())
+            })
+            .flatten();
+
         if self.items.len() == 0 {
             div()
         } else {
             div()
-                .p_2()
                 .size_full()
-                .child(list(self.state.clone()).size_full())
+                .flex()
+                .child(if preview.is_some() {
+                    list(self.state.clone()).w_1_2().pr_1().h_full()
+                } else {
+                    list(self.state.clone()).size_full()
+                })
+                .child(preview.unwrap_or(div()))
         }
     }
 }

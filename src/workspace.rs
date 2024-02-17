@@ -24,6 +24,8 @@ impl Render for Workspace {
         let theme = cx.global::<Theme>();
         let stack: &Vec<StateItem> = self.state.inner.read(cx).stack.as_ref();
         let item = stack.last().unwrap();
+        let view = stack.iter().filter(|item| item.workspace).last().unwrap();
+
         let mut back = div();
         if stack.len() > 1 {
             back = div()
@@ -52,7 +54,7 @@ impl Render for Workspace {
                     .w_full(),
             )
             .child(item.loading.clone())
-            .child(div().flex_1().size_full().child(item.view.clone()))
+            .child(div().flex_1().size_full().p_2().child(view.view.clone()))
             .child(
                 div()
                     .mt_auto()

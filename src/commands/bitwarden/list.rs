@@ -17,7 +17,7 @@ use crate::{
     list::{Accessory, AsyncListItems, Img, Item, List, ListItem},
     paths::Paths,
     query::TextInput,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, ActionsModel, Shortcut, StateItem, StateModel, StateViewBuilder},
     swift::{autofill, keytap},
     window::Window,
 };
@@ -321,6 +321,16 @@ impl BitwardenAccount {
     }
 }
 
+pub struct Markdown {
+    pub text: String,
+}
+
+impl Render for Markdown {
+    fn render(&mut self, _: &mut ViewContext<Self>) -> impl IntoElement {
+        div().child(self.text.clone())
+    }
+}
+
 pub struct BitwardenCommandBuilder;
 
 impl RootCommandBuilder for BitwardenCommandBuilder {
@@ -373,7 +383,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     BitwardenItem::Login {
                                         id,
                                         name,
-                                        notes: _,
+                                        notes,
                                         login,
                                     } => {
                                         let domain = login
@@ -467,6 +477,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                 false,
                                             )
                                         ];
+                                        // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
+                                        //     StateItem::init(BitwardenAccountListBuilder, false, cx)
+                                        // }).ok();
+                                        
                                         actions.append(&mut login.get_actions(&id, &account));
                                         items.push(Item::new(
                                             keywords,

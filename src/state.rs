@@ -257,10 +257,11 @@ pub struct StateItem {
     pub actions: ActionsModel,
     pub loading: View<Loading>,
     pub toast: Toast,
+    pub workspace: bool,
 }
 
 impl StateItem {
-    pub fn init(view: impl StateViewBuilder, cx: &mut WindowContext) -> Self {
+    pub fn init(view: impl StateViewBuilder, workspace: bool, cx: &mut WindowContext) -> Self {
         let loading = Loading::init(cx);
         let toast = Toast::init(cx);
         let (s, r) = channel::<bool>();
@@ -307,6 +308,7 @@ impl StateItem {
             actions,
             loading,
             toast,
+            workspace,
         }
     }
 }
@@ -348,7 +350,13 @@ impl StateModel {
         });
     }
     pub fn push(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
-        let item = StateItem::init(view, cx);
+        let item = StateItem::init(view, true, cx);
+        self.inner.update(cx, |model, cx| {
+            model.stack.push(item);
+            cx.notify();
+        });
+    }
+    pub fn push_item(&self, item: StateItem, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
             cx.notify();
@@ -644,7 +652,7 @@ impl Actions {
             .flex()
             .flex_col()
             .child(if count > 0 {
-                div().h(height).child(list)
+                div().h(height).p_2().child(list)
             } else {
                 div()
                     .child("No results")
