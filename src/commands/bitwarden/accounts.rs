@@ -303,6 +303,9 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                                     }
                                                 };
                                             });
+                                            cx.update_global::<StateModel, _>(|model, cx| {
+                                                model.reset(cx);
+                                            });
                                         }
                                     },
                                     false,

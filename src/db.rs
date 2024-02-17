@@ -47,6 +47,9 @@ impl Db {
         f: fn(Database) -> G,
         cx: &mut AppContext,
     ) {
+        if cx.has_global::<G>() {
+            return;
+        }
         let storage = cx.global::<Db>().storage.clone();
         storage
             .register_schema::<C>()

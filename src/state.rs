@@ -367,10 +367,10 @@ impl StateModel {
         self.push(view, cx);
     }
     pub fn reset(&self, cx: &mut WindowContext) {
-        self.inner.update(cx, |model, _| {
-            model.stack.clear();
+        self.inner.update(cx, |model, cx| {
+            model.stack.truncate(1);
+            //model.stack[0].query.set_text("", cx);
         });
-        self.push(RootListBuilder {}, cx);
     }
 }
 
