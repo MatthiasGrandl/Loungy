@@ -374,7 +374,7 @@ impl List {
                                         .unwrap()
                                         .has_focus(cx)
                                 {
-                                    this.update(false, cx);
+                                    this.update(triggered, cx);
                                     last = std::time::Instant::now();
                                 }
                             });

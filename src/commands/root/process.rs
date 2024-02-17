@@ -53,11 +53,11 @@ impl Process {
 }
 
 fn format_bytes(bytes: u64) -> String {
-    let kb = bytes / 1024;
-    let mb = kb / 1024;
-    let gb = mb / 1024;
-    if gb > 0 {
-        format!("{} GB", gb)
+    let kb = bytes / 1000;
+    let mb = kb / 1000;
+    let gb = mb as f32 / 1000.0;
+    if gb >= 1.0 {
+        format!("{:.2} GB", gb)
     } else if mb > 0 {
         format!("{} MB", mb)
     } else if kb > 0 {
@@ -192,7 +192,7 @@ impl StateViewBuilder for ProcessListBuilder {
                                         None,
                                         vec![
                                             Accessory::new(
-                                                format!("{: >6}", format_bytes(p.mem * 1024)),
+                                                format!("{: >8}", format_bytes(p.mem * 1024)),
                                                 Some(Img::accessory_icon(Icon::MemoryStick, m)),
                                             ),
                                             Accessory::new(
