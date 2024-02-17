@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use gpui::*;
 
@@ -9,14 +9,45 @@ use crate::{
     theme::Theme,
 };
 
+#[derive(Clone)]
 pub struct Input {
     id: String,
     label: String,
     kind: InputKind,
-    value: String,
-    validate: Option<fn(&str) -> Option<&str>>,
     error: Option<String>,
     show_error: bool,
+}
+
+impl Input {
+    pub fn new(
+        id: impl ToString,
+        label: impl ToString,
+        kind: InputKind,
+        _: &mut WindowContext,
+    ) -> Self {
+        Self {
+            id: id.to_string(),
+            label: label.to_string(),
+            kind,
+            error: None,
+            show_error: false,
+        }
+    }
+    pub fn validate(&mut self) {
+        self.error = match &self.kind {
+            InputKind::TextField {
+                value, validate, ..
+            } => validate.map(|f| f(&value)).flatten().map(|s| s.to_string()),
+            _ => None,
+        }
+    }
+    pub fn value<V: Clone + 'static>(&self) -> V {
+        let value: Box<dyn Any> = match self.kind.clone() {
+            InputKind::TextField { value, .. } => Box::new(value),
+            _ => Box::new("".to_string()),
+        };
+        value.downcast_ref::<V>().unwrap().clone()
+    }
 }
 
 pub struct InputView {
@@ -53,22 +84,23 @@ impl Render for InputView {
                     .child(if self.focused {
                         self.input.view.clone().into_any_element()
                     } else {
-                        if self.inner.value.is_empty() {
-                            match self.inner.kind.clone() {
-                                InputKind::PasswordField { placeholder }
-                                | InputKind::TextArea { placeholder }
-                                | InputKind::TextField { placeholder } => {
+                        match self.inner.kind.clone() {
+                            InputKind::TextField {
+                                placeholder,
+                                value,
+                                password,
+                                ..
+                            } => {
+                                if value.is_empty() {
                                     placeholder.into_any_element()
+                                } else {
+                                    if password {
+                                        "•".repeat(value.len()).into_any_element()
+                                    } else {
+                                        value.into_any_element()
+                                    }
                                 }
                             }
-                        } else {
-                            match self.inner.kind.clone() {
-                                InputKind::PasswordField { .. } => {
-                                    "•".repeat(self.inner.value.clone().len())
-                                }
-                                _ => self.inner.value.clone(),
-                            }
-                            .into_any_element()
                         }
                     })
                     .w_1_2()
@@ -107,25 +139,77 @@ impl InputView {
     pub fn on_focus(&mut self, cx: &mut ViewContext<Self>) {
         //
         match self.inner.kind.clone() {
-            InputKind::TextArea { placeholder } | InputKind::TextField { placeholder } => {
-                self.input.set_masked(false, cx);
+            InputKind::TextField {
+                placeholder,
+                value,
+                password,
+                ..
+            } => {
+                self.input.set_masked(password, cx);
                 self.input.set_placeholder(placeholder, cx);
-            }
-            InputKind::PasswordField { placeholder } => {
-                self.input.set_masked(true, cx);
-                self.input.set_placeholder(placeholder, cx);
+                self.input.set_text(value, cx);
             }
         };
-        self.input.set_text(self.inner.value.clone(), cx);
     }
     pub fn on_blur(&mut self, _: &mut ViewContext<Self>) {
         self.inner.show_error = true;
-        self.inner.error = self
-            .inner
-            .validate
-            .map(|f| f(&self.inner.value))
-            .flatten()
-            .map(|s| s.to_string());
+        self.inner.validate();
+    }
+    pub fn on_query(&mut self, event: &TextEvent, cx: &mut ViewContext<Self>) {
+        match self.inner.kind.clone() {
+            InputKind::TextField {
+                validate,
+                placeholder,
+                password,
+                ..
+            } => match event {
+                TextEvent::Input { text } => {
+                    self.inner.kind = InputKind::TextField {
+                        value: text.clone(),
+                        validate,
+                        placeholder,
+                        password,
+                    };
+                    self.inner.validate();
+                }
+                TextEvent::KeyDown(e) => {}
+                _ => {}
+            },
+        }
+        match event {
+            TextEvent::KeyDown(e) => {
+                if (Keystroke {
+                    key: "tab".to_string(),
+                    modifiers: Modifiers {
+                        shift: true,
+                        ..Modifiers::default()
+                    },
+                    ime_key: None,
+                })
+                .eq(&e.keystroke)
+                {
+                    self.focus_model.update(cx, |this, cx| {
+                        if this > &mut 0 {
+                            *this -= 1;
+                            cx.notify();
+                        }
+                    })
+                    //
+                } else if (Keystroke {
+                    key: "tab".to_string(),
+                    modifiers: Modifiers::default(),
+                    ime_key: None,
+                })
+                .eq(&e.keystroke)
+                {
+                    self.focus_model.update(cx, |this, cx| {
+                        *this += 1;
+                        cx.notify();
+                    })
+                }
+            }
+            _ => {}
+        }
     }
     pub fn new(
         input: Input,
@@ -154,49 +238,7 @@ impl InputView {
                 if !input.focused {
                     return;
                 }
-                match event {
-                    TextEvent::Input { text } => {
-                        input.inner.value = text.clone();
-                        input.inner.error = input
-                            .inner
-                            .validate
-                            .map(|f| f(text))
-                            .flatten()
-                            .map(|s| s.to_string());
-                    }
-                    TextEvent::KeyDown(e) => {
-                        if (Keystroke {
-                            key: "tab".to_string(),
-                            modifiers: Modifiers {
-                                shift: true,
-                                ..Modifiers::default()
-                            },
-                            ime_key: None,
-                        })
-                        .eq(&e.keystroke)
-                        {
-                            input.focus_model.update(cx, |this, cx| {
-                                if this > &mut 0 {
-                                    *this -= 1;
-                                    cx.notify();
-                                }
-                            })
-                            //
-                        } else if (Keystroke {
-                            key: "tab".to_string(),
-                            modifiers: Modifiers::default(),
-                            ime_key: None,
-                        })
-                        .eq(&e.keystroke)
-                        {
-                            input.focus_model.update(cx, |this, cx| {
-                                *this += 1;
-                                cx.notify();
-                            })
-                        }
-                    }
-                    _ => {}
-                }
+                input.on_query(event, cx);
                 //
             })
             .detach();
@@ -211,36 +253,18 @@ impl InputView {
     }
 }
 
-impl Input {
-    pub fn new(
-        id: impl ToString,
-        label: impl ToString,
-        kind: InputKind,
-        value: impl ToString,
-        validate: Option<fn(&str) -> Option<&str>>,
-        _: &mut WindowContext,
-    ) -> Self {
-        Self {
-            id: id.to_string(),
-            label: label.to_string(),
-            kind,
-            value: value.to_string(),
-            validate,
-            error: None,
-            show_error: false,
-        }
-    }
-}
-
 #[derive(Clone)]
 #[allow(dead_code)]
 pub enum InputKind {
-    TextField { placeholder: String },
-    PasswordField { placeholder: String },
-    TextArea { placeholder: String },
+    TextField {
+        placeholder: String,
+        value: String,
+        password: bool,
+        validate: Option<fn(&str) -> Option<&str>>,
+    },
 }
 
-pub trait SubmitFn: Fn(HashMap<String, String>, &mut Actions, &mut WindowContext) -> () {
+pub trait SubmitFn: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) -> () {
     fn clone_box<'a>(&self) -> Box<dyn 'a + SubmitFn>
     where
         Self: 'a;
@@ -248,7 +272,7 @@ pub trait SubmitFn: Fn(HashMap<String, String>, &mut Actions, &mut WindowContext
 
 impl<F> SubmitFn for F
 where
-    F: Fn(HashMap<String, String>, &mut Actions, &mut WindowContext) -> () + Clone,
+    F: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) -> () + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + SubmitFn>
     where
@@ -296,7 +320,7 @@ impl Form {
                     let actions = actions.inner.read(cx).clone();
                     let submit = submit.clone_box();
                     move |_, cx| {
-                        let mut values = HashMap::<String, String>::new();
+                        let mut values = HashMap::<String, Input>::new();
                         let mut error = false;
                         for input in inputs.clone() {
                             input.update(cx, |this, _| {
@@ -304,7 +328,7 @@ impl Form {
                                     error = true;
                                 }
                                 this.inner.show_error = true;
-                                values.insert(this.inner.id.clone(), this.inner.value.clone());
+                                values.insert(this.inner.id.clone(), this.inner.clone());
                             })
                         }
                         if error {

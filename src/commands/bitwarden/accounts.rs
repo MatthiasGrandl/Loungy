@@ -35,11 +35,12 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                 Input::new(
                     "password",
                     "Password",
-                    InputKind::PasswordField {
+                    InputKind::TextField {
                         placeholder: format!("Enter password for {}", self.account.id),
+                        value: "".to_string(),
+                        validate: Some(|v| v.is_empty().then(|| "Password is required")),
+                        password: true,
                     },
-                    "",
-                    Some(|v| v.is_empty().then(|| "Password is required")),
                     cx,
                 ),
                 Input::new(
@@ -47,24 +48,29 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                     "Remember Password?",
                     InputKind::TextField {
                         placeholder: "(y)es|(n)o".to_string(),
+                        value: "no".to_string(),
+                        validate: Some(|v| match v.to_lowercase().as_str() {
+                            "y" | "yes" | "n" | "no" => None,
+                            _ => Some("Invalid response"),
+                        }),
+                        password: false,
                     },
-                    "no",
-                    Some(|v| match v.to_lowercase().as_str() {
-                        "y" | "yes" | "n" | "no" => None,
-                        _ => Some("Invalid response"),
-                    }),
                     cx,
                 ),
             ],
             move |values, _, cx| {
                 let password = password.clone();
                 cx.spawn(|mut cx| async move {
-                    let remember = match values["remember_password"].to_lowercase().as_str() {
+                    let remember = match values["remember_password"]
+                        .value::<String>()
+                        .to_lowercase()
+                        .as_str()
+                    {
                         "y" | "yes" => true,
                         _ => false,
                     };
                     if password
-                        .send((values["password"].clone(), remember))
+                        .send((values["password"].value::<String>(), remember))
                         .await
                         .is_err()
                     {
@@ -103,17 +109,18 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     "Instance URL",
                     InputKind::TextField {
                         placeholder: "Enter the bitwarden instance URL...".to_string(),
+                        value: "https://bitwarden.com".to_string(),
+                        validate: Some(|v| {
+                            if v.is_empty() {
+                                return Some("Instance URL is required");
+                            };
+                            if url::Url::parse(&v).is_err() {
+                                return Some("Invalid URL");
+                            }
+                            None
+                        }),
+                        password: false,
                     },
-                    "https://bitwarden.com",
-                    Some(|v| {
-                        if v.is_empty() {
-                            return Some("Instance URL is required");
-                        };
-                        if url::Url::parse(&v).is_err() {
-                            return Some("Invalid URL");
-                        }
-                        None
-                    }),
                     cx,
                 ),
                 Input::new(
@@ -121,9 +128,10 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     "Identifier",
                     InputKind::TextField {
                         placeholder: "Enter an account identifier...".to_string(),
+                        value: "".to_string(),
+                        validate: Some(|v| v.is_empty().then(|| "Identifier is required")),
+                        password: false,
                     },
-                    "",
-                    Some(|v| v.is_empty().then(|| "Identifier is required")),
                     cx,
                 ),
                 Input::new(
@@ -131,19 +139,21 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     "Client ID",
                     InputKind::TextField {
                         placeholder: "Enter client_id...".to_string(),
+                        value: "".to_string(),
+                        validate: Some(|v| v.is_empty().then(|| "Client ID is required")),
+                        password: false,
                     },
-                    "",
-                    Some(|v| v.is_empty().then(|| "Client ID is required")),
                     cx,
                 ),
                 Input::new(
                     "client_secret",
                     "Client Secret",
-                    InputKind::PasswordField {
+                    InputKind::TextField {
                         placeholder: "Enter client_secret...".to_string(),
+                        value: "".to_string(),
+                        validate: Some(|v| v.is_empty().then(|| "Client Secret is required")),
+                        password: true,
                     },
-                    "",
-                    Some(|v| v.is_empty().then(|| "Client Secret is required")),
                     cx,
                 ),
             ],
@@ -152,7 +162,8 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     .global::<Db>()
                     .get::<HashMap<String, BitwardenAccount>>("bitwarden")
                     .unwrap_or_default();
-                if accounts.get(&values["id"]).is_some() {
+                let id = values["id"].value::<String>();
+                if accounts.get(&id).is_some() {
                     actions
                         .clone()
                         .toast
@@ -164,10 +175,10 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     actions.toast.loading("Saving account...", &mut cx);
 
                     let mut account = BitwardenAccount {
-                        instance: values["instance"].clone(),
-                        id: values["id"].clone(),
-                        client_id: values["client_id"].clone(),
-                        client_secret: values["client_secret"].clone(),
+                        instance: values["instance"].value::<String>(),
+                        id: values["id"].value::<String>(),
+                        client_id: values["client_id"].value::<String>(),
+                        client_secret: values["client_secret"].value::<String>(),
                         password: None,
                         session: None,
                     };
