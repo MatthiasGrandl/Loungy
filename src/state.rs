@@ -8,8 +8,8 @@ use std::{
 
 use crate::{
     commands::root::list::RootListBuilder,
-    icon::Icon,
-    list::{Accessory, Img, ImgMask, ImgSize, ImgSource, Item, List, ListItem},
+    components::list::{Accessory, Item, List, ListItem},
+    components::shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     query::{TextEvent, TextInput},
     theme::{self, Theme},
     window::{Window, WindowStyle, WIDTH},

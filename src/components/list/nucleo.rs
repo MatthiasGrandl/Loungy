@@ -3,8 +3,28 @@ use std::cmp::Reverse;
 use nucleo::pattern::{Atom, AtomKind, CaseMatching, Normalization};
 use nucleo::{Config, Matcher, Utf32Str};
 
-use crate::lazy::LazyMutex;
-use crate::list::Item;
+use parking_lot::{Mutex, MutexGuard};
+use std::ops::DerefMut;
+
+pub struct LazyMutex<T> {
+    inner: Mutex<Option<T>>,
+    init: fn() -> T,
+}
+
+impl<T> LazyMutex<T> {
+    pub const fn new(init: fn() -> T) -> Self {
+        Self {
+            inner: Mutex::new(None),
+            init,
+        }
+    }
+
+    pub fn lock(&self) -> impl DerefMut<Target = T> + '_ {
+        MutexGuard::map(self.inner.lock(), |val| val.get_or_insert_with(self.init))
+    }
+}
+
+use crate::components::list::Item;
 
 pub static MATCHER: LazyMutex<nucleo::Matcher> = LazyMutex::new(nucleo::Matcher::default);
 

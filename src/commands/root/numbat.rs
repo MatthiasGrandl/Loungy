@@ -7,7 +7,7 @@ use numbat::{
 };
 
 use crate::{
-    icon::Icon,
+    components::shared::Icon,
     query::{TextEvent, TextInput},
     theme::Theme,
 };

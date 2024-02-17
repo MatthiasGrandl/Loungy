@@ -4,9 +4,9 @@ use gpui::*;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
+    components::list::{Item, List, ListItem},
+    components::shared::{Icon, Img},
     db::Db,
-    icon::Icon,
-    list::{Img, Item, List, ListItem},
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::{Theme, ThemeSettings},

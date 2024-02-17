@@ -5,10 +5,10 @@ use gpui::*;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
+    components::form::{Form, Input, InputKind},
+    components::list::{Accessory, Item, List, ListItem},
+    components::shared::{Icon, Img},
     db::Db,
-    form::{Form, Input, InputKind},
-    icon::Icon,
-    list::{Accessory, Img, Item, List, ListItem},
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
 };

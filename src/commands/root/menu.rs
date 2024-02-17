@@ -5,8 +5,8 @@ use swift_rs::SRData;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    icon::Icon,
-    list::{Accessory, Img, Item, List, ListItem},
+    components::list::{Accessory, Item, List, ListItem},
+    components::shared::{Icon, Img},
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{menu_item_select, menu_items, MenuItem},

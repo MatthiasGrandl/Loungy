@@ -1,7 +1,6 @@
 use gpui::*;
 
-use crate::icon::Icon;
-use crate::list::Img;
+use crate::components::shared::{Icon, Img};
 use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
 

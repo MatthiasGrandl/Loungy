@@ -11,15 +11,7 @@ use swift_rs::SRString;
 use url::Url;
 
 use crate::{
-    commands::{RootCommand, RootCommandBuilder},
-    db::Db,
-    icon::Icon,
-    list::{Accessory, AsyncListItems, Img, Item, List, ListItem},
-    paths::Paths,
-    query::TextInput,
-    state::{Action, ActionsModel, Shortcut, StateItem, StateModel, StateViewBuilder},
-    swift::{autofill, keytap},
-    window::Window,
+    commands::{RootCommand, RootCommandBuilder}, components::{list::{Accessory, AsyncListItems, Item, List, ListItem}, shared::{Icon, Img}}, db::Db, paths::Paths, query::TextInput, state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder}, swift::{autofill, keytap}, window::Window
 };
 
 use super::accounts::{

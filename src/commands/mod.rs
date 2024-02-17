@@ -1,8 +1,8 @@
 use gpui::*;
 
 use crate::{
-    icon::Icon,
-    list::{Accessory, Img, Item, ListItem},
+    components::list::{Accessory, Item, ListItem},
+    components::shared::{Icon, Img},
     state::{Action, CloneableFn, Shortcut},
 };
 

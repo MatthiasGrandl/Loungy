@@ -4,9 +4,8 @@ use gpui::*;
 
 use crate::{
     commands::RootCommands,
-    icon::Icon,
-    list::{Accessory, Img, Item, List, ListItem},
-    nucleo::fuzzy_match,
+    components::list::{nucleo::fuzzy_match, Accessory, Item, List, ListItem},
+    components::shared::{Icon, Img},
     paths::Paths,
     query::TextInput,
     state::{Action, ActionsModel, StateViewBuilder},

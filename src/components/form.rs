@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use gpui::*;
 
 use crate::{
-    icon::Icon,
-    list::Img,
+    components::shared::{Icon, Img},
     query::{TextEvent, TextInput},
     state::{Action, Actions, ActionsModel},
     theme::Theme,

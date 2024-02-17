@@ -15,8 +15,8 @@ use regex::Regex;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    icon::Icon,
-    list::{Accessory, Img, Item, List, ListItem},
+    components::list::{Accessory, Item, List, ListItem},
+    components::shared::{Icon, Img},
     paths::Paths,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
