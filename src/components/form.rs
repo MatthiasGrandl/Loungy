@@ -5,7 +5,7 @@ use gpui::*;
 use crate::{
     components::shared::{Icon, Img},
     query::{TextEvent, TextInput},
-    state::{Action, Actions, ActionsModel},
+    state::{Action, Actions, ActionsModel, Shortcut},
     theme::Theme,
 };
 
@@ -44,6 +44,7 @@ impl Input {
     pub fn value<V: Clone + 'static>(&self) -> V {
         let value: Box<dyn Any> = match self.kind.clone() {
             InputKind::TextField { value, .. } => Box::new(value),
+            InputKind::Shortcut { value } => Box::new(value),
             _ => Box::new("".to_string()),
         };
         value.downcast_ref::<V>().unwrap().clone()
@@ -79,10 +80,16 @@ impl Render for InputView {
                     .justify_end(),
             )
             .text_color(theme.subtext0)
+            .relative()
             .child(
                 div()
                     .child(if self.focused {
-                        self.input.view.clone().into_any_element()
+                        match self.inner.kind.clone() {
+                            InputKind::TextField { .. } => {
+                                self.input.view.clone().into_any_element()
+                            }
+                            InputKind::Shortcut { .. } => "Recording...".into_any_element(),
+                        }
                     } else {
                         match self.inner.kind.clone() {
                             InputKind::TextField {
@@ -99,6 +106,23 @@ impl Render for InputView {
                                     } else {
                                         value.into_any_element()
                                     }
+                                }
+                            }
+                            InputKind::Shortcut { value } => {
+                                if let Some(shortcut) = value {
+                                    div()
+                                        .child(" ")
+                                        .child(
+                                            div()
+                                                .absolute()
+                                                .inset_0()
+                                                .flex()
+                                                .items_center()
+                                                .child(shortcut.into_any_element()),
+                                        )
+                                        .into_any_element()
+                                } else {
+                                    "Record Hotkey".into_any_element()
                                 }
                             }
                         }
@@ -149,6 +173,7 @@ impl InputView {
                 self.input.set_placeholder(placeholder, cx);
                 self.input.set_text(value, cx);
             }
+            InputKind::Shortcut { .. } => self.input.set_placeholder("Record hotkey", cx),
         };
     }
     pub fn on_blur(&mut self, _: &mut ViewContext<Self>) {
@@ -173,6 +198,23 @@ impl InputView {
                     self.inner.validate();
                 }
                 TextEvent::KeyDown(e) => {}
+                _ => {}
+            },
+            InputKind::Shortcut { value } => match event {
+                TextEvent::KeyDown(e) => {
+                    self.input.set_text("", cx);
+
+                    let mods = e.keystroke.modifiers;
+                    if mods.shift || mods.control || mods.alt || mods.command {
+                        self.inner.kind = InputKind::Shortcut {
+                            value: Some(Shortcut::new(e.keystroke.clone())),
+                        };
+                        self.focus_model.update(cx, |this, cx| {
+                            *this += 1;
+                            cx.notify();
+                        });
+                    }
+                }
                 _ => {}
             },
         }
@@ -261,6 +303,9 @@ pub enum InputKind {
         value: String,
         password: bool,
         validate: Option<fn(&str) -> Option<&str>>,
+    },
+    Shortcut {
+        value: Option<Shortcut>,
     },
 }
 

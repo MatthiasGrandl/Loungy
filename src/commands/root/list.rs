@@ -4,16 +4,49 @@ use gpui::*;
 
 use crate::{
     commands::RootCommands,
-    components::list::{nucleo::fuzzy_match, Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img},
+    components::{
+        form::{Form, Input, InputKind},
+        list::{nucleo::fuzzy_match, Accessory, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
     paths::Paths,
     query::TextInput,
-    state::{Action, ActionsModel, StateViewBuilder},
+    state::{Action, ActionsModel, StateModel, StateViewBuilder},
     swift::get_application_data,
     window::Window,
 };
 
 use super::numbat::Numbat;
+
+#[derive(Clone)]
+pub struct HotkeyBuilder;
+
+impl StateViewBuilder for HotkeyBuilder {
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        _update_receiver: Receiver<bool>,
+        cx: &mut WindowContext,
+    ) -> AnyView {
+        Form::new(
+            vec![Input::new(
+                "hotkey",
+                "Hotkey",
+                InputKind::Shortcut { value: None },
+                cx,
+            )],
+            |values, _, cx| {
+
+                //
+            },
+            query,
+            actions,
+            cx,
+        )
+        .into()
+    }
+}
 
 #[derive(Clone)]
 pub struct RootListBuilder;
@@ -29,6 +62,19 @@ impl StateViewBuilder for RootListBuilder {
         query.set_placeholder("Search for apps and commands...", cx);
         let numbat = Numbat::init(&query, cx);
         let commands = RootCommands::list(cx);
+        actions.update_global(
+            vec![Action::new(
+                Img::list_icon(Icon::Keyboard, None),
+                "Change Hotkey",
+                None,
+                |_, cx| {
+                    cx.update_global::<StateModel, _>(|model, cx| model.push(HotkeyBuilder, cx));
+                    //
+                },
+                false,
+            )],
+            cx,
+        );
         List::new(
             query,
             &actions,
