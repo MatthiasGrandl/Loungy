@@ -45,7 +45,6 @@ impl Input {
         let value: Box<dyn Any> = match self.kind.clone() {
             InputKind::TextField { value, .. } => Box::new(value),
             InputKind::Shortcut { value } => Box::new(value),
-            _ => Box::new("".to_string()),
         };
         value.downcast_ref::<V>().unwrap().clone()
     }
@@ -197,10 +196,10 @@ impl InputView {
                     };
                     self.inner.validate();
                 }
-                TextEvent::KeyDown(e) => {}
+                TextEvent::KeyDown(_) => {}
                 _ => {}
             },
-            InputKind::Shortcut { value } => match event {
+            InputKind::Shortcut { .. } => match event {
                 TextEvent::KeyDown(e) => {
                     self.input.set_text("", cx);
 

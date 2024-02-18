@@ -3,9 +3,8 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::mpsc::Receiver, time::D
 use gpui::*;
 
 use crate::{
-    commands::RootCommands,
+    commands::{RootCommand, RootCommandBuilder, RootCommands},
     components::{
-        form::{Form, Input, InputKind},
         list::{nucleo::fuzzy_match, Accessory, Item, List, ListItem},
         shared::{Icon, Img},
     },
@@ -17,36 +16,6 @@ use crate::{
 };
 
 use super::numbat::Numbat;
-
-#[derive(Clone)]
-pub struct HotkeyBuilder;
-
-impl StateViewBuilder for HotkeyBuilder {
-    fn build(
-        &self,
-        query: &TextInput,
-        actions: &ActionsModel,
-        _update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        Form::new(
-            vec![Input::new(
-                "hotkey",
-                "Hotkey",
-                InputKind::Shortcut { value: None },
-                cx,
-            )],
-            |values, _, cx| {
-
-                //
-            },
-            query,
-            actions,
-            cx,
-        )
-        .into()
-    }
-}
 
 #[derive(Clone)]
 pub struct RootListBuilder;
@@ -62,19 +31,6 @@ impl StateViewBuilder for RootListBuilder {
         query.set_placeholder("Search for apps and commands...", cx);
         let numbat = Numbat::init(&query, cx);
         let commands = RootCommands::list(cx);
-        actions.update_global(
-            vec![Action::new(
-                Img::list_icon(Icon::Keyboard, None),
-                "Change Hotkey",
-                None,
-                |_, cx| {
-                    cx.update_global::<StateModel, _>(|model, cx| model.push(HotkeyBuilder, cx));
-                    //
-                },
-                false,
-            )],
-            cx,
-        );
         List::new(
             query,
             &actions,
@@ -220,5 +176,23 @@ impl StateViewBuilder for RootListBuilder {
             cx,
         )
         .into()
+    }
+}
+
+pub struct LoungyCommandBuilder;
+
+impl RootCommandBuilder for LoungyCommandBuilder {
+    fn build(&self, _cx: &mut WindowContext) -> RootCommand {
+        RootCommand::new(
+            "loungy",
+            "Loungy",
+            "Preferences",
+            Icon::Rocket,
+            vec!["Settings"],
+            None,
+            Box::new(|actions, cx| {
+                actions.toast.error("Preferences not yet implemented", cx);
+            }),
+        )
     }
 }

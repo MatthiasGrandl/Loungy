@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
@@ -88,9 +88,54 @@ impl HotkeyManager {
             let _ = manager.manager.register_all(&manager.hotkeys);
         });
     }
+    pub fn set(id: &str, keystroke: Keystroke, cx: &mut WindowContext) -> anyhow::Result<()> {
+        // This is annoying and will break for most hotkeys
+        let mut mods = Modifiers::default();
+        mods.set(Modifiers::ALT, keystroke.modifiers.alt);
+        mods.set(Modifiers::META, keystroke.modifiers.command);
+        mods.set(Modifiers::CONTROL, keystroke.modifiers.control);
+        mods.set(Modifiers::SHIFT, keystroke.modifiers.shift);
+        // if key is lowercase letter
+        eprintln!("{:?}", keystroke.key);
+        let code = {
+            if keystroke.key.len() == 1 {
+                let char = keystroke.key.chars().next().unwrap();
+                if char.is_ascii_lowercase() {
+                    Code::from_str(format!("Key{}", char.to_uppercase()).as_str())
+                } else if char.is_ascii_uppercase() {
+                    mods.set(Modifiers::SHIFT, true);
+                    Code::from_str(format!("Key{}", char).as_str())
+                } else if char.is_numeric() {
+                    Code::from_str(format!("Digit{}", char).as_str())
+                } else {
+                    Code::from_str(format!("{}", char).as_str())
+                }
+            } else {
+                let capitalized = keystroke.key[0..1].to_uppercase() + &keystroke.key[1..];
+                Code::from_str(capitalized.as_str())
+            }
+        }?;
+
+        CommandHotkeys {
+            id: id.to_string(),
+            mods,
+            code,
+        }
+        .push_into(&cx.global::<HotkeyManager>().db)?;
+        Self::update(cx);
+        Ok(())
+    }
+    pub fn unset(id: &str, cx: &mut WindowContext) -> anyhow::Result<()> {
+        let db = cx.global::<HotkeyManager>().db.clone();
+        if let Some(hk) = CommandHotkeys::get(&id.to_string(), &db).unwrap() {
+            hk.delete(&db)?;
+        }
+        Self::update(cx);
+        Ok(())
+    }
 }
 
-#[derive(Serialize, Deserialize, Collection)]
+#[derive(Serialize, Deserialize, Collection, Debug)]
 #[collection(name = "command-hotkeys")]
 pub struct CommandHotkeys {
     #[natural_id]

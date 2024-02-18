@@ -1,14 +1,20 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::Receiver};
 
 use gpui::*;
+use log::error;
 
 use crate::{
-    components::list::{Accessory, Item, ListItem},
-    components::shared::{Icon, Img},
-    state::{Action, CloneableFn, Shortcut},
+    components::{
+        form::{Form, Input, InputKind},
+        list::{Accessory, Item, ListItem},
+        shared::{Icon, Img},
+    },
+    hotkey::HotkeyManager,
+    query::TextInput,
+    state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
 };
 
-use self::root::{menu, process, theme};
+use self::root::{list, menu, process, theme};
 
 #[cfg(feature = "bitwarden")]
 pub mod bitwarden;
@@ -60,6 +66,7 @@ pub struct RootCommands {
 impl RootCommands {
     pub fn init(cx: &mut WindowContext) {
         let commands: Vec<Box<dyn RootCommandBuilder>> = vec![
+            Box::new(list::LoungyCommandBuilder),
             Box::new(menu::MenuCommandBuilder),
             Box::new(process::ProcessCommandBuilder),
             Box::new(theme::ThemeCommandBuilder),
@@ -99,13 +106,30 @@ impl RootCommands {
                     })
                     .into(),
                     None,
-                    vec![Action::new(
-                        Img::list_icon(command.icon.clone(), None),
-                        command.title.clone(),
-                        None,
-                        command.action.clone(),
-                        false,
-                    )],
+                    vec![
+                        Action::new(
+                            Img::list_icon(command.icon.clone(), None),
+                            command.title.clone(),
+                            None,
+                            command.action.clone(),
+                            false,
+                        ),
+                        Action::new(
+                            Img::list_icon(Icon::Keyboard, None),
+                            "Change Hotkey",
+                            None,
+                            {
+                                let id = command.id.clone();
+                                move |_, cx| {
+                                    let id = id.clone();
+                                    cx.update_global::<StateModel, _>(move |model, cx| {
+                                        model.push(HotkeyBuilder { id }, cx)
+                                    });
+                                }
+                            },
+                            false,
+                        ),
+                    ],
                     Some(3),
                 )
             })
@@ -115,3 +139,57 @@ impl RootCommands {
 }
 
 impl Global for RootCommands {}
+
+#[derive(Clone)]
+pub struct HotkeyBuilder {
+    id: String,
+}
+
+impl StateViewBuilder for HotkeyBuilder {
+    fn build(
+        &self,
+        query: &TextInput,
+        actions: &ActionsModel,
+        _update_receiver: Receiver<bool>,
+        cx: &mut WindowContext,
+    ) -> AnyView {
+        let id = self.id.clone();
+        Form::new(
+            vec![Input::new(
+                "hotkey",
+                "Hotkey",
+                InputKind::Shortcut { value: None },
+                cx,
+            )],
+            move |values, actions, cx| {
+                let shortcut = values["hotkey"].value::<Option<Shortcut>>();
+                if let Some(shortcut) = shortcut {
+                    if let Err(err) = HotkeyManager::set(&id, shortcut.inner, cx) {
+                        error!("Failed to set hotkey: {}", err);
+                        actions.toast.error("Failed to set hotkey", cx);
+                    } else {
+                        actions.toast.success("Hotkey set", cx);
+                    }
+                } else {
+                    if let Err(err) = HotkeyManager::unset(&id, cx) {
+                        error!("Failed to unset hotkey: {}", err);
+                        actions.toast.error("Failed to unset hotkey", cx);
+                    } else {
+                        actions.toast.success("Hotkey unset", cx);
+                    }
+                }
+                // let shortcut = values["hotkey"].value::<Option<Shortcut>>().unwrap();
+                // if let Some(shortcut) = shortcut {
+                //     let mut model = cx.global::<StateModel>();
+                //     model.hotkey = shortcut;
+                //     model.save(cx);
+                // }
+                //
+            },
+            query,
+            actions,
+            cx,
+        )
+        .into()
+    }
+}

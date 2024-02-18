@@ -404,7 +404,7 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
 
 #[derive(Clone, IntoElement, Deserialize)]
 pub struct Shortcut {
-    inner: Keystroke,
+    pub inner: Keystroke,
 }
 
 impl Shortcut {
