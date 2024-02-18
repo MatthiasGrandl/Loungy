@@ -211,6 +211,7 @@ pub struct TailscaleCommandBuilder;
 impl RootCommandBuilder for TailscaleCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {
         RootCommand::new(
+            "tailscale",
             "Search Peers",
             "Tailscale",
             Icon::Waypoints,

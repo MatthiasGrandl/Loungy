@@ -92,6 +92,7 @@ pub struct MenuCommandBuilder;
 impl RootCommandBuilder for MenuCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {
         RootCommand::new(
+            "macos_menu",
             "Search Menu Items",
             "Navigation",
             Icon::Library,

@@ -146,6 +146,7 @@ pub struct ThemeCommandBuilder;
 impl RootCommandBuilder for ThemeCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {
         RootCommand::new(
+            "themes",
             "Search Themes",
             "Customization",
             Icon::Palette,

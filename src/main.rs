@@ -6,6 +6,7 @@ mod assets;
 mod commands;
 mod components;
 mod db;
+mod hotkey;
 mod paths;
 mod query;
 mod state;

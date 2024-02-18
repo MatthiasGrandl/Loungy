@@ -598,6 +598,29 @@ pub struct Actions {
 }
 
 impl Actions {
+    fn new(
+        loading: &View<Loading>,
+        toast: &Toast,
+        update_sender: Sender<bool>,
+        cx: &mut WindowContext,
+    ) -> Self {
+        Self {
+            global: cx.new_model(|_| Vec::new()),
+            local: cx.new_model(|_| Vec::new()),
+            show: false,
+            query: None,
+            list: None,
+            loading: loading.clone(),
+            toast: toast.clone(),
+            update_sender,
+        }
+    }
+    pub fn default(cx: &mut WindowContext) -> Self {
+        let (s, r) = channel::<bool>();
+        let loading = Loading::init(cx);
+        let toast = Toast::init(cx);
+        Self::new(&loading, &toast, s, cx)
+    }
     fn combined(&self, cx: &WindowContext) -> Vec<Action> {
         let mut combined = self.local.read(cx).clone();
         combined.append(&mut self.global.read(cx).clone());
@@ -722,18 +745,7 @@ impl ActionsModel {
         update_sender: Sender<bool>,
         cx: &mut WindowContext,
     ) -> Self {
-        let global = cx.new_model(|_| Vec::new());
-        let local = cx.new_model(|_| Vec::new());
-        let inner = cx.new_view(|_| Actions {
-            global,
-            local,
-            show: false,
-            query: None,
-            list: None,
-            loading: loading.clone(),
-            toast: toast.clone(),
-            update_sender,
-        });
+        let inner = cx.new_view(|cx| Actions::new(loading, toast, update_sender, cx));
 
         let model = Self {
             inner: inner.clone(),

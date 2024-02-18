@@ -332,6 +332,7 @@ pub struct BitwardenAccountCommandBuilder;
 impl RootCommandBuilder for BitwardenAccountCommandBuilder {
     fn build(&self, _: &mut WindowContext) -> RootCommand {
         RootCommand::new(
+            "bitwarden_accounts",
             "Search Vault",
             "Bitwarden",
             Icon::Vault,

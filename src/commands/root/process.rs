@@ -247,7 +247,8 @@ pub struct ProcessCommandBuilder;
 impl RootCommandBuilder for ProcessCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {
         RootCommand::new(
-            "Search Process",
+            "task_manager",
+            "Search Processes",
             "Task Manager",
             Icon::Cpu,
             vec!["Kill", "Memory", "CPU"],

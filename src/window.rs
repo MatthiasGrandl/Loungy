@@ -56,15 +56,11 @@ impl Window {
             hidden: false,
         });
     }
-    pub fn open(cx: &mut AsyncAppContext) {
+    pub fn open(cx: &mut WindowContext) {
         let _ = cx.update_global::<Self, _>(|this, cx| {
             if this.hidden {
-                if let Some(wh) = cx.windows().first().cloned() {
-                    let _ = cx.update_window(wh, |_, cx| {
-                        cx.activate_window();
-                    });
-                    this.hidden = false;
-                }
+                cx.activate_window();
+                this.hidden = false;
             }
         });
     }

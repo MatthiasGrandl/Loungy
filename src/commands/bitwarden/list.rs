@@ -335,7 +335,7 @@ pub struct BitwardenCommandBuilder;
 
 impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
-        Db::new::<BitwardenAccount, BitwardenDb>("bitwarden", |db| BitwardenDb { inner: db }, cx);
+        Db::new::<BitwardenAccount, BitwardenDb>(|db| BitwardenDb { inner: db }, cx);
         let view = cx.new_view(|cx| {
             cx.spawn(move |view, mut cx| async move {
                 let mut first = true;
@@ -521,6 +521,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             AsyncListItems { items: vec![], initialized: false }
         });
         RootCommand::new(
+            "bitwarden",
             "Search Vault",
             "Bitwarden",
             Icon::Lock,

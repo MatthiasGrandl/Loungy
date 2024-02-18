@@ -43,8 +43,7 @@ impl Db {
         cx.set_global(Self { inner, storage });
     }
     pub fn new<'a, C: Collection + 'static, G: Global>(
-        name: &str,
-        f: fn(Database) -> G,
+        f: impl FnOnce(Database) -> G,
         cx: &mut AppContext,
     ) {
         if cx.has_global::<G>() {
@@ -55,7 +54,7 @@ impl Db {
             .register_schema::<C>()
             .expect("Failed to register schema");
         let db = storage
-            .create_database::<C>(name, true)
+            .create_database::<C>(&C::collection_name().to_string(), true)
             .expect("Failed to open database");
         cx.set_global::<G>(f(db));
     }
