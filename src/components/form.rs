@@ -44,7 +44,7 @@ impl Input {
     pub fn value<V: Clone + 'static>(&self) -> V {
         let value: Box<dyn Any> = match self.kind.clone() {
             InputKind::TextField { value, .. } => Box::new(value),
-            InputKind::Shortcut { value } => Box::new(value),
+            InputKind::Shortcut { value, .. } => Box::new(value),
         };
         value.downcast_ref::<V>().unwrap().clone()
     }
@@ -87,7 +87,45 @@ impl Render for InputView {
                             InputKind::TextField { .. } => {
                                 self.input.view.clone().into_any_element()
                             }
-                            InputKind::Shortcut { .. } => "Recording...".into_any_element(),
+                            InputKind::Shortcut { tmp, .. } => div()
+                                .relative()
+                                .child(
+                                    div()
+                                        .absolute()
+                                        .z_index(100)
+                                        .top_full()
+                                        .mt_3()
+                                        .neg_left_2()
+                                        .neg_right_2()
+                                        .p_4()
+                                        .shadow_md()
+                                        .rounded_lg()
+                                        .bg(theme.mantle)
+                                        .border_1()
+                                        .border_color(theme.crust)
+                                        .child(
+                                            tmp.map(|shortcut| {
+                                                div()
+                                        .flex()
+                                        .flex_col()
+                                        .items_center()
+                                        .justify_center().child(shortcut.clone()).child(
+                                                    if Modifiers::default()
+                                                        .eq(&shortcut.inner.modifiers)
+                                                    {
+                                                        div().flex().justify_center()
+                                                            .child("At least one modifier should be included...")
+                                                            .text_color(theme.red)
+                                                    } else {
+                                                        div().flex().justify_center().child("Recording...")
+                                                    },
+                                                )
+                                            })
+                                            .unwrap_or(div().child("Recording...")),
+                                        )
+                                )
+                                .child("Recording...")
+                                .into_any_element(),
                         }
                     } else {
                         match self.inner.kind.clone() {
@@ -107,7 +145,7 @@ impl Render for InputView {
                                     }
                                 }
                             }
-                            InputKind::Shortcut { value } => {
+                            InputKind::Shortcut { value, .. } => {
                                 if let Some(shortcut) = value {
                                     div()
                                         .child(" ")
@@ -172,7 +210,7 @@ impl InputView {
                 self.input.set_placeholder(placeholder, cx);
                 self.input.set_text(value, cx);
             }
-            InputKind::Shortcut { .. } => self.input.set_placeholder("Record hotkey", cx),
+            InputKind::Shortcut { .. } => self.input.set_text("Record hotkey", cx),
         };
     }
     pub fn on_blur(&mut self, _: &mut ViewContext<Self>) {
@@ -199,15 +237,34 @@ impl InputView {
                 TextEvent::KeyDown(_) => {}
                 _ => {}
             },
-            InputKind::Shortcut { .. } => match event {
+            InputKind::Shortcut { value, .. } => match event {
                 TextEvent::KeyDown(e) => {
-                    self.input.set_text("", cx);
+                    self.input.set_text("Record hotkey", cx);
 
-                    let mods = e.keystroke.modifiers;
-                    if mods.shift || mods.control || mods.alt || mods.command {
+                    let mut proceed = false;
+                    if Keystroke::parse("backspace").unwrap().eq(&e.keystroke) {
                         self.inner.kind = InputKind::Shortcut {
-                            value: Some(Shortcut::new(e.keystroke.clone())),
+                            value: None,
+                            tmp: None,
                         };
+                        proceed = true;
+                    } else {
+                        let mods = e.keystroke.modifiers;
+                        if mods.shift || mods.control || mods.alt || mods.command {
+                            self.inner.kind = InputKind::Shortcut {
+                                tmp: Some(Shortcut::new(e.keystroke.clone())),
+                                value: Some(Shortcut::new(e.keystroke.clone())),
+                            };
+                            proceed = true;
+                        } else {
+                            self.inner.kind = InputKind::Shortcut {
+                                tmp: Some(Shortcut::new(e.keystroke.clone())),
+                                value,
+                            }
+                        }
+                    }
+                    if proceed {
+                        self.input.set_text("", cx);
                         self.focus_model.update(cx, |this, cx| {
                             *this += 1;
                             cx.notify();
@@ -305,6 +362,7 @@ pub enum InputKind {
     },
     Shortcut {
         value: Option<Shortcut>,
+        tmp: Option<Shortcut>,
     },
 }
 

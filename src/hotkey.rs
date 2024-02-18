@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     commands::RootCommands,
     db::Db,
-    state::{Actions, CloneableFn},
+    state::{Actions, CloneableFn, StateModel},
     window::Window,
 };
 
@@ -56,6 +56,9 @@ impl HotkeyManager {
                     if event.state == global_hotkey::HotKeyState::Released {
                         let _ = cx.update_global::<HotkeyManager, _>(|manager, cx| {
                             if let Some(action) = manager.map.get(&event.id) {
+                                cx.update_global::<StateModel, _>(|model, cx| {
+                                    model.reset(cx);
+                                });
                                 action(&mut Actions::default(cx), cx);
                             }
                             Window::open(cx);
@@ -116,7 +119,7 @@ impl HotkeyManager {
             id: id.to_string(),
             hotkey,
         }
-        .push_into(&cx.global::<HotkeyManager>().db)?;
+        .overwrite_into(&id.to_string(), &cx.global::<HotkeyManager>().db)?;
         Self::update(cx);
         Ok(())
     }
@@ -127,6 +130,24 @@ impl HotkeyManager {
         }
         Self::update(cx);
         Ok(())
+    }
+    pub fn get(id: &str, cx: &mut WindowContext) -> Option<Keystroke> {
+        let db = cx.global::<HotkeyManager>().db.clone();
+        CommandHotkeys::get(&id.to_string(), &db).ok()?.map(|hk| {
+            hk.contents
+                .hotkey
+                .split("+")
+                .fold(Keystroke::default(), |mut keystroke, token| {
+                    match token {
+                        "alt" => keystroke.modifiers.alt = true,
+                        "command" => keystroke.modifiers.command = true,
+                        "control" => keystroke.modifiers.control = true,
+                        "shift" => keystroke.modifiers.shift = true,
+                        _ => keystroke.key = token.to_string(),
+                    }
+                    keystroke
+                })
+        })
     }
 }
 

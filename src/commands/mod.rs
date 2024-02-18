@@ -154,11 +154,15 @@ impl StateViewBuilder for HotkeyBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         let id = self.id.clone();
+        let value = HotkeyManager::get(&id, cx).map(|hotkey| Shortcut::new(hotkey));
         Form::new(
             vec![Input::new(
                 "hotkey",
                 "Hotkey",
-                InputKind::Shortcut { value: None },
+                InputKind::Shortcut {
+                    tmp: value.clone(),
+                    value,
+                },
                 cx,
             )],
             move |values, actions, cx| {
