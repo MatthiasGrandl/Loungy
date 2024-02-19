@@ -431,7 +431,10 @@ impl Shortcut {
         Self {
             inner: Keystroke {
                 modifiers: Modifiers {
+                    #[cfg(target_os = "macos")]
                     command: true,
+                    #[cfg(not(target_os = "macos"))]
+                    control: true,
                     ..Modifiers::default()
                 },
                 key: key.to_string(),
@@ -820,7 +823,11 @@ impl ActionsModel {
                         cx.notify();
                     }
                     TextEvent::KeyDown(ev) => {
-                        if Shortcut::simple("enter").inner.eq(&ev.keystroke) {
+                        #[cfg(target_os = "macos")]
+                        let key = "enter";
+                        #[cfg(not(target_os = "macos"))]
+                        let key = "return";
+                        if Shortcut::simple(key).inner.eq(&ev.keystroke) {
                             let _ = list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
