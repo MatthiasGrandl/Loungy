@@ -5,6 +5,7 @@ use std::{
 
 pub mod nucleo;
 
+use async_std::task::sleep;
 use gpui::*;
 
 use crate::{
@@ -362,6 +363,7 @@ impl List {
                             });
                         }
                         let triggered = update_receiver.try_recv().is_ok();
+
                         if poll || triggered {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
                                 if this.query.has_focus(cx)
@@ -379,10 +381,12 @@ impl List {
                                 }
                             });
                         }
-                        cx.background_executor()
-                            .timer(Duration::from_millis(50))
-                            .await;
+                        sleep(Duration::from_millis(50)).await;
+                        // cx.background_executor()
+                        //     .timer(Duration::from_millis(50))
+                        //     .await;
                     } else {
+                        eprintln!("update list view dropped");
                         break;
                     }
                 }

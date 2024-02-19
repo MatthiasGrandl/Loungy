@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::mpsc::Receiver, time::Durat
 use async_std::{
     channel,
     process::{Command, Output},
+    task::sleep,
 };
 use bonsaidb::{
     core::{
@@ -157,9 +158,10 @@ impl BitwardenLoginItem {
                 cx.spawn(move |mut cx| async move {
                     // TODO: add a better way to make sure the window is closed
                     // Also the window closing and spawning should be handled by the keytap function as that is always going to be wanted
-                    cx.background_executor()
-                        .timer(Duration::from_millis(250))
-                        .await;
+                    sleep(Duration::from_millis(250)).await;
+                    // cx.background_executor()
+                    //     .timer(Duration::from_millis(250))
+                    //     .await;
                     if let Ok(value) = login.get_field(&field, &id, &mut account, &mut cx).await {
                         unsafe {
                             keytap(SRString::from(value.as_str()));
@@ -364,9 +366,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     }).unwrap();
                     let count = accounts.len();
                     if count == 0 || (count == old_count && last_update.elapsed().as_secs() < 500) {
-                        cx.background_executor()
-                            .timer(Duration::from_millis(250))
-                            .await;
+                        sleep(Duration::from_millis(250)).await;
+                        // cx.background_executor()
+                        //     .timer(Duration::from_millis(250))
+                        //     .await;
                         continue;
                     }
                     old_count = count;
@@ -478,7 +481,8 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                             error!("Autofill timed out");
                                                                             return;
                                                                         }
-                                                                        cx.background_executor().timer(Duration::from_millis(100)).await;
+                                                                        sleep(Duration::from_millis(100)).await;
+                                                                        //cx.background_executor().timer(Duration::from_millis(100)).await;
                                                                     }
                                                                 }
                                                                 }

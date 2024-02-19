@@ -170,9 +170,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.79"
+version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
 name = "arc-bytes"
@@ -1215,7 +1215,7 @@ checksum = "186dce98367766de751c42c4f03970fc60fc012296e706ccbb9d5df9b6c1e271"
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "rustc-hash",
 ]
@@ -1675,7 +1675,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1937,9 +1937,9 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "erased-serde"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55d05712b2d8d88102bc9868020c9e5c7a1f5527c452b9b97450a1d006140ba7"
+checksum = "388979d208a049ffdfb22fa33b9c81942215b940910bccfe258caeb25d125cb3"
 dependencies = [
  "serde",
 ]
@@ -2519,7 +2519,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "anyhow",
  "as-raw-xcb-connection",
@@ -2593,7 +2593,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3095,18 +3095,18 @@ dependencies = [
 
 [[package]]
 name = "linkme"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b53ad6a33de58864705954edb5ad5d571a010f9e296865ed43dc72a5621b430"
+checksum = "1a78816ac097580aa7fd9d2e9cc7395dda34367c07267a8657516d4ad5e2e3d3"
 dependencies = [
  "linkme-impl",
 ]
 
 [[package]]
 name = "linkme-impl"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04e542a18c94a9b6fcc7adb090fa3ba6b79ee220a16404f325672729f32a66ff"
+checksum = "ee9023a564f8bf7fe3da285a50c3e70de0df3e2bf277ff7c4e76d66008ef93b0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3249,7 +3249,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 [[package]]
 name = "media"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -4365,7 +4365,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "derive_refineable",
  "proc-macro2",
@@ -4627,9 +4627,9 @@ dependencies = [
 
 [[package]]
 name = "ryu"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98d2aa92eebf49b69786be48e4477826b256916e84a57ff2a4f21923b48eb4c"
+checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 
 [[package]]
 name = "ryu_floating_decimal"
@@ -4747,9 +4747,9 @@ checksum = "58bf37232d3bb9a2c4e641ca2a11d83b5062066f88df7fed36c28772046d65ba"
 
 [[package]]
 name = "semver"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97ed7a9823b74f99c7742f5336af7be5ecd3eeafcb1507d1fa93347b1d589b0"
+checksum = "92d43fe69e652f3df9bdc2b85b2854a0825b86e4fb76bc44d945137d053639ca"
 
 [[package]]
 name = "serde"
@@ -5055,7 +5055,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "arrayvec 0.7.4",
  "log",
@@ -5761,7 +5761,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#a041e07c995a2828b5834d852cb83e9e0b10b7ce"
+source = "git+https://github.com/zed-industries/zed#2b56c43f2d2172d0a8dcaadd9096280eaa7d2de7"
 dependencies = [
  "anyhow",
  "backtrace",

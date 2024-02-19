@@ -17,7 +17,13 @@ pub fn run_app(app: gpui::App) {
         Db::init(cx);
         Theme::init(cx);
         // TODO: This still only works for a single display
-        let bounds = cx.displays().first().expect("No Display found").bounds();
+        let bounds = cx.displays().first().map(|d| d.bounds()).unwrap_or(Bounds {
+            origin: Point::new(GlobalPixels::from(0.0), GlobalPixels::from(0.0)),
+            size: Size {
+                width: GlobalPixels::from(1920.0),
+                height: GlobalPixels::from(1080.0),
+            },
+        });
         cx.open_window(WindowStyle::Main.options(bounds.clone()), |cx| {
             RootCommands::init(cx);
             HotkeyManager::init(cx);

@@ -163,6 +163,7 @@ impl RenderOnce for TextInput {
         div()
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
+                eprintln!("{:?}", &ev.keystroke);
                 self.view.update(cx, |editor, cx| {
                     let prev = editor.text.clone();
                     cx.emit(TextEvent::KeyDown(ev.clone()));
@@ -204,11 +205,12 @@ impl RenderOnce for TextInput {
                             }
                             _ => {}
                         }
-                    } else if let Some(ime_key) = &ev.keystroke.ime_key {
+                    } else if ev.keystroke.ime_key.clone().unwrap_or_default().len() > 0 {
+                        let ime_key = &ev.keystroke.ime_key.clone().unwrap_or_default();
                         editor
                             .text
                             .replace_range(editor.char_range_to_text_range(&editor.text), ime_key);
-                        let i = editor.selection.start + 1;
+                        let i = editor.selection.start + ime_key.chars().count();
                         editor.selection = i..i;
                     } else {
                         match keystroke.as_str() {
@@ -238,9 +240,11 @@ impl RenderOnce for TextInput {
                                 } else if editor.selection.start == editor.selection.end
                                     && editor.selection.start > 0
                                 {
-                                    editor.text =
-                                        chars[0..editor.selection.start - 1].iter().collect();
-                                    let i = editor.selection.start - 1;
+                                    let i = (editor.selection.start - 1).min(chars.len());
+                                    editor.text = chars[0..i].iter().collect::<String>()
+                                        + &(chars[editor.selection.end.min(chars.len())..]
+                                            .iter()
+                                            .collect::<String>());
                                     editor.selection = i..i;
                                 } else {
                                     editor.text.replace_range(
@@ -250,9 +254,12 @@ impl RenderOnce for TextInput {
                                     editor.selection.end = editor.selection.start;
                                 }
                             }
-                            "enter" => {
+                            "enter" | "return" => {
                                 if ev.keystroke.modifiers.shift {
-                                    editor.text.insert(editor.selection.start, '\n');
+                                    editor.text.insert(
+                                        editor.char_range_to_text_range(&editor.text).start,
+                                        '\n',
+                                    );
                                     let i = editor.selection.start + 1;
                                     editor.selection = i..i;
                                 }

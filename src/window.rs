@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use async_std::task::sleep;
 use gpui::*;
 
 use crate::state::StateModel;
@@ -71,9 +72,10 @@ impl Window {
         });
         // After 90 seconds, reset the state
         cx.spawn(|mut cx| async move {
-            cx.background_executor()
-                .timer(Duration::from_secs(90))
-                .await;
+            sleep(Duration::from_millis(90)).await;
+            // cx.background_executor()
+            //     .timer(Duration::from_secs(90))
+            //     .await;
             let _ = cx.update_global::<Self, _>(|window, cx| {
                 if window.hidden {
                     cx.update_global::<StateModel, _>(|model, cx| {

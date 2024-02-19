@@ -1,4 +1,5 @@
 use ::simple_easing::linear;
+use async_std::task::sleep;
 use gpui::*;
 use serde::Deserialize;
 use std::{
@@ -52,9 +53,10 @@ impl Loading {
                             cx.notify();
                         })
                     });
-                    cx.background_executor()
-                        .timer(Duration::from_millis(1000 / 120))
-                        .await;
+                    sleep(Duration::from_millis(1000 / 120)).await;
+                    // cx.background_executor()
+                    //     .timer(Duration::from_millis(1000 / 120))
+                    //     .await;
                 }
             })
             .detach();
@@ -111,7 +113,8 @@ impl ToastState {
     }
     pub fn timeout(&mut self, duration: Duration, cx: &mut ViewContext<Self>) {
         cx.spawn(move |view, mut cx| async move {
-            cx.background_executor().timer(duration).await;
+            sleep(duration).await;
+            // cx.background_executor().timer(duration).await;
             let _ = view.update(&mut cx, |this, cx| {
                 *this = ToastState::Idle;
                 cx.notify();
@@ -192,17 +195,24 @@ impl Toast {
        So right now I have a good solution. I am leaving this here for future reference investigation.
     */
     pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut WindowContext) {
-        let display = cx.display().expect("No display?");
+        let bounds = cx.display().map(|d| d.bounds()).unwrap_or(Bounds {
+            origin: Point::new(GlobalPixels::from(0.0), GlobalPixels::from(0.0)),
+            size: Size {
+                width: GlobalPixels::from(1920.0),
+                height: GlobalPixels::from(1080.0),
+            },
+        });
         Window::close(cx);
         cx.open_window(
             WindowStyle::Toast {
                 width: message.to_string().len() as f64 * 12.0,
                 height: 50.0,
             }
-            .options(display.bounds()),
+            .options(bounds),
             |cx| {
                 cx.spawn(|mut cx| async move {
-                    cx.background_executor().timer(Duration::from_secs(2)).await;
+                    sleep(Duration::from_secs(2)).await;
+                    //cx.background_executor().timer(Duration::from_secs(2)).await;
                     let _ = cx.update_window(cx.window_handle(), |_, cx| {
                         cx.remove_window();
                     });
@@ -481,7 +491,7 @@ impl RenderOnce for Shortcut {
             el = key_icon(el, Icon::Command);
         }
         match shortcut.key.as_str() {
-            "enter" => {
+            "enter" | "return" => {
                 el = key_icon(el, Icon::CornerDownLeft);
             }
             "backspace" => {
@@ -625,7 +635,11 @@ impl Actions {
         let mut combined = self.local.read(cx).clone();
         combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
-            action.shortcut = Some(Shortcut::simple("enter"));
+            #[cfg(target_os = "macos")]
+            let key = "enter";
+            #[cfg(not(target_os = "macos"))]
+            let key = "return";
+            action.shortcut = Some(Shortcut::simple(key));
             combined.push(Action::new(
                 Img::list_icon(Icon::BookOpen, None),
                 "Actions",
