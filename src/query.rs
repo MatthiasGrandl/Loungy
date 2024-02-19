@@ -163,13 +163,17 @@ impl RenderOnce for TextInput {
         div()
             .track_focus(&self.focus_handle)
             .on_key_down(move |ev, cx| {
-                eprintln!("{:?}", &ev.keystroke);
                 self.view.update(cx, |editor, cx| {
                     let prev = editor.text.clone();
                     cx.emit(TextEvent::KeyDown(ev.clone()));
                     let keystroke = &ev.keystroke.key;
                     let chars = editor.text.chars().collect::<Vec<char>>();
-                    if ev.keystroke.modifiers.command {
+                    #[cfg(target_os = "macos")]
+                    let m = ev.keystroke.modifiers.command;
+                    #[cfg(not(target_os = "macos"))]
+                    let m = ev.keystroke.modifiers.control;
+
+                    if m {
                         match keystroke.as_str() {
                             "a" => {
                                 editor.selection = 0..chars.len();
