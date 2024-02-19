@@ -4,7 +4,13 @@ use async_std::{
     channel,
     process::{Command, Output},
 };
-use bonsaidb::{core::{document::CollectionDocument, schema::{Collection, SerializedCollection}}, local::Database};
+use bonsaidb::{
+    core::{
+        document::CollectionDocument,
+        schema::{Collection, SerializedCollection},
+    },
+    local::Database,
+};
 use gpui::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -12,7 +18,17 @@ use swift_rs::SRString;
 use url::Url;
 
 use crate::{
-    commands::{RootCommand, RootCommandBuilder}, components::{list::{Accessory, AsyncListItems, Item, List, ListItem}, shared::{Icon, Img}}, db::Db, paths::Paths, query::TextInput, state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder}, swift::{autofill, keytap}, window::Window
+    commands::{RootCommand, RootCommandBuilder},
+    components::{
+        list::{Accessory, AsyncListItems, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    db::Db,
+    paths::Paths,
+    query::TextInput,
+    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    swift::{autofill, keytap},
+    window::Window,
 };
 
 use super::accounts::{
@@ -193,7 +209,6 @@ pub(super) struct BitwardenAccount {
     pub session: Option<String>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(super) enum BitwardenVaultStatus {
@@ -327,7 +342,6 @@ impl Render for Markdown {
 
 pub(super) struct BitwardenDb {
     pub(super) inner: Database,
-
 }
 impl Global for BitwardenDb {}
 
@@ -479,7 +493,6 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
                                         //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                         // }).ok();
-                                        
                                         actions.append(&mut login.get_actions(&id, &account.contents));
                                         items.push(Item::new(
                                             keywords,
@@ -530,8 +543,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             Box::new(move |_, cx| {
                 let view = view.clone();
                 cx.update_global::<StateModel, _>(|model, cx| {
-                    let accounts = BitwardenAccount::all(&cx
-                        .global::<BitwardenDb>().inner);
+                    let accounts = BitwardenAccount::all(&cx.global::<BitwardenDb>().inner);
                     if accounts.count().unwrap_or_default() == 0 {
                         model.push(BitwardenAccountFormBuilder {}, cx);
                     } else {

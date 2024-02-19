@@ -13,6 +13,8 @@ use std::{
 
 use regex::Regex;
 
+#[cfg(target_os = "macos")]
+use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::list::{Accessory, Item, List, ListItem},
@@ -20,7 +22,6 @@ use crate::{
     paths::Paths,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
-    swift::get_application_data,
     theme::Theme,
 };
 
@@ -158,6 +159,7 @@ impl StateViewBuilder for ProcessListBuilder {
                                 .map(|m| String::from(m.as_str()))
                                 .unwrap_or_default();
 
+                            #[cfg(target_os = "macos")]
                             let (name, image) = match unsafe {
                                 get_application_data(
                                     &cache_dir.to_str().unwrap().into(),
@@ -178,6 +180,12 @@ impl StateViewBuilder for ProcessListBuilder {
                                     )
                                 }
                             };
+                            #[cfg(target_os = "linux")]
+                            let (name, image) = (
+                                p.name.split("/").last().unwrap().to_string(),
+                                Img::list_icon(Icon::Cpu, None),
+                            );
+
                             Item::new(
                                 vec![name.clone()],
                                 cx.new_view(|_cx| {

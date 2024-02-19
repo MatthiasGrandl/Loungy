@@ -2,6 +2,8 @@ use std::{collections::HashMap, fs, path::PathBuf, sync::mpsc::Receiver, time::D
 
 use gpui::*;
 
+#[cfg(target_os = "macos")]
+use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder, RootCommands},
     components::{
@@ -10,8 +12,7 @@ use crate::{
     },
     paths::Paths,
     query::TextInput,
-    state::{Action, ActionsModel, StateModel, StateViewBuilder},
-    swift::get_application_data,
+    state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
 };
 
@@ -35,103 +36,113 @@ impl StateViewBuilder for RootListBuilder {
             query,
             &actions,
             |_, _, cx| {
-                let cache_dir = cx.global::<Paths>().cache.clone();
-                fs::create_dir_all(cache_dir.clone()).unwrap();
+                #[cfg(target_os = "macos")]
+                {
+                    let cache_dir = cx.global::<Paths>().cache.clone();
+                    fs::create_dir_all(cache_dir.clone()).unwrap();
 
-                let user_dir = PathBuf::from("/Users")
-                    .join(whoami::username())
-                    .join("Applications");
+                    let user_dir = PathBuf::from("/Users")
+                        .join(whoami::username())
+                        .join("Applications");
 
-                let applications_folders = vec![
-                    PathBuf::from("/Applications"),
-                    PathBuf::from("/Applications/Chromium Apps"),
-                    PathBuf::from("/System/Applications/Utilities"),
-                    PathBuf::from("/System/Applications"),
-                    PathBuf::from("/System/Library/CoreServices/Applications"),
-                    PathBuf::from("/Library/PreferencePanes"),
-                    PathBuf::from("/System/Library/ExtensionKit/Extensions"),
-                    user_dir.clone(),
-                    user_dir.clone().join("Chromium Apps.localized"),
-                    // Not sure about the correct path for PWAs
-                    user_dir.clone().join("Chrome Apps.localized"),
-                    user_dir.clone().join("Brave Apps.localized"),
-                ];
-                // iterate this folder
-                // for each .app file, create an App struct
-                // return a vector of App structs
-                // list all files in applications_folder
-                let mut apps = HashMap::<String, Item>::new();
+                    let applications_folders = vec![
+                        PathBuf::from("/Applications"),
+                        PathBuf::from("/Applications/Chromium Apps"),
+                        PathBuf::from("/System/Applications/Utilities"),
+                        PathBuf::from("/System/Applications"),
+                        PathBuf::from("/System/Library/CoreServices/Applications"),
+                        PathBuf::from("/Library/PreferencePanes"),
+                        PathBuf::from("/System/Library/ExtensionKit/Extensions"),
+                        user_dir.clone(),
+                        user_dir.clone().join("Chromium Apps.localized"),
+                        // Not sure about the correct path for PWAs
+                        user_dir.clone().join("Chrome Apps.localized"),
+                        user_dir.clone().join("Brave Apps.localized"),
+                    ];
+                    // iterate this folder
+                    // for each .app file, create an App struct
+                    // return a vector of App structs
+                    // list all files in applications_folder
+                    let mut apps = HashMap::<String, Item>::new();
 
-                for applications_folder in applications_folders {
-                    let dir = applications_folder.read_dir();
-                    if dir.is_err() {
-                        continue;
-                    }
-                    for entry in dir.unwrap() {
-                        if let Ok(entry) = entry {
-                            let path = entry.path();
-                            let extension = match path.extension() {
-                                Some(ext) => ext,
-                                None => continue,
-                            };
-                            let ex = extension.to_str().unwrap() == "appex";
-                            let tag = match ex {
-                                true => "System Setting",
-                                false => "Application",
-                            };
-                            // search for .icns in Contents/Resources
-                            let (bundle_id, name) = match unsafe {
-                                get_application_data(
-                                    &cache_dir.to_str().unwrap().into(),
-                                    &path.to_str().unwrap().into(),
-                                )
-                            } {
-                                Some(d) => (d.id.to_string(), d.name.to_string()),
-                                None => continue,
-                            };
-                            let mut icon_path = cache_dir.clone();
-                            icon_path.push(format!("{}.png", bundle_id.clone()));
-                            let id = bundle_id.clone();
-                            let app = Item::new(
-                                vec![name.clone()],
-                                cx.new_view(|_cx| {
-                                    ListItem::new(
-                                        Some(Img::list_file(icon_path)),
-                                        name.clone(),
-                                        None,
-                                        vec![Accessory::new(tag, None)],
+                    for applications_folder in applications_folders {
+                        let dir = applications_folder.read_dir();
+                        if dir.is_err() {
+                            continue;
+                        }
+                        for entry in dir.unwrap() {
+                            if let Ok(entry) = entry {
+                                let path = entry.path();
+                                let extension = match path.extension() {
+                                    Some(ext) => ext,
+                                    None => continue,
+                                };
+                                let ex = extension.to_str().unwrap() == "appex";
+                                let tag = match ex {
+                                    true => "System Setting",
+                                    false => "Application",
+                                };
+                                // search for .icns in Contents/Resources
+                                let (bundle_id, name) = match unsafe {
+                                    get_application_data(
+                                        &cache_dir.to_str().unwrap().into(),
+                                        &path.to_str().unwrap().into(),
                                     )
-                                })
-                                .into(),
-                                None,
-                                vec![Action::new(
-                                    Img::list_icon(Icon::ArrowUpRightFromSquare, None),
-                                    format!("Open {}", tag),
+                                } {
+                                    Some(d) => (d.id.to_string(), d.name.to_string()),
+                                    None => continue,
+                                };
+                                let mut icon_path = cache_dir.clone();
+                                icon_path.push(format!("{}.png", bundle_id.clone()));
+                                let id = bundle_id.clone();
+                                let app = Item::new(
+                                    vec![name.clone()],
+                                    cx.new_view(|_cx| {
+                                        ListItem::new(
+                                            Some(Img::list_file(icon_path)),
+                                            name.clone(),
+                                            None,
+                                            vec![Accessory::new(tag, None)],
+                                        )
+                                    })
+                                    .into(),
                                     None,
-                                    move |_, cx| {
-                                        Window::close(cx);
-                                        let id = id.clone();
-                                        let mut command = std::process::Command::new("open");
-                                        if ex {
-                                            command
-                                                .arg(format!("x-apple.systempreferences:{}", id));
-                                        } else {
-                                            command.arg("-b");
-                                            command.arg(id);
-                                        }
-                                        let _ = command.spawn();
-                                    },
-                                    false,
-                                )],
-                                None,
-                            );
-                            apps.insert(bundle_id, app);
+                                    vec![Action::new(
+                                        Img::list_icon(Icon::ArrowUpRightFromSquare, None),
+                                        format!("Open {}", tag),
+                                        None,
+                                        move |_, cx| {
+                                            Window::close(cx);
+                                            let id = id.clone();
+                                            let mut command = std::process::Command::new("open");
+                                            if ex {
+                                                command.arg(format!(
+                                                    "x-apple.systempreferences:{}",
+                                                    id
+                                                ));
+                                            } else {
+                                                command.arg("-b");
+                                                command.arg(id);
+                                            }
+                                            let _ = command.spawn();
+                                        },
+                                        false,
+                                    )],
+                                    None,
+                                );
+                                apps.insert(bundle_id, app);
+                            }
                         }
                     }
+                    let mut apps: Vec<Item> = apps.values().cloned().collect();
+                    apps.sort_unstable_by_key(|a| a.keywords[0].clone());
+                    Ok(Some(apps))
                 }
-                let mut apps: Vec<Item> = apps.values().cloned().collect();
-                apps.sort_unstable_by_key(|a| a.keywords[0].clone());
-                Ok(Some(apps))
+                #[cfg(target_os = "linux")]
+                {
+                    //
+                    Ok(Some(vec![]))
+                }
             },
             Some(Box::new(move |this, cx| {
                 let mut items = this.items_all.clone();

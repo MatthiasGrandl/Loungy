@@ -14,7 +14,9 @@ use crate::{
     state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
 };
 
-use self::root::{list, menu, process, theme};
+#[cfg(target_os = "macos")]
+use self::root::menu;
+use self::root::{list, process, theme};
 
 #[cfg(feature = "bitwarden")]
 pub mod bitwarden;
@@ -67,6 +69,7 @@ impl RootCommands {
     pub fn init(cx: &mut WindowContext) {
         let commands: Vec<Box<dyn RootCommandBuilder>> = vec![
             Box::new(list::LoungyCommandBuilder),
+            #[cfg(target_os = "macos")]
             Box::new(menu::MenuCommandBuilder),
             Box::new(process::ProcessCommandBuilder),
             Box::new(theme::ThemeCommandBuilder),

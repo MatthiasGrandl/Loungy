@@ -64,3 +64,15 @@ cargo run dev
 In the absence of a proper extension system (which is wanted, but still quite far out at this point) I am adding features I need, but that aren't universally useful behind cargo feature flags.
 
 So far there is `tailscale` and `bitwarden`.
+
+## Linux
+
+Experimental Linux support. Building requires (on Fedora Wayland):
+
+- `openssl-devel`
+- `wayland-devel`
+- `g++`
+- `fontconfig-devel`
+- `libxcb-devel`
+- `libxkbcommon-x11-devel`
+- `libxkbcommon-devel`
