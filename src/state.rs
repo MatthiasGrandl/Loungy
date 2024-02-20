@@ -290,12 +290,13 @@ impl StateItem {
                         (action.action)(this, cx);
                         return;
                     };
-                    if (Keystroke {
-                        modifiers: Modifiers::default(),
-                        key: "tab".to_string(),
-                        ime_key: None,
-                    })
-                    .eq(&ev.keystroke)
+                    if !ev.is_held
+                        && (Keystroke {
+                            modifiers: Modifiers::default(),
+                            key: "tab".to_string(),
+                            ime_key: None,
+                        })
+                        .eq(&ev.keystroke)
                     {
                         this.dropdown_cycle(cx);
                     }
@@ -795,6 +796,9 @@ impl Actions {
     }
     pub fn dropdown_cycle(&mut self, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
+            if this.items.len() == 0 {
+                return;
+            }
             let index = this
                 .items
                 .iter()

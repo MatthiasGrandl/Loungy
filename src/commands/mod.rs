@@ -79,6 +79,8 @@ impl RootCommands {
             Box::new(tailscale::list::TailscaleCommandBuilder),
             #[cfg(feature = "bitwarden")]
             Box::new(bitwarden::list::BitwardenCommandBuilder),
+            #[cfg(feature = "matrix")]
+            Box::new(matrix::list::MatrixCommandBuilder),
         ];
         let mut map = HashMap::new();
         for command in commands {

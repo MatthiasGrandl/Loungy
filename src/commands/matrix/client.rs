@@ -1,3 +1,5 @@
+use std::{str::FromStr, sync::OnceLock};
+
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
@@ -8,20 +10,30 @@ use matrix_sdk::{
     ruma::{
         api::client::sync::sync_events::v4::SyncRequestListFilters,
         events::{StateEventType, TimelineEventType},
+        OwnedUserId,
     },
     Client, SlidingSync, SlidingSyncList, SlidingSyncMode,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{db::Db, paths::paths};
+use crate::{
+    db::Db,
+    paths::{paths, NAME},
+    state::{Actions, StateModel},
+};
 
-#[derive(Serialize, Deserialize, Collection)]
+#[derive(Debug, Serialize, Deserialize, Collection)]
 #[collection(name = "matrix.sessions")]
 pub(super) struct Session {
     #[natural_id]
     id: String,
     inner: MatrixSession,
     passphrase: String,
+}
+
+pub fn db() -> &'static Database {
+    static DB: OnceLock<Database> = OnceLock::new();
+    DB.get_or_init(|| Db::init_collection::<Session>())
 }
 
 impl Session {
@@ -74,16 +86,41 @@ impl Session {
         Ok((client, sliding_sync))
     }
     pub(super) fn init(cx: &mut WindowContext) -> anyhow::Result<()> {
-        // Db::new::<Self, SessionDb>(|db| SessionDb { inner: db }, cx);
-        // let all = Self::all(&cx.global::<SessionDb>().inner).query()?;
-        // for session in all {
-        //     let _ = session.contents.load();
-        // }
+        let all = Self::all(db()).query()?;
+        for session in all {
+            let _ = session.contents.load();
+        }
+        Ok(())
+    }
+    pub(super) async fn login(
+        username: String,
+        password: String,
+        mut actions: Actions,
+        cx: &mut AsyncWindowContext,
+    ) -> anyhow::Result<()> {
+        let user = OwnedUserId::from_str(username.as_str())?;
+        let client = Client::builder()
+            .server_name(user.server_name())
+            .build()
+            .await?;
+        let _ = client
+            .matrix_auth()
+            .login_username(&username, &password)
+            .initial_device_display_name(NAME)
+            .send()
+            .await?;
+        if let Some(session) = client.matrix_auth().session() {
+            let session = Session {
+                id: username,
+                inner: session.clone(),
+                passphrase: password,
+            };
+            session.push_into(db())?;
+            actions.toast.success("Login successfull", cx);
+            StateModel::update_async(|this, cx| this.reset(cx), cx);
+        } else {
+            actions.toast.error("Login failed", cx);
+        }
         Ok(())
     }
 }
-
-pub(super) struct SessionDb {
-    pub(super) inner: Database,
-}
-impl Global for SessionDb {}
