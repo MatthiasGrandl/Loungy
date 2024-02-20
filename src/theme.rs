@@ -122,7 +122,7 @@ impl Theme {
     pub fn init(cx: &mut AppContext) {
         load_fonts(cx).expect("Failed to load fonts");
         let mode = dark_light::detect();
-        let theme = Theme::mode(mode, cx);
+        let theme = Theme::mode(mode);
         cx.set_global(theme);
         // Spawn a background task to detect changes in dark/light mode
         // TODO: Currently bugged see: https://github.com/frewsxcv/rust-dark-light/issues/29
@@ -141,7 +141,7 @@ impl Theme {
         // })
         // .detach();
     }
-    pub fn mode(mode: dark_light::Mode, cx: &mut AppContext) -> Theme {
+    pub fn mode(mode: dark_light::Mode) -> Theme {
         let settings = db().get::<ThemeSettings>("theme").unwrap_or_default();
         let list = Theme::list();
         let name = match mode {

@@ -1,14 +1,6 @@
 use gpui::*;
 use std::{
-    cmp::Reverse,
-    collections::HashMap,
-    fs,
-    process::Command,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::Receiver,
-    },
-    time::Duration,
+    cmp::Reverse, collections::HashMap, fs, process::Command, sync::mpsc::Receiver, time::Duration,
 };
 
 use regex::Regex;
@@ -23,11 +15,9 @@ use crate::{
     },
     paths::paths,
     query::TextInput,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, ActionsModel, StateModel, StateViewBuilder},
     theme::Theme,
 };
-
-static CPU: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone)]
 struct Process {
@@ -81,37 +71,16 @@ impl StateViewBuilder for ProcessListBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         query.set_placeholder("Search for running processes...", cx);
+        actions.clone().set_dropdown(
+            Some("memory"),
+            vec![("memory", "Sort by Memory"), ("cpu", "Sort by CPU")],
+            cx,
+        );
+
         List::new(
             query,
             &actions,
             |this, _, cx| {
-                let sort_by_cpu = CPU.load(Ordering::Relaxed);
-                {
-                    let sort_action = if sort_by_cpu {
-                        Action::new(
-                            Img::list_icon(Icon::MemoryStick, None),
-                            "Sort by Memory",
-                            Some(Shortcut::simple("tab")),
-                            move |this, _| {
-                                CPU.store(false, Ordering::Relaxed);
-                                this.update();
-                            },
-                            false,
-                        )
-                    } else {
-                        Action::new(
-                            Img::list_icon(Icon::Cpu, None),
-                            "Sort by CPU",
-                            Some(Shortcut::simple("tab")),
-                            move |this, _| {
-                                CPU.store(true, Ordering::Relaxed);
-                                this.update();
-                            },
-                            false,
-                        )
-                    };
-                    this.actions.update_global(vec![sort_action], cx);
-                }
                 let lavender = cx.global::<Theme>().lavender.clone();
                 let cache_dir = paths().cache.clone();
                 fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -144,6 +113,7 @@ impl StateViewBuilder for ProcessListBuilder {
                 });
                 let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
 
+                let sort_by_cpu = Some("cpu".to_string()).eq(&this.actions.get_dropdown_value(cx));
                 if sort_by_cpu {
                     parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
                 } else {

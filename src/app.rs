@@ -3,7 +3,6 @@ use gpui::*;
 use crate::{
     assets::Assets,
     commands::RootCommands,
-    db::Db,
     hotkey::HotkeyManager,
     theme::Theme,
     window::{Window, WindowStyle},

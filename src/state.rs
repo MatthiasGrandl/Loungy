@@ -290,6 +290,15 @@ impl StateItem {
                         (action.action)(this, cx);
                         return;
                     };
+                    if (Keystroke {
+                        modifiers: Modifiers::default(),
+                        key: "tab".to_string(),
+                        ime_key: None,
+                    })
+                    .eq(&ev.keystroke)
+                    {
+                        this.dropdown_cycle(cx);
+                    }
                 });
 
                 match ev.keystroke.key.as_str() {
@@ -352,7 +361,7 @@ impl StateModel {
         f: impl FnOnce(&mut Self, &mut WindowContext),
         cx: &mut AsyncWindowContext,
     ) {
-        cx.update_global::<Self, _>(|mut this, cx| {
+        let _ = cx.update_global::<Self, _>(|mut this, cx| {
             f(&mut this, cx);
         });
     }
@@ -371,6 +380,7 @@ impl StateModel {
             cx.notify();
         });
     }
+    #[allow(dead_code)]
     pub fn push_item(&self, item: StateItem, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
@@ -382,7 +392,7 @@ impl StateModel {
         self.push(view, cx);
     }
     pub fn reset(&self, cx: &mut WindowContext) {
-        self.inner.update(cx, |model, cx| {
+        self.inner.update(cx, |model, _| {
             model.stack.truncate(1);
             //model.stack[0].query.set_text("", cx);
         });
@@ -612,12 +622,35 @@ pub struct Dropdown {
 impl Render for Dropdown {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
-        let mut el = div().flex().items_center().justify_between();
-        if let Some(value) = &self.value {
-            el = el.child(div().child(value.clone()).mr_2());
+        if self.items.is_empty() {
+            return div();
         }
-        el = el.child(Img::list_icon(Icon::ChevronDown, None));
-        el
+
+        let label = if let Some(value) = self.value.clone() {
+            self.items
+                .iter()
+                .find(|item| item.0.eq(&value))
+                .unwrap()
+                .1
+                .clone()
+        } else {
+            "-".to_string()
+        };
+        div()
+            .px_2()
+            .py_0p5()
+            .rounded_lg()
+            .bg(theme.mantle)
+            .ml_auto()
+            .flex()
+            .items_center()
+            .justify_between()
+            .text_xs()
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(theme.subtext0)
+            .border_1()
+            .border_color(theme.crust)
+            .child(div().child(label))
     }
 }
 
@@ -652,7 +685,7 @@ impl Actions {
         }
     }
     pub fn default(cx: &mut WindowContext) -> Self {
-        let (s, r) = channel::<bool>();
+        let (s, _) = channel::<bool>();
         Self::new(s, cx)
     }
     fn combined(&self, cx: &WindowContext) -> Vec<Action> {
@@ -748,11 +781,17 @@ impl Actions {
     pub fn update(&self) {
         let _ = self.update_sender.send(true);
     }
-    pub fn set_dropdown_value(&mut self, value: impl ToString, cx: &mut WindowContext) {
+    pub fn set_dropdown_value(&mut self, value: Option<impl ToString>, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
-            let value = value.to_string();
-            if this.items.iter().find(|item| item.0.eq(&value)).is_some() {
-                this.value = Some(value);
+            if let Some(value) = value {
+                let value = value.to_string();
+                if this.items.iter().find(|item| item.0.eq(&value)).is_some() {
+                    this.value = Some(value);
+                    cx.notify();
+                };
+            } else {
+                this.value = None;
+                cx.notify();
             }
         });
         self.update()
@@ -767,6 +806,7 @@ impl Actions {
                     .unwrap_or(0);
                 let next = (index + 1) % this.items.len();
                 this.value = Some(this.items[next].0.clone());
+                cx.notify();
             }
         });
         self.update()
@@ -917,6 +957,27 @@ impl ActionsModel {
                 cx.notify();
             });
             model.update_list(cx);
+        });
+    }
+    pub fn get_dropdown_value(&self, cx: &WindowContext) -> Option<String> {
+        self.inner.read(cx).dropdown.read(cx).value.clone()
+    }
+    pub fn set_dropdown(
+        &mut self,
+        value: Option<impl ToString>,
+        items: Vec<(impl ToString, impl ToString)>,
+        cx: &mut WindowContext,
+    ) {
+        self.inner.update(cx, |model, cx| {
+            model.dropdown.update(cx, |this, cx| {
+                this.items = items
+                    .into_iter()
+                    .map(|(value, label)| (value.to_string(), label.to_string()))
+                    .collect();
+                cx.notify();
+            });
+            model.set_dropdown_value(value, cx);
+            cx.notify();
         });
     }
 }

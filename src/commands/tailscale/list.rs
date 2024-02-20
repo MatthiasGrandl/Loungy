@@ -1,12 +1,4 @@
-use std::{
-    collections::HashMap,
-    process::Command,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::Receiver,
-    },
-    time::Duration,
-};
+use std::{collections::HashMap, process::Command, sync::mpsc::Receiver, time::Duration};
 
 use gpui::*;
 use serde::Deserialize;
@@ -49,8 +41,6 @@ struct Status {
     peer: HashMap<String, Peer>,
 }
 
-static OFFLINE: AtomicBool = AtomicBool::new(false);
-
 #[derive(Clone)]
 pub struct TailscaleListBuilder;
 impl StateViewBuilder for TailscaleListBuilder {
@@ -62,37 +52,16 @@ impl StateViewBuilder for TailscaleListBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         query.set_placeholder("Search for peers...", cx);
+        actions.clone().set_dropdown(
+            Some("online"),
+            vec![("online", "Hide Offline"), ("offline", "Show Offline")],
+            cx,
+        );
         List::new(
             query,
             &actions,
             |this, _, cx| {
-                let offline = OFFLINE.load(Ordering::Relaxed);
-                {
-                    let filter_action = if offline {
-                        Action::new(
-                            Img::list_icon(Icon::EyeOff, None),
-                            "Hide Offline",
-                            Some(Shortcut::simple("tab")),
-                            move |this, _| {
-                                OFFLINE.store(false, Ordering::Relaxed);
-                                this.update();
-                            },
-                            false,
-                        )
-                    } else {
-                        Action::new(
-                            Img::list_icon(Icon::Eye, None),
-                            "Show Offline",
-                            Some(Shortcut::simple("tab")),
-                            move |this, _| {
-                                OFFLINE.store(true, Ordering::Relaxed);
-                                this.update();
-                            },
-                            false,
-                        )
-                    };
-                    this.actions.update_global(vec![filter_action], cx);
-                }
+                let offline = Some("offline".to_string()).eq(&this.actions.get_dropdown_value(cx));
                 let theme = cx.global::<Theme>().clone();
                 let status = Command::new("tailscale")
                     .arg("status")
