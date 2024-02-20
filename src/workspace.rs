@@ -34,6 +34,7 @@ impl Render for Workspace {
                 })
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }
+        let a = item.actions.inner.read(cx).clone();
         div()
             .size_full()
             .flex()
@@ -50,7 +51,7 @@ impl Render for Workspace {
                     .p_2()
                     .w_full(),
             )
-            .child(item.loading.clone())
+            .child(a.loading.clone())
             .child(div().flex_1().size_full().p_2().child(view.view.clone()))
             .child(
                 div()
@@ -64,7 +65,7 @@ impl Render for Workspace {
                     .text_color(theme.subtext0)
                     .text_xs()
                     .flex()
-                    .child(item.toast.state.clone())
+                    .child(a.toast.state.clone())
                     .child(item.actions.inner.clone()),
             )
     }

@@ -265,17 +265,13 @@ pub struct StateItem {
     pub query: TextInput,
     pub view: AnyView,
     pub actions: ActionsModel,
-    pub loading: View<Loading>,
-    pub toast: Toast,
     pub workspace: bool,
 }
 
 impl StateItem {
     pub fn init(view: impl StateViewBuilder, workspace: bool, cx: &mut WindowContext) -> Self {
-        let loading = Loading::init(cx);
-        let toast = Toast::init(cx);
         let (s, r) = channel::<bool>();
-        let actions = ActionsModel::init(&loading, &toast, s, cx);
+        let actions = ActionsModel::init(s, cx);
         let query = TextInput::new(cx);
 
         let actions_clone = actions.clone();
@@ -314,8 +310,6 @@ impl StateItem {
             query,
             view,
             actions,
-            loading,
-            toast,
             workspace,
         }
     }
@@ -610,6 +604,24 @@ impl Action {
 }
 
 #[derive(Clone)]
+pub struct Dropdown {
+    value: Option<String>,
+    items: Vec<(String, String)>,
+}
+
+impl Render for Dropdown {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<theme::Theme>();
+        let mut el = div().flex().items_center().justify_between();
+        if let Some(value) = &self.value {
+            el = el.child(div().child(value.clone()).mr_2());
+        }
+        el = el.child(Img::list_icon(Icon::ChevronDown, None));
+        el
+    }
+}
+
+#[derive(Clone)]
 pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
@@ -619,31 +631,29 @@ pub struct Actions {
     update_sender: Sender<bool>,
     pub loading: View<Loading>,
     pub toast: Toast,
+    pub dropdown: View<Dropdown>,
 }
 
 impl Actions {
-    fn new(
-        loading: &View<Loading>,
-        toast: &Toast,
-        update_sender: Sender<bool>,
-        cx: &mut WindowContext,
-    ) -> Self {
+    fn new(update_sender: Sender<bool>, cx: &mut WindowContext) -> Self {
         Self {
             global: cx.new_model(|_| Vec::new()),
             local: cx.new_model(|_| Vec::new()),
             show: false,
             query: None,
             list: None,
-            loading: loading.clone(),
-            toast: toast.clone(),
+            loading: Loading::init(cx),
+            toast: Toast::init(cx),
+            dropdown: cx.new_view(|_| Dropdown {
+                value: None,
+                items: vec![],
+            }),
             update_sender,
         }
     }
     pub fn default(cx: &mut WindowContext) -> Self {
         let (s, r) = channel::<bool>();
-        let loading = Loading::init(cx);
-        let toast = Toast::init(cx);
-        Self::new(&loading, &toast, s, cx)
+        Self::new(s, cx)
     }
     fn combined(&self, cx: &WindowContext) -> Vec<Action> {
         let mut combined = self.local.read(cx).clone();
@@ -738,6 +748,29 @@ impl Actions {
     pub fn update(&self) {
         let _ = self.update_sender.send(true);
     }
+    pub fn set_dropdown_value(&mut self, value: impl ToString, cx: &mut WindowContext) {
+        self.dropdown.update(cx, |this, cx| {
+            let value = value.to_string();
+            if this.items.iter().find(|item| item.0.eq(&value)).is_some() {
+                this.value = Some(value);
+            }
+        });
+        self.update()
+    }
+    pub fn dropdown_cycle(&mut self, cx: &mut WindowContext) {
+        self.dropdown.update(cx, |this, cx| {
+            if let Some(value) = &this.value {
+                let index = this
+                    .items
+                    .iter()
+                    .position(|item| item.0.eq(value))
+                    .unwrap_or(0);
+                let next = (index + 1) % this.items.len();
+                this.value = Some(this.items[next].0.clone());
+            }
+        });
+        self.update()
+    }
 }
 
 impl Render for Actions {
@@ -767,13 +800,8 @@ pub struct ActionsModel {
 }
 
 impl ActionsModel {
-    pub fn init(
-        loading: &View<Loading>,
-        toast: &Toast,
-        update_sender: Sender<bool>,
-        cx: &mut WindowContext,
-    ) -> Self {
-        let inner = cx.new_view(|cx| Actions::new(loading, toast, update_sender, cx));
+    pub fn init(update_sender: Sender<bool>, cx: &mut WindowContext) -> Self {
+        let inner = cx.new_view(|cx| Actions::new(update_sender, cx));
 
         let model = Self {
             inner: inner.clone(),
