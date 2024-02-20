@@ -15,7 +15,8 @@ mod theme;
 mod window;
 mod workspace;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
     let app = App::new();
 

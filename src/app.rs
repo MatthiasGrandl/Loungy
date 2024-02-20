@@ -5,7 +5,6 @@ use crate::{
     commands::RootCommands,
     db::Db,
     hotkey::HotkeyManager,
-    paths::Paths,
     theme::Theme,
     window::{Window, WindowStyle},
     workspace::Workspace,
@@ -13,8 +12,6 @@ use crate::{
 
 pub fn run_app(app: gpui::App) {
     app.with_assets(Assets).run(move |cx: &mut AppContext| {
-        Paths::init(cx);
-        Db::init(cx);
         Theme::init(cx);
         // TODO: This still only works for a single display
         let bounds = cx.displays().first().map(|d| d.bounds()).unwrap_or(Bounds {

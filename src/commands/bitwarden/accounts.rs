@@ -14,7 +14,7 @@ use crate::{
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
 };
 
-use super::list::{BitwardenAccount, BitwardenDb};
+use super::list::{db, BitwardenAccount};
 
 #[derive(Clone)]
 pub(super) struct BitwardenPasswordPromptBuilder {
@@ -159,12 +159,9 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                 ),
             ],
             |values, actions, cx| {
-                if BitwardenAccount::get(
-                    &values["id"].value::<String>(),
-                    &cx.global::<BitwardenDb>().inner,
-                )
-                .unwrap()
-                .is_some()
+                if BitwardenAccount::get(&values["id"].value::<String>(), db())
+                    .unwrap()
+                    .is_some()
                 {
                     actions
                         .clone()
@@ -185,7 +182,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     };
 
                     let _ = account
-                        .command(vec!["config", "server", &account.instance], &mut cx)
+                        .command(vec!["config", "server", &account.instance])
                         .await;
 
                     if account.unlock(&mut cx).await.is_err() {
@@ -240,10 +237,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
             query,
             &actions,
             |_, _, cx| {
-                let accounts = BitwardenAccount::all(&cx.global::<BitwardenDb>().inner)
-                    .descending()
-                    .query()
-                    .unwrap();
+                let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
 
                 let items: Vec<Item> = accounts
                     .into_iter()
@@ -284,25 +278,23 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                     None,
                                     {
                                         //
-                                        let path = account.path(cx);
+                                        let path = account.path();
                                         let id = account.id.clone();
                                         move |actions, cx| {
                                             if let Err(err) = fs::remove_dir_all(path.clone()) {
                                                 error!("Failed to delete account: {}", err);
                                                 actions.toast.error("Failed to delete account", cx);
                                             }
-                                            cx.update_global::<BitwardenDb, _>(|db, cx| {
-                                                if let Some(account) =
-                                                    BitwardenAccount::get(&id, &db.inner).unwrap()
-                                                {
-                                                    if let Err(err) = account.delete(&db.inner) {
-                                                        error!("Failed to delete account: {}", err);
-                                                        actions
-                                                            .toast
-                                                            .error("Failed to delete account", cx);
-                                                    }
-                                                };
-                                            });
+                                            if let Some(account) =
+                                                BitwardenAccount::get(&id, db()).unwrap()
+                                            {
+                                                if let Err(err) = account.delete(db()) {
+                                                    error!("Failed to delete account: {}", err);
+                                                    actions
+                                                        .toast
+                                                        .error("Failed to delete account", cx);
+                                                }
+                                            };
                                             cx.update_global::<StateModel, _>(|model, cx| {
                                                 model.reset(cx);
                                             });

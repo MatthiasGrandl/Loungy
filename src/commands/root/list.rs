@@ -10,7 +10,7 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, List, ListItem},
         shared::{Icon, Img},
     },
-    paths::Paths,
+    paths::{paths, Paths},
     query::TextInput,
     state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
@@ -38,7 +38,7 @@ impl StateViewBuilder for RootListBuilder {
             |_, _, cx| {
                 #[cfg(target_os = "macos")]
                 {
-                    let cache_dir = cx.global::<Paths>().cache.clone();
+                    let cache_dir = paths().cache.clone();
                     fs::create_dir_all(cache_dir.clone()).unwrap();
 
                     let user_dir = PathBuf::from("/Users")

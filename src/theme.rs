@@ -2,7 +2,7 @@ use gpui::*;
 use log::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{db::Db, paths::Paths};
+use crate::{db::db, paths::paths};
 
 fn color_to_hsla(color: catppuccin::Colour) -> Hsla {
     Rgba {
@@ -142,11 +142,8 @@ impl Theme {
         // .detach();
     }
     pub fn mode(mode: dark_light::Mode, cx: &mut AppContext) -> Theme {
-        let settings = cx
-            .global::<Db>()
-            .get::<ThemeSettings>("theme")
-            .unwrap_or_default();
-        let list = Theme::list(cx);
+        let settings = db().get::<ThemeSettings>("theme").unwrap_or_default();
+        let list = Theme::list();
         let name = match mode {
             dark_light::Mode::Dark | dark_light::Mode::Default => settings.dark,
             dark_light::Mode::Light => settings.light,
@@ -161,8 +158,8 @@ impl Theme {
             .clone()
     }
 
-    pub fn list(cx: &AppContext) -> Vec<Theme> {
-        let config = cx.global::<Paths>().config.clone().join("themes");
+    pub fn list() -> Vec<Theme> {
+        let config = paths().config.clone().join("themes");
         let mut user_themes: Vec<Theme> = match std::fs::read_dir(config) {
             Ok(themes) => themes
                 .filter_map(|entry| {

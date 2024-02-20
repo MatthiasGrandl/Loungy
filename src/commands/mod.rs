@@ -19,10 +19,12 @@ use self::root::menu;
 use self::root::{list, process, theme};
 
 #[cfg(feature = "bitwarden")]
-pub mod bitwarden;
+mod bitwarden;
+#[cfg(feature = "matrix")]
+mod matrix;
 pub mod root;
 #[cfg(feature = "tailscale")]
-pub mod tailscale;
+mod tailscale;
 
 #[derive(Clone)]
 pub struct RootCommand {
@@ -157,7 +159,7 @@ impl StateViewBuilder for HotkeyBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         let id = self.id.clone();
-        let value = HotkeyManager::get(&id, cx).map(|hotkey| Shortcut::new(hotkey));
+        let value = HotkeyManager::get(&id).map(|hotkey| Shortcut::new(hotkey));
         Form::new(
             vec![Input::new(
                 "hotkey",

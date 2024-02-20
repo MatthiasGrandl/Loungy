@@ -4,9 +4,11 @@ use gpui::*;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    components::list::{Item, List, ListItem},
-    components::shared::{Icon, Img},
-    db::Db,
+    components::{
+        list::{Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    db::db,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::{Theme, ThemeSettings},
@@ -27,7 +29,7 @@ impl StateViewBuilder for ThemeListBuilder {
             query,
             &actions,
             |_, _, cx| {
-                let themes = Theme::list(cx);
+                let themes = Theme::list();
                 Ok(Some(
                     themes
                         .into_iter()
@@ -68,25 +70,22 @@ impl StateViewBuilder for ThemeListBuilder {
                                         {
                                             let name = theme.name.clone();
                                             move |this, cx| {
-                                                cx.update_global::<Db, _>(|db, cx| {
-                                                    let mut settings = db
-                                                        .get::<ThemeSettings>("theme")
-                                                        .unwrap_or_default();
-                                                    settings.light = name.clone().to_string();
-                                                    if db
-                                                        .set::<ThemeSettings>("theme", &settings)
-                                                        .is_err()
-                                                    {
-                                                        let _ = this.toast.error(
-                                                            "Failed to change light theme",
-                                                            cx,
-                                                        );
-                                                    } else {
-                                                        let _ = this
-                                                            .toast
-                                                            .success("Changed light theme", cx);
-                                                    }
-                                                });
+                                                let mut settings = db()
+                                                    .get::<ThemeSettings>("theme")
+                                                    .unwrap_or_default();
+                                                settings.light = name.clone().to_string();
+                                                if db()
+                                                    .set::<ThemeSettings>("theme", &settings)
+                                                    .is_err()
+                                                {
+                                                    let _ = this
+                                                        .toast
+                                                        .error("Failed to change light theme", cx);
+                                                } else {
+                                                    let _ = this
+                                                        .toast
+                                                        .success("Changed light theme", cx);
+                                                }
 
                                                 cx.refresh();
                                             }
@@ -100,25 +99,22 @@ impl StateViewBuilder for ThemeListBuilder {
                                         {
                                             let name = theme.name.clone();
                                             move |this, cx| {
-                                                cx.update_global::<Db, _>(|db, cx| {
-                                                    let mut settings = db
-                                                        .get::<ThemeSettings>("theme")
-                                                        .unwrap_or_default();
-                                                    settings.dark = name.clone().to_string();
-                                                    if db
-                                                        .set::<ThemeSettings>("theme", &settings)
-                                                        .is_err()
-                                                    {
-                                                        let _ = this.toast.error(
-                                                            "Failed to change dark theme",
-                                                            cx,
-                                                        );
-                                                    } else {
-                                                        let _ = this
-                                                            .toast
-                                                            .success("Changed dark theme", cx);
-                                                    }
-                                                });
+                                                let mut settings = db()
+                                                    .get::<ThemeSettings>("theme")
+                                                    .unwrap_or_default();
+                                                settings.dark = name.clone().to_string();
+                                                if db()
+                                                    .set::<ThemeSettings>("theme", &settings)
+                                                    .is_err()
+                                                {
+                                                    let _ = this
+                                                        .toast
+                                                        .error("Failed to change dark theme", cx);
+                                                } else {
+                                                    let _ = this
+                                                        .toast
+                                                        .success("Changed dark theme", cx);
+                                                }
                                                 cx.refresh();
                                             }
                                         },

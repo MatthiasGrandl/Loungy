@@ -17,9 +17,11 @@ use regex::Regex;
 use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    components::list::{Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img},
-    paths::Paths,
+    components::{
+        list::{Accessory, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    paths::paths,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::Theme,
@@ -111,7 +113,7 @@ impl StateViewBuilder for ProcessListBuilder {
                     this.actions.update_global(vec![sort_action], cx);
                 }
                 let lavender = cx.global::<Theme>().lavender.clone();
-                let cache_dir = cx.global::<Paths>().cache.clone();
+                let cache_dir = paths().cache.clone();
                 fs::create_dir_all(cache_dir.clone()).unwrap();
                 let ps = Command::new("ps")
                     .arg("-eo")

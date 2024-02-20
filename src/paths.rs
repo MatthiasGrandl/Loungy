@@ -1,6 +1,4 @@
-use std::path::PathBuf;
-
-use gpui::{AppContext, Global};
+use std::{path::PathBuf, sync::OnceLock};
 
 pub struct Paths {
     pub cache: PathBuf,
@@ -8,18 +6,16 @@ pub struct Paths {
     pub data: PathBuf,
 }
 
-impl Global for Paths {}
-
 pub static NAME: &str = "loungy";
 
 impl Paths {
-    pub fn init(cx: &mut AppContext) {
+    pub fn new() -> Self {
         let username = whoami::username();
         #[cfg(target_os = "macos")]
         let user_dir = PathBuf::from("/Users").join(username);
         #[cfg(target_os = "linux")]
         let user_dir = PathBuf::from("/home").join(username);
-        cx.set_global(Self {
+        Self {
             #[cfg(target_os = "macos")]
             cache: user_dir.clone().join("Library/Caches").join(NAME),
             #[cfg(target_os = "linux")]
@@ -32,6 +28,11 @@ impl Paths {
                 .join(NAME),
             #[cfg(target_os = "linux")]
             data: user_dir.clone().join(".local/share").join(NAME),
-        })
+        }
     }
+}
+
+pub fn paths() -> &'static Paths {
+    static PATHS: OnceLock<Paths> = OnceLock::new();
+    PATHS.get_or_init(|| Paths::new())
 }

@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use bonsaidb::{
     core::{
         connection::StorageConnection,
@@ -11,10 +13,9 @@ use bonsaidb::{
         Database, Storage,
     },
 };
-use gpui::{AppContext, Global};
 use serde::{de, Serialize};
 
-use crate::paths::Paths;
+use crate::paths::paths;
 
 #[derive(Clone)]
 pub struct Db {
@@ -22,11 +23,14 @@ pub struct Db {
     pub inner: Database,
 }
 
-impl Global for Db {}
+pub fn db() -> &'static Db {
+    static DB: OnceLock<Db> = OnceLock::new();
+    DB.get_or_init(|| Db::new())
+}
 
 impl Db {
-    pub fn init(cx: &mut AppContext) {
-        let data = cx.global::<Paths>().data.clone();
+    pub fn new() -> Self {
+        let data = paths().data.clone();
         let path = data.join("bonsai/db");
         let keys = data.join("bonsai/keys");
         let config = StorageConfiguration::new(path)
@@ -40,23 +44,17 @@ impl Db {
             .create_database::<()>("kv", true)
             .expect("Failed to open database");
 
-        cx.set_global(Self { inner, storage });
+        Self { inner, storage }
     }
-    pub fn new<'a, C: Collection + 'static, G: Global>(
-        f: impl FnOnce(Database) -> G,
-        cx: &mut AppContext,
-    ) {
-        if cx.has_global::<G>() {
-            return;
-        }
-        let storage = cx.global::<Db>().storage.clone();
+    pub fn init_collection<'a, C: Collection + 'static>() -> Database {
+        let storage = &db().storage;
         storage
             .register_schema::<C>()
             .expect("Failed to register schema");
         let db = storage
             .create_database::<C>(&C::collection_name().to_string(), true)
             .expect("Failed to open database");
-        cx.set_global::<G>(f(db));
+        db
     }
     pub fn get<T: de::DeserializeOwned>(&self, id: &str) -> Option<T> {
         if let Ok(value) = self.inner.get_key(id).into() {

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::OnceLock, time::Duration};
 
 use async_std::task::sleep;
 use bonsaidb::{
@@ -23,10 +23,14 @@ pub struct HotkeyManager {
     manager: GlobalHotKeyManager,
     hotkeys: Vec<HotKey>,
     map: HashMap<u32, Box<dyn CloneableFn>>,
-    db: Database,
 }
 
 impl Global for HotkeyManager {}
+
+fn db() -> &'static Database {
+    static DB: OnceLock<Database> = OnceLock::new();
+    DB.get_or_init(|| Db::init_collection::<CommandHotkeys>())
+}
 
 impl HotkeyManager {
     pub fn init(cx: &mut WindowContext) {
@@ -41,15 +45,13 @@ impl HotkeyManager {
         let hotkey = HotKey::new(Some(mods), Code::Space);
 
         manager.register(hotkey).unwrap();
-        Db::new::<CommandHotkeys, HotkeyManager>(
-            move |db| HotkeyManager {
-                manager,
-                hotkeys: vec![],
-                map: HashMap::new(),
-                db,
-            },
-            cx,
-        );
+
+        cx.set_global::<HotkeyManager>(HotkeyManager {
+            manager,
+            hotkeys: vec![],
+            map: HashMap::new(),
+        });
+
         Self::update(cx);
         cx.spawn(|mut cx| async move {
             loop {
@@ -77,7 +79,7 @@ impl HotkeyManager {
     pub fn update(cx: &mut WindowContext) {
         cx.update_global::<HotkeyManager, _>(|manager, cx| {
             let commands = cx.global::<RootCommands>();
-            let hotkeys = CommandHotkeys::all(&manager.db).query().unwrap_or_default();
+            let hotkeys = CommandHotkeys::all(db()).query().unwrap_or_default();
             let _ = manager.manager.unregister_all(&manager.hotkeys);
             manager.hotkeys.clear();
             for hotkey in hotkeys {
@@ -121,21 +123,19 @@ impl HotkeyManager {
             id: id.to_string(),
             hotkey,
         }
-        .overwrite_into(&id.to_string(), &cx.global::<HotkeyManager>().db)?;
+        .overwrite_into(&id.to_string(), db())?;
         Self::update(cx);
         Ok(())
     }
     pub fn unset(id: &str, cx: &mut WindowContext) -> anyhow::Result<()> {
-        let db = cx.global::<HotkeyManager>().db.clone();
-        if let Some(hk) = CommandHotkeys::get(&id.to_string(), &db)? {
-            hk.delete(&db)?;
+        if let Some(hk) = CommandHotkeys::get(&id.to_string(), db())? {
+            hk.delete(db())?;
         }
         Self::update(cx);
         Ok(())
     }
-    pub fn get(id: &str, cx: &mut WindowContext) -> Option<Keystroke> {
-        let db = cx.global::<HotkeyManager>().db.clone();
-        CommandHotkeys::get(&id.to_string(), &db).ok()?.map(|hk| {
+    pub fn get(id: &str) -> Option<Keystroke> {
+        CommandHotkeys::get(&id.to_string(), db()).ok()?.map(|hk| {
             hk.contents
                 .hotkey
                 .split("+")

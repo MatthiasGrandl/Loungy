@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::PathBuf, sync::mpsc::Receiver, time::Duration};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{mpsc::Receiver, OnceLock},
+    time::Duration,
+};
 
 use async_std::{
     channel,
@@ -25,7 +30,7 @@ use crate::{
         shared::{Icon, Img},
     },
     db::Db,
-    paths::Paths,
+    paths::{paths, Paths},
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{autofill, keytap},
@@ -227,22 +232,10 @@ pub(super) struct BitwardenStatus {
 }
 
 impl BitwardenAccount {
-    pub fn path(&self, cx: &WindowContext) -> PathBuf {
-        cx.global::<Paths>()
-            .data
-            .join("bitwarden")
-            .join(self.id.clone())
+    pub fn path(&self) -> PathBuf {
+        paths().data.join("bitwarden").join(self.id.clone())
     }
-    pub fn path_async(&self, cx: &mut AsyncWindowContext) -> anyhow::Result<PathBuf> {
-        cx.read_global::<Paths, anyhow::Result<PathBuf>>(|this, _| {
-            Ok(this.data.join("bitwarden").join(self.id.clone()))
-        })?
-    }
-    pub async fn command(
-        &self,
-        args: Vec<&str>,
-        cx: &mut AsyncWindowContext,
-    ) -> anyhow::Result<Output> {
+    pub async fn command(&self, args: Vec<&str>) -> anyhow::Result<Output> {
         let mut env: HashMap<String, String> = HashMap::new();
         env.insert(
             "PATH".to_string(),
@@ -250,7 +243,7 @@ impl BitwardenAccount {
         );
         env.insert(
             "BITWARDENCLI_APPDATA_DIR".to_string(),
-            self.path_async(cx).unwrap().to_string_lossy().to_string(),
+            self.path().to_string_lossy().to_string(),
         );
         env.insert("BW_CLIENTID".to_string(), self.client_id.clone());
         env.insert("BW_CLIENTSECRET".to_string(), self.client_secret.clone());
@@ -266,12 +259,12 @@ impl BitwardenAccount {
         cx: &mut AsyncWindowContext,
     ) -> anyhow::Result<Output> {
         self.unlock(cx).await?;
-        self.command(args, cx).await
+        self.command(args).await
     }
     pub async fn unlock(&mut self, cx: &mut AsyncWindowContext) -> anyhow::Result<()> {
         // TODO: if there is no password, we need to prompt for it
         let status = self
-            .command(vec!["status", "--raw", "--nointeraction"], cx)
+            .command(vec!["status", "--raw", "--nointeraction"])
             .await?;
         debug!("Status: {}", String::from_utf8(status.stdout.clone())?);
         let status: BitwardenStatus = serde_json::from_slice(&status.stdout)?;
@@ -282,7 +275,7 @@ impl BitwardenAccount {
             }
             BitwardenVaultStatus::Unauthenticated => {
                 if !self
-                    .command(vec!["login", "--apikey", "--nointeraction"], cx)
+                    .command(vec!["login", "--apikey", "--nointeraction"])
                     .await?
                     .status
                     .success()
@@ -313,7 +306,7 @@ impl BitwardenAccount {
             password
         };
         let output = self
-            .command(vec!["unlock", &password, "--raw", "--nointeraction"], cx)
+            .command(vec!["unlock", &password, "--raw", "--nointeraction"])
             .await?;
 
         if output.stdout.len() < 1 {
@@ -322,12 +315,10 @@ impl BitwardenAccount {
         };
         let session = String::from_utf8(output.stdout)?;
         self.session = Some(session);
-        let _ = cx.update_global::<BitwardenDb, _>(|db, _| {
-            let result = self.clone().push_into(&db.inner);
-            if let Err(result) = result {
-                error!("Failed to save account: {:?}", result.error);
-            }
-        });
+        let result = self.clone().push_into(db());
+        if let Err(result) = result {
+            error!("Failed to save account: {:?}", result.error);
+        }
         Ok(())
     }
 }
@@ -342,16 +333,15 @@ impl Render for Markdown {
     }
 }
 
-pub(super) struct BitwardenDb {
-    pub(super) inner: Database,
-}
-impl Global for BitwardenDb {}
-
 pub struct BitwardenCommandBuilder;
+
+pub(super) fn db() -> &'static Database {
+    static DB: OnceLock<Database> = OnceLock::new();
+    DB.get_or_init(|| Db::init_collection::<BitwardenAccount>())
+}
 
 impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
-        Db::new::<BitwardenAccount, BitwardenDb>(|db| BitwardenDb { inner: db }, cx);
         let view = cx.new_view(|cx| {
             cx.spawn(move |view, mut cx| async move {
                 let mut first = true;
@@ -361,9 +351,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     if view.upgrade().is_none() {
                         break;
                     }
-                    let accounts = &cx.read_global::<BitwardenDb, Vec<CollectionDocument<BitwardenAccount>>>(|db, _| {
-                        BitwardenAccount::all(&db.inner).query().unwrap()
-                    }).unwrap();
+                    let accounts = BitwardenAccount::all(db()).query().unwrap();
                     let count = accounts.len();
                     if count == 0 || (count == old_count && last_update.elapsed().as_secs() < 500) {
                         sleep(Duration::from_millis(250)).await;
@@ -547,7 +535,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             Box::new(move |_, cx| {
                 let view = view.clone();
                 cx.update_global::<StateModel, _>(|model, cx| {
-                    let accounts = BitwardenAccount::all(&cx.global::<BitwardenDb>().inner);
+                    let accounts = BitwardenAccount::all(db());
                     if accounts.count().unwrap_or_default() == 0 {
                         model.push(BitwardenAccountFormBuilder {}, cx);
                     } else {
