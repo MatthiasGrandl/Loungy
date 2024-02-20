@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::mpsc::{channel, Receiver, Sender},
     time::Duration,
 };
@@ -481,13 +482,19 @@ impl List {
 }
 
 pub struct AsyncListItems {
-    pub items: Vec<Item>,
+    pub items: HashMap<String, Vec<Item>>,
     pub initialized: bool,
 }
 
 impl AsyncListItems {
-    pub fn update(&mut self, items: Vec<Item>, cx: &mut ViewContext<Self>) {
-        self.items = items;
+    pub fn new() -> Self {
+        Self {
+            items: HashMap::new(),
+            initialized: false,
+        }
+    }
+    pub fn update(&mut self, key: String, items: Vec<Item>, cx: &mut ViewContext<Self>) {
+        self.items.insert(key, items);
         if !self.initialized {
             self.initialized = true;
             cx.emit(AsyncListItemsEvent::Initialized);

@@ -52,6 +52,7 @@ matrix-sdk = { version = "0.7.1", default_features = false, optional = true, fea
     "rustls-tls",
 ] }
 tokio = { version = "1.36.0", features = ["full"] }
+rand = "0.8.5"
 
 
 [features]

@@ -88,17 +88,11 @@ impl StateViewBuilder for BitwardenListBuilder {
             move |list, _, cx| {
                 let account = list.actions.get_dropdown_value(cx);
                 let items = view.read(cx).items.clone();
-                Ok(Some(
-                    items
-                        .into_iter()
-                        .filter(|item| {
-                            if account.is_empty() {
-                                return true;
-                            }
-                            account.eq(item.meta.value().downcast_ref::<String>().unwrap())
-                        })
-                        .collect(),
-                ))
+                if account.is_empty() {
+                    return Ok(Some(items.values().flatten().cloned().collect()));
+                } else {
+                    return Ok(Some(items.get(&account).cloned().unwrap_or_default()));
+                }
             },
             None,
             Some(Duration::from_secs(1)),
@@ -371,35 +365,19 @@ pub(super) fn db() -> &'static Database {
 impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
         let view = cx.new_view(|cx| {
-            cx.spawn(move |view, mut cx| async move {
+            let accounts = BitwardenAccount::all(db()).query().unwrap_or_default();
+            for account in accounts {
+                let mut account = account.contents;
+                cx.spawn(move |view, mut cx| async move {
                 let mut first = true;
-                let mut old_count = 0;
-                let mut last_update = std::time::Instant::now();
                 loop {
-                    if view.upgrade().is_none() {
-                        break;
-                    }
-                    let accounts = BitwardenAccount::all(db()).query().unwrap();
-                    let count = accounts.len();
-                    if count == 0 || (count == old_count && last_update.elapsed().as_secs() < 500) {
-                        sleep(Duration::from_millis(250)).await;
-                        // cx.background_executor()
-                        //     .timer(Duration::from_millis(250))
-                        //     .await;
-                        continue;
-                    }
-                    old_count = count;
-                    last_update = std::time::Instant::now();
                     if !first {
-                        for mut account in accounts.clone() {
-                            let _ = account.contents.auth_command(vec!["sync"], &mut cx).await;
-                        }
+                        account.auth_command(vec!["sync"], &mut cx).await;
                     }
                     first = false;
 
                     let mut items: Vec<Item> = vec![];
-                    for mut account in accounts.clone() {
-                        if let Ok(output) = account.contents
+                        if let Ok(output) = account
                             .auth_command(vec!["list", "items", "--nointeraction"], &mut cx)
                             .await
                         {
@@ -474,7 +452,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                 loop {
                                                                     let value = login
                                                                     .get_field(
-                                                                        field, &id, &mut account.contents,
+                                                                        field, &id, &mut account,
                                                                         &mut cx,
                                                                     )
                                                                     .await.unwrap();
@@ -513,8 +491,8 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
                                         //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                         // }).ok();
-                                        actions.append(&mut login.get_actions(&id, &account.contents));
-                                        items.push(Item::new_with_meta(
+                                        actions.append(&mut login.get_actions(&id, &account));
+                                        items.push(Item::new(
                                             keywords,
                                             cx.new_view(|_| {
                                                 ListItem::new(
@@ -532,7 +510,6 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                             None,
                                             actions,
                                             None,
-                                            account.contents.id.clone()
                                         ));
                                     }
                                     _ => {}
@@ -541,10 +518,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                         } else {
                             error!("Failed to list items");
                         }
-                    }
+                    let id = account.id.clone();
                     if let Some(view) = view.upgrade() {
                         let _ = view.update(&mut cx, move |list: &mut AsyncListItems, cx| {
-                            list.update(items, cx);
+                            list.update(id.clone(), items, cx);
                         });
                     } else {
                         break;
@@ -552,7 +529,9 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                 }
             })
             .detach();
-            AsyncListItems { items: vec![], initialized: false }
+            }
+            
+            AsyncListItems::new()
         });
         RootCommand::new(
             "bitwarden",

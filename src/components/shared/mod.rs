@@ -35,7 +35,7 @@ pub enum ImgSize {
 #[derive(Clone, IntoElement)]
 pub struct Img {
     pub src: ImgSource,
-    mask: ImgMask,
+    pub mask: ImgMask,
     size: ImgSize,
 }
 

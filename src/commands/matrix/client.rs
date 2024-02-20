@@ -14,6 +14,7 @@ use matrix_sdk::{
     },
     Client, SlidingSync, SlidingSyncList, SlidingSyncMode,
 };
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -26,7 +27,7 @@ use crate::{
 #[collection(name = "matrix.sessions")]
 pub(super) struct Session {
     #[natural_id]
-    id: String,
+    pub id: String,
     inner: MatrixSession,
     passphrase: String,
 }
@@ -37,17 +38,17 @@ pub fn db() -> &'static Database {
 }
 
 impl Session {
-    pub(super) async fn load(&self) -> anyhow::Result<(Client, SlidingSync)> {
-        let db = paths()
-            .data
-            .join("matrix")
-            .join(self.inner.meta.user_id.to_string());
+    pub(super) async fn client(user: &OwnedUserId, password: &str) -> anyhow::Result<Client> {
+        let db = paths().data.join("matrix").join(user.to_string());
 
         let builder = matrix_sdk::Client::builder()
-            .server_name(self.inner.meta.user_id.server_name())
-            .sqlite_store(db, Some(&self.passphrase.clone()));
+            .server_name(user.server_name())
+            .sqlite_store(db, Some(password));
 
-        let client = builder.build().await?;
+        Ok(builder.build().await?)
+    }
+    pub(super) async fn load(&self) -> anyhow::Result<(Client, SlidingSync)> {
+        let client = Self::client(&self.inner.meta.user_id, &self.passphrase).await?;
         client
             .matrix_auth()
             .restore_session(self.inner.clone())
@@ -98,11 +99,13 @@ impl Session {
         mut actions: Actions,
         cx: &mut AsyncWindowContext,
     ) -> anyhow::Result<()> {
+        let passphrase: Vec<u8> = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(64)
+            .collect();
+        let passphrase = String::from_utf8(passphrase)?;
         let user = OwnedUserId::from_str(username.as_str())?;
-        let client = Client::builder()
-            .server_name(user.server_name())
-            .build()
-            .await?;
+        let client = Self::client(&user, &passphrase).await?;
         let _ = client
             .matrix_auth()
             .login_username(&username, &password)
@@ -113,7 +116,7 @@ impl Session {
             let session = Session {
                 id: username,
                 inner: session.clone(),
-                passphrase: password,
+                passphrase,
             };
             session.push_into(db())?;
             actions.toast.success("Login successfull", cx);
