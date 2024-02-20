@@ -11,10 +11,7 @@ use async_std::{
     task::sleep,
 };
 use bonsaidb::{
-    core::{
-        document::CollectionDocument,
-        schema::{Collection, SerializedCollection},
-    },
+    core::schema::{Collection, SerializedCollection},
     local::Database,
 };
 use gpui::*;
@@ -30,7 +27,7 @@ use crate::{
         shared::{Icon, Img},
     },
     db::Db,
-    paths::{paths, Paths},
+    paths::paths,
     query::TextInput,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{autofill, keytap},
@@ -55,6 +52,17 @@ impl StateViewBuilder for BitwardenListBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         query.set_placeholder("Search your vault...", cx);
+        if let Ok(accounts) = BitwardenAccount::all(db()).query() {
+            if accounts.len() > 1 {
+                let mut options = vec![("".to_string(), "Show All".to_string())];
+                for account in accounts {
+                    let id = account.contents.id.clone();
+                    options.push((id.clone(), id));
+                }
+                actions.clone().set_dropdown("", options, cx);
+            }
+        }
+
         actions.update_global(
             vec![Action::new(
                 Img::list_icon(Icon::UserSearch, None),
@@ -77,7 +85,21 @@ impl StateViewBuilder for BitwardenListBuilder {
         List::new(
             query,
             &actions,
-            move |_, _, cx| Ok(Some(view.read(cx).items.clone())),
+            move |list, _, cx| {
+                let account = list.actions.get_dropdown_value(cx);
+                let items = view.read(cx).items.clone();
+                Ok(Some(
+                    items
+                        .into_iter()
+                        .filter(|item| {
+                            if account.is_empty() {
+                                return true;
+                            }
+                            account.eq(item.meta.value().downcast_ref::<String>().unwrap())
+                        })
+                        .collect(),
+                ))
+            },
             None,
             Some(Duration::from_secs(1)),
             update_receiver,
@@ -393,7 +415,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     BitwardenItem::Login {
                                         id,
                                         name,
-                                        notes,
+                                        notes: _,
                                         login,
                                     } => {
                                         let domain = login
@@ -492,7 +514,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                         // }).ok();
                                         actions.append(&mut login.get_actions(&id, &account.contents));
-                                        items.push(Item::new(
+                                        items.push(Item::new_with_meta(
                                             keywords,
                                             cx.new_view(|_| {
                                                 ListItem::new(
@@ -510,6 +532,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                             None,
                                             actions,
                                             None,
+                                            account.contents.id.clone()
                                         ));
                                     }
                                     _ => {}

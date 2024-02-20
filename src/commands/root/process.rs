@@ -72,7 +72,7 @@ impl StateViewBuilder for ProcessListBuilder {
     ) -> AnyView {
         query.set_placeholder("Search for running processes...", cx);
         actions.clone().set_dropdown(
-            Some("memory"),
+            "memory",
             vec![("memory", "Sort by Memory"), ("cpu", "Sort by CPU")],
             cx,
         );
@@ -113,7 +113,7 @@ impl StateViewBuilder for ProcessListBuilder {
                 });
                 let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
 
-                let sort_by_cpu = Some("cpu".to_string()).eq(&this.actions.get_dropdown_value(cx));
+                let sort_by_cpu = "cpu".to_string().eq(&this.actions.get_dropdown_value(cx));
                 if sort_by_cpu {
                     parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
                 } else {

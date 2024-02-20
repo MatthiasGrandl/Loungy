@@ -615,7 +615,7 @@ impl Action {
 
 #[derive(Clone)]
 pub struct Dropdown {
-    value: Option<String>,
+    value: String,
     items: Vec<(String, String)>,
 }
 
@@ -626,16 +626,13 @@ impl Render for Dropdown {
             return div();
         }
 
-        let label = if let Some(value) = self.value.clone() {
-            self.items
-                .iter()
-                .find(|item| item.0.eq(&value))
-                .unwrap()
-                .1
-                .clone()
-        } else {
-            "-".to_string()
-        };
+        let label = self
+            .items
+            .iter()
+            .find(|item| item.0.eq(&self.value))
+            .unwrap()
+            .1
+            .clone();
         div()
             .px_2()
             .py_0p5()
@@ -678,7 +675,7 @@ impl Actions {
             loading: Loading::init(cx),
             toast: Toast::init(cx),
             dropdown: cx.new_view(|_| Dropdown {
-                value: None,
+                value: "".to_string(),
                 items: vec![],
             }),
             update_sender,
@@ -781,16 +778,16 @@ impl Actions {
     pub fn update(&self) {
         let _ = self.update_sender.send(true);
     }
-    pub fn set_dropdown_value(&mut self, value: Option<impl ToString>, cx: &mut WindowContext) {
+    pub fn set_dropdown_value(&mut self, value: impl ToString, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
-            if let Some(value) = value {
-                let value = value.to_string();
+            let value = value.to_string();
+            if !value.is_empty() {
                 if this.items.iter().find(|item| item.0.eq(&value)).is_some() {
-                    this.value = Some(value);
+                    this.value = value;
                     cx.notify();
                 };
             } else {
-                this.value = None;
+                this.value = value;
                 cx.notify();
             }
         });
@@ -798,16 +795,14 @@ impl Actions {
     }
     pub fn dropdown_cycle(&mut self, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
-            if let Some(value) = &this.value {
-                let index = this
-                    .items
-                    .iter()
-                    .position(|item| item.0.eq(value))
-                    .unwrap_or(0);
-                let next = (index + 1) % this.items.len();
-                this.value = Some(this.items[next].0.clone());
-                cx.notify();
-            }
+            let index = this
+                .items
+                .iter()
+                .position(|item| item.0.eq(&this.value))
+                .unwrap_or(0);
+            let next = (index + 1) % this.items.len();
+            this.value = this.items[next].0.clone();
+            cx.notify();
         });
         self.update()
     }
@@ -959,12 +954,12 @@ impl ActionsModel {
             model.update_list(cx);
         });
     }
-    pub fn get_dropdown_value(&self, cx: &WindowContext) -> Option<String> {
+    pub fn get_dropdown_value(&self, cx: &WindowContext) -> String {
         self.inner.read(cx).dropdown.read(cx).value.clone()
     }
     pub fn set_dropdown(
         &mut self,
-        value: Option<impl ToString>,
+        value: impl ToString,
         items: Vec<(impl ToString, impl ToString)>,
         cx: &mut WindowContext,
     ) {

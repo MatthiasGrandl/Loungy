@@ -53,7 +53,7 @@ impl StateViewBuilder for TailscaleListBuilder {
     ) -> AnyView {
         query.set_placeholder("Search for peers...", cx);
         actions.clone().set_dropdown(
-            Some("online"),
+            "online",
             vec![("online", "Hide Offline"), ("offline", "Show Offline")],
             cx,
         );
@@ -61,7 +61,9 @@ impl StateViewBuilder for TailscaleListBuilder {
             query,
             &actions,
             |this, _, cx| {
-                let offline = Some("offline".to_string()).eq(&this.actions.get_dropdown_value(cx));
+                let offline = "offline"
+                    .to_string()
+                    .eq(&this.actions.get_dropdown_value(cx));
                 let theme = cx.global::<Theme>().clone();
                 let status = Command::new("tailscale")
                     .arg("status")

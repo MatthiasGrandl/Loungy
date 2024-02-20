@@ -136,6 +136,30 @@ pub struct Item {
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
+    pub meta: Box<dyn Meta>,
+}
+
+pub trait Meta: std::any::Any {
+    fn clone_box(&self) -> Box<dyn Meta>;
+    fn value(&self) -> &dyn std::any::Any;
+}
+
+impl<F> Meta for F
+where
+    F: Clone + std::any::Any,
+{
+    fn clone_box(&self) -> Box<dyn Meta> {
+        Box::new(self.clone())
+    }
+    fn value(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + Meta> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
 }
 
 impl Item {
@@ -153,6 +177,25 @@ impl Item {
             actions,
             weight,
             selected: false,
+            meta: Box::new(()),
+        }
+    }
+    pub fn new_with_meta(
+        keywords: Vec<impl ToString>,
+        component: AnyView,
+        preview: Option<StateItem>,
+        actions: Vec<Action>,
+        weight: Option<u16>,
+        meta: impl Meta + 'static,
+    ) -> Self {
+        Self {
+            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
+            component,
+            preview,
+            actions,
+            weight,
+            selected: false,
+            meta: Box::new(meta),
         }
     }
 }
