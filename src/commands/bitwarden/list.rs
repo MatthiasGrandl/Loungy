@@ -61,9 +61,12 @@ impl StateViewBuilder for BitwardenListBuilder {
                 "List Accounts",
                 Some(Shortcut::cmd(",")),
                 |_, cx| {
-                    cx.update_global::<StateModel, _>(|model, cx| {
-                        model.push(BitwardenAccountListBuilder {}, cx)
-                    });
+                    StateModel::update(
+                        |this, cx| {
+                            this.push(BitwardenAccountListBuilder, cx);
+                        },
+                        cx,
+                    );
                 },
                 false,
             )],
@@ -290,15 +293,18 @@ impl BitwardenAccount {
             password.clone()
         } else {
             let (s, r) = channel::unbounded::<(String, bool)>();
-            let _ = cx.update_global::<StateModel, _>(|model, cx| {
-                model.push(
-                    BitwardenPasswordPromptBuilder {
-                        password: s,
-                        account: self.clone(),
-                    },
-                    cx,
-                );
-            });
+            StateModel::update_async(
+                |this, cx| {
+                    this.push(
+                        BitwardenPasswordPromptBuilder {
+                            password: s,
+                            account: self.clone(),
+                        },
+                        cx,
+                    )
+                },
+                cx,
+            );
             let (password, remember) = r.recv().await?;
             if remember {
                 self.password = Some(password.clone());
@@ -534,14 +540,15 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             None,
             Box::new(move |_, cx| {
                 let view = view.clone();
-                cx.update_global::<StateModel, _>(|model, cx| {
-                    let accounts = BitwardenAccount::all(db());
-                    if accounts.count().unwrap_or_default() == 0 {
-                        model.push(BitwardenAccountFormBuilder {}, cx);
-                    } else {
-                        model.push(BitwardenListBuilder { view }, cx);
-                    };
-                });
+                let accounts = BitwardenAccount::all(db());
+                if accounts.count().unwrap_or_default() == 0 {
+                    StateModel::update(
+                        |this, cx| this.push(BitwardenAccountFormBuilder {}, cx),
+                        cx,
+                    );
+                } else {
+                    StateModel::update(|this, cx| this.push(BitwardenListBuilder { view }, cx), cx);
+                };
             }),
         )
     }

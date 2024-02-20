@@ -77,9 +77,12 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                     {
                         eprintln!("Failed to send password back");
                     }
-                    let _ = cx.update_global::<StateModel, _>(|model, cx| {
-                        model.pop(cx);
-                    });
+                    StateModel::update_async(
+                        |this, cx| {
+                            this.pop(cx);
+                        },
+                        &mut cx,
+                    );
                 })
                 .detach();
             },
@@ -194,9 +197,12 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                         .toast
                         .success("Vault unlocked successfully", &mut cx);
 
-                    let _ = cx.update_global::<StateModel, _>(|model, cx| {
-                        model.replace(BitwardenAccountListBuilder {}, cx);
-                    });
+                    StateModel::update_async(
+                        |this, cx| {
+                            this.replace(BitwardenAccountListBuilder, cx);
+                        },
+                        &mut cx,
+                    );
                 })
                 .detach();
             },
@@ -225,9 +231,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                 "Add Account",
                 Some(Shortcut::cmd("n")),
                 |_, cx| {
-                    cx.update_global::<StateModel, _>(|model, cx| {
-                        model.push(BitwardenAccountFormBuilder {}, cx)
-                    });
+                    StateModel::update(|this, cx| this.push(BitwardenAccountFormBuilder, cx), cx);
                 },
                 false,
             )],
@@ -295,9 +299,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                                         .error("Failed to delete account", cx);
                                                 }
                                             };
-                                            cx.update_global::<StateModel, _>(|model, cx| {
-                                                model.reset(cx);
-                                            });
+                                            StateModel::update(|this, cx| this.reset(cx), cx);
                                         }
                                     },
                                     false,
@@ -331,9 +333,7 @@ impl RootCommandBuilder for BitwardenAccountCommandBuilder {
             vec!["Passwords"],
             None,
             Box::new(|_, cx| {
-                cx.update_global::<StateModel, _>(|model, cx| {
-                    model.push(BitwardenAccountListBuilder {}, cx)
-                });
+                StateModel::update(|this, cx| this.push(BitwardenAccountListBuilder, cx), cx);
             }),
         )
     }

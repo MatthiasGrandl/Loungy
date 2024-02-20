@@ -127,9 +127,10 @@ impl RootCommands {
                                 let id = command.id.clone();
                                 move |_, cx| {
                                     let id = id.clone();
-                                    cx.update_global::<StateModel, _>(move |model, cx| {
-                                        model.push(HotkeyBuilder { id }, cx)
-                                    });
+                                    StateModel::update(
+                                        |this, cx| this.push(HotkeyBuilder { id }, cx),
+                                        cx,
+                                    );
                                 }
                             },
                             false,

@@ -218,9 +218,7 @@ impl RootCommandBuilder for TailscaleCommandBuilder {
             vec!["VPN"],
             None,
             Box::new(|_, cx| {
-                cx.update_global::<StateModel, _>(|model, cx| {
-                    model.push(TailscaleListBuilder {}, cx)
-                });
+                StateModel::update(|this, cx| this.push(TailscaleListBuilder, cx), cx);
             }),
         )
     }

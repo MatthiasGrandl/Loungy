@@ -30,9 +30,7 @@ impl Render for Workspace {
             back = div()
                 .ml_2()
                 .on_mouse_down(MouseButton::Left, move |_, cx| {
-                    cx.update_global::<StateModel, _>(|this, cx| {
-                        this.pop(cx);
-                    });
+                    StateModel::update(|this, cx| this.pop(cx), cx);
                 })
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }

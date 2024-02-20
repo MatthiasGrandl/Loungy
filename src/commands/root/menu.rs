@@ -99,7 +99,7 @@ impl RootCommandBuilder for MenuCommandBuilder {
             vec!["MacOS", "Apple"],
             None,
             Box::new(|_, cx| {
-                cx.update_global::<StateModel, _>(|model, cx| model.push(MenuListBuilder {}, cx));
+                StateModel::update(|this, cx| this.push(MenuListBuilder, cx), cx);
             }),
         )
     }

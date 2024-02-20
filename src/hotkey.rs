@@ -59,9 +59,7 @@ impl HotkeyManager {
                     if event.state == global_hotkey::HotKeyState::Released {
                         let _ = cx.update_global::<HotkeyManager, _>(|manager, cx| {
                             if let Some(action) = manager.map.get(&event.id) {
-                                cx.update_global::<StateModel, _>(|model, cx| {
-                                    model.reset(cx);
-                                });
+                                StateModel::update(|this, cx| this.reset(cx), cx);
                                 action(&mut Actions::default(cx), cx);
                             }
                             Window::open(cx);

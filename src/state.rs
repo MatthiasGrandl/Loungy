@@ -304,9 +304,7 @@ impl StateItem {
                 }
             }
             TextEvent::Back => {
-                cx.update_global::<StateModel, _>(|this, cx| {
-                    this.pop(cx);
-                });
+                StateModel::update(|this, cx| this.pop(cx), cx);
             }
             _ => {}
         })
@@ -350,6 +348,19 @@ impl StateModel {
         this.push(RootListBuilder {}, cx);
         cx.set_global(this.clone());
         this
+    }
+    pub fn update(f: impl FnOnce(&mut Self, &mut WindowContext), cx: &mut WindowContext) {
+        cx.update_global::<Self, _>(|mut this, cx| {
+            f(&mut this, cx);
+        });
+    }
+    pub fn update_async(
+        f: impl FnOnce(&mut Self, &mut WindowContext),
+        cx: &mut AsyncWindowContext,
+    ) {
+        cx.update_global::<Self, _>(|mut this, cx| {
+            f(&mut this, cx);
+        });
     }
     pub fn pop(&self, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {

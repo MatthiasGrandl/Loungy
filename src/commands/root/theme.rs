@@ -149,7 +149,7 @@ impl RootCommandBuilder for ThemeCommandBuilder {
             vec!["Appearance"],
             None,
             Box::new(|_, cx| {
-                cx.update_global::<StateModel, _>(|model, cx| model.push(ThemeListBuilder {}, cx));
+                StateModel::update(|this, cx| this.push(ThemeListBuilder, cx), cx);
             }),
         )
     }

@@ -78,9 +78,7 @@ impl Window {
             //     .await;
             let _ = cx.update_global::<Self, _>(|window, cx| {
                 if window.hidden {
-                    cx.update_global::<StateModel, _>(|model, cx| {
-                        model.reset(cx);
-                    });
+                    StateModel::update(|this, cx| this.reset(cx), cx);
                 }
             });
         })
