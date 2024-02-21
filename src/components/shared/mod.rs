@@ -114,13 +114,12 @@ impl RenderOnce for Img {
                 svg.into_any_element()
             }
             ImgSource::Base(src) => {
-                match self.mask {
-                    ImgMask::None => {}
-                    _ => {
-                        el = el.p_0p5();
-                    }
-                }
                 let img = img(src).size_full();
+                let img = match self.mask {
+                    ImgMask::Circle => img.rounded_full().overflow_hidden().bg(theme.surface0),
+                    ImgMask::Rounded => img.rounded_md().overflow_hidden().bg(theme.surface0),
+                    ImgMask::None => img,
+                };
                 img.into_any_element()
             }
             ImgSource::Dot(color) => div().rounded_full().bg(color).size_1_2().into_any(),

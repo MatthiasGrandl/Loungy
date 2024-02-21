@@ -1,9 +1,13 @@
-use std::{cmp::Reverse, time::Duration};
+use std::{cmp::Reverse, collections::HashMap, time::Duration};
 
+use async_compat::CompatExt;
 use bonsaidb::core::schema::SerializedCollection;
 use futures::StreamExt;
 use gpui::*;
-use matrix_sdk::ruma::{events::room::message::OriginalSyncRoomMessageEvent, OwnedMxcUri};
+use matrix_sdk::{
+    ruma::{events::room::message::OriginalSyncRoomMessageEvent, OwnedMxcUri, OwnedRoomId},
+    Client, SlidingSync,
+};
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -11,14 +15,25 @@ use crate::{
         list::{AsyncListItems, Item, List, ListItem},
         shared::{Icon, Img, ImgMask},
     },
-    state::{StateModel, StateViewBuilder},
+    state::{StateItem, StateModel, StateViewBuilder},
 };
 
 use super::{
     account::AccountCreationBuilder,
+    chat::ChatRoom,
     client::{db, Session},
     mxc::mxc_to_http,
 };
+
+#[derive(Clone)]
+pub(super) struct RoomUpdate {
+    pub client: Client,
+    pub sliding_sync: SlidingSync,
+}
+pub(super) enum RoomUpdateEvent {
+    Update(OwnedRoomId),
+}
+impl EventEmitter<RoomUpdateEvent> for RoomUpdate {}
 
 #[derive(Clone)]
 struct RoomList {
@@ -85,7 +100,15 @@ async fn sync(
     let sync = ss.sync();
     let mut sync_stream = Box::pin(sync);
     let server = client.homeserver();
-    while let Some(Ok(response)) = sync_stream.next().await {
+    let model = cx
+        .new_model(|_| RoomUpdate {
+            client: client.clone(),
+            sliding_sync: ss.clone(),
+        })
+        .unwrap();
+
+    let mut previews = HashMap::<OwnedRoomId, StateItem>::new();
+    while let Some(Ok(response)) = sync_stream.next().compat().await {
         if response.rooms.is_empty() {
             continue;
         }
@@ -122,12 +145,35 @@ async fn sync(
 
                 img.mask = ImgMask::Circle;
 
+                let room_id = room.room_id().to_owned();
+                let _ = model.update(&mut cx, |_, cx| {
+                    cx.emit(RoomUpdateEvent::Update(room_id.clone()));
+                });
+                let preview = if let Some(preview) = previews.get(&room_id) {
+                    preview.clone()
+                } else {
+                    let preview = cx
+                        .update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
+                            StateItem::init(
+                                ChatRoom {
+                                    room_id: room_id.clone(),
+                                    updates: model.clone(),
+                                },
+                                false,
+                                cx,
+                            )
+                        })
+                        .ok()?;
+                    previews.insert(room_id.clone(), preview.clone());
+                    preview
+                };
+
                 Some(Item::new_with_meta(
                     vec![name.clone()],
                     cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                         .unwrap()
                         .into(),
-                    None,
+                    Some(preview),
                     vec![],
                     None,
                     timestamp,

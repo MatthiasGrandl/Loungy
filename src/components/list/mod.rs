@@ -7,6 +7,7 @@ use std::{
 pub mod nucleo;
 
 use async_std::task::sleep;
+
 use gpui::*;
 
 use crate::{
@@ -410,7 +411,8 @@ impl List {
 
                         if poll || triggered {
                             let _ = view.update(&mut cx, |this: &mut Self, cx| {
-                                if this.query.has_focus(cx)
+                                if this.items_all.is_empty()
+                                    || this.query.has_focus(cx)
                                     || this
                                         .actions
                                         .inner
@@ -506,15 +508,18 @@ impl AsyncListItems {
         if view.read(cx).initialized {
             return;
         }
-        let loading = actions.inner.read(cx).loading.clone();
-        loading.update(cx, |this, _| {
+        let a = actions.inner.read(cx).clone();
+        a.loading.update(cx, |this, _| {
             this.inner = true;
         });
         cx.subscribe(view, move |_, event, cx| match event {
             AsyncListItemsEvent::Initialized => {
-                loading.update(cx, |this, _| {
+                a.loading.update(cx, |this, _| {
                     this.inner = false;
                 });
+            }
+            AsyncListItemsEvent::Update => {
+                a.update();
             }
             _ => {}
         })
