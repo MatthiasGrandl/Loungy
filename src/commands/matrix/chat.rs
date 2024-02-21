@@ -305,7 +305,6 @@ async fn sync(
     let items: Vec<Item> = messages
         .into_iter()
         .map(|m| {
-            eprintln!("{}", m.sender);
             Item::new(
                 vec![m.sender.clone(), m.content.clone()],
                 cx.new_view(|_| m.clone()).unwrap().into(),

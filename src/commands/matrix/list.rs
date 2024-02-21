@@ -107,7 +107,7 @@ async fn sync(
         })
         .unwrap();
 
-    let mut previews = HashMap::<OwnedRoomId, StateItem>::new();
+    let mut previews = HashMap::<OwnedRoomId, ChatRoom>::new();
     while let Some(Ok(response)) = sync_stream.next().compat().await {
         if response.rooms.is_empty() {
             continue;
@@ -115,6 +115,7 @@ async fn sync(
 
         let list: Vec<Item> = ss
             .get_all_rooms()
+            .compat()
             .await
             .iter()
             .filter_map(|room| {
@@ -152,18 +153,10 @@ async fn sync(
                 let preview = if let Some(preview) = previews.get(&room_id) {
                     preview.clone()
                 } else {
-                    let preview = cx
-                        .update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
-                            StateItem::init(
-                                ChatRoom {
-                                    room_id: room_id.clone(),
-                                    updates: model.clone(),
-                                },
-                                false,
-                                cx,
-                            )
-                        })
-                        .ok()?;
+                    let preview = ChatRoom {
+                        room_id: room_id.clone(),
+                        updates: model.clone(),
+                    };
                     previews.insert(room_id.clone(), preview.clone());
                     preview
                 };
@@ -173,7 +166,9 @@ async fn sync(
                     cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                         .unwrap()
                         .into(),
-                    Some(preview),
+                    Some(Box::new(move |cx| {
+                        StateItem::init(preview.clone(), false, cx)
+                    })),
                     vec![],
                     None,
                     timestamp,

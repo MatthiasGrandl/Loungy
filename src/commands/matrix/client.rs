@@ -108,6 +108,7 @@ impl Session {
             .login_username(&username, &password)
             .initial_device_display_name(NAME)
             .send()
+            .compat()
             .await?;
         if let Some(session) = client.matrix_auth().session() {
             let session = Session {

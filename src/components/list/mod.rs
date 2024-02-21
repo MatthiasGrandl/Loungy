@@ -134,7 +134,7 @@ impl Render for ListItem {
 pub struct Item {
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<StateItem>,
+    preview: Option<Box<dyn Preview>>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -164,11 +164,35 @@ impl<'a> Clone for Box<dyn 'a + Meta> {
     }
 }
 
+pub trait Preview: Fn(&mut WindowContext) -> StateItem {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + Preview>
+    where
+        Self: 'a;
+}
+
+impl<F> Preview for F
+where
+    F: Fn(&mut WindowContext) -> StateItem + Clone,
+{
+    fn clone_box<'a>(&self) -> Box<dyn 'a + Preview>
+    where
+        Self: 'a,
+    {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + Preview> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
 impl Item {
     pub fn new(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<StateItem>,
+        preview: Option<Box<dyn Preview>>,
         actions: Vec<Action>,
         weight: Option<u16>,
     ) -> Self {
@@ -185,7 +209,7 @@ impl Item {
     pub fn new_with_meta(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<StateItem>,
+        preview: Option<Box<dyn Preview>>,
         actions: Vec<Action>,
         weight: Option<u16>,
         meta: impl Meta + 'static,
@@ -236,22 +260,15 @@ pub struct List {
     pub update:
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
+    preview: Option<StateItem>,
 }
 
 impl Render for List {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        if self.update_actions {
-            self.selection_change(&self.actions, cx);
-        }
-
-        let selected = self.selected(cx);
-        let preview = selected
-            .map(|s| {
-                s.preview
-                    .clone()
-                    .map(|p| div().child(p.view.clone()).w_1_2().pl_1())
-            })
-            .flatten();
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let preview = self
+            .preview
+            .clone()
+            .map(|p| div().child(p.view.clone()).w_1_2().pl_1());
 
         if self.items.len() == 0 {
             div()
@@ -391,8 +408,29 @@ impl List {
             })),
             update_actions,
             selection_sender,
+            preview: None,
         };
+
         let view = cx.new_view(|cx| {
+            cx.observe(&list.selected, |this: &mut List, _, cx| {
+                if let Some(selected) = this.selected(cx) {
+                    if this.update_actions {
+                        this.actions.update_local(selected.actions.clone(), cx);
+                    }
+                    if let Some(preview) = selected.preview.as_ref() {
+                        this.preview = Some(preview(cx));
+                    } else {
+                        this.preview = None;
+                    }
+                } else {
+                    if this.update_actions {
+                        this.actions.update_local(vec![], cx);
+                    }
+                    this.preview = None;
+                }
+                cx.notify();
+            })
+            .detach();
             cx.spawn(|view, mut cx| async move {
                 let mut last = std::time::Instant::now();
                 loop {
@@ -473,13 +511,6 @@ impl List {
         })
         .detach();
         view
-    }
-    pub fn selection_change(&self, actions: &ActionsModel, cx: &mut WindowContext) {
-        if let Some(item) = self.selected(cx) {
-            actions.update_local(item.actions.clone(), cx)
-        } else {
-            actions.update_local(vec![], cx)
-        }
     }
 }
 
