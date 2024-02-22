@@ -1,8 +1,8 @@
-use std::{cmp::Reverse, collections::HashMap, time::Duration};
+use std::{cmp::Reverse, collections::HashMap};
 
-use async_compat::{Compat, CompatExt};
+use async_compat::CompatExt;
 use gpui::*;
-use log::error;
+use log::{debug, error, info};
 use matrix_sdk::{
     room::RoomMember,
     ruma::{
@@ -17,9 +17,9 @@ use matrix_sdk::{
             },
             AnySyncMessageLikeEvent, AnySyncTimelineEvent, OriginalSyncMessageLikeEvent,
         },
-        OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UserId,
+        OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId,
     },
-    sliding_sync, Client, RoomMemberships, SlidingSync,
+    Client, RoomMemberships, SlidingSync,
 };
 use url::Url;
 
@@ -29,11 +29,10 @@ use crate::{
         shared::{Icon, Img, ImgMask},
     },
     query::TextInputWeak,
-    state::{ActionsModel, StateModel, StateViewBuilder},
+    state::{ActionsModel, StateViewBuilder},
 };
 
 use super::{
-    account::AccountCreationBuilder,
     list::{RoomUpdate, RoomUpdateEvent},
     mxc::mxc_to_http,
 };
@@ -67,8 +66,38 @@ pub struct Message {
 }
 
 impl Render for Message {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div().child(self.sender.clone())
+    fn render(&mut self, _: &mut ViewContext<Self>) -> impl IntoElement {
+        let show_avatar = !self.me && self.last;
+
+        if show_avatar {
+            div()
+            //.mt_8()
+        } else {
+            div()
+        }
+        .text_sm()
+        .relative()
+        .child(if show_avatar {
+            let mut avatar = self.avatar.clone();
+            avatar.mask = ImgMask::Circle;
+            div()
+                .absolute()
+                .z_index(100)
+                .neg_left_6()
+                .neg_top_6()
+                .flex()
+                .items_center()
+                .child(avatar)
+                .child(
+                    div()
+                        .ml_2()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(self.sender.clone()),
+                )
+        } else {
+            div()
+        })
+        .child(self.content.clone())
     }
 }
 
@@ -306,6 +335,7 @@ async fn sync(
     let items: Vec<Item> = messages
         .into_iter()
         .map(|m| {
+            info!("{:?}", m.sender);
             Item::new(
                 vec![m.sender.clone(), m.content.clone()],
                 cx.new_view(|_| m.clone()).unwrap().into(),
@@ -336,6 +366,12 @@ impl StateViewBuilder for ChatRoom {
         let id = self.room_id.clone();
 
         let view = cx.new_view(|cx| {
+            #[cfg(debug_assertions)]
+            {
+                debug!("Chat view created");
+                cx.on_release(|_, _, _| debug!("Chat view released"))
+                    .detach();
+            }
             cx.subscribe(&self.updates, move |_, model, event, cx| match event {
                 RoomUpdateEvent::Update(room_id) => {
                     if id.eq(room_id) {
@@ -351,6 +387,14 @@ impl StateViewBuilder for ChatRoom {
                 }
             })
             .detach();
+            let id = self.room_id.clone();
+            let model = self.updates.clone();
+            cx.spawn(move |view, mut cx| async move {
+                if let Err(err) = sync(id, model, view, &mut cx).await {
+                    error!("Updating room failed: {:?}", err);
+                }
+            })
+            .detach();
             AsyncListItems::new()
         });
 
@@ -359,7 +403,7 @@ impl StateViewBuilder for ChatRoom {
         List::new(
             query,
             &actions,
-            move |list, _, cx| {
+            move |_, _, cx| {
                 Ok(Some(
                     view.read(cx).items.values().flatten().cloned().collect(),
                 ))
