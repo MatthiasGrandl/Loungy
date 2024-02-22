@@ -372,7 +372,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                 let mut first = true;
                 loop {
                     if !first {
-                        account.auth_command(vec!["sync"], &mut cx).await;
+                        let _ = account.auth_command(vec!["sync"], &mut cx).await;
                     }
                     first = false;
 
@@ -523,6 +523,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                         let _ = view.update(&mut cx, move |list: &mut AsyncListItems, cx| {
                             list.update(id.clone(), items, cx);
                         });
+                        sleep(Duration::from_secs(500)).await;
                     } else {
                         break;
                     }
