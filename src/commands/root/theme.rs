@@ -9,7 +9,7 @@ use crate::{
         shared::{Icon, Img},
     },
     db::db,
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::{Theme, ThemeSettings},
 };
@@ -19,7 +19,7 @@ pub struct ThemeListBuilder;
 impl StateViewBuilder for ThemeListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

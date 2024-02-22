@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use gpui::*;
+use log::debug;
 
 use crate::theme::Theme;
 
@@ -16,6 +17,21 @@ impl TextInput {
         let view = TextView::init(cx, &focus_handle);
         Self { focus_handle, view }
     }
+    pub fn downgrade(&self) -> TextInputWeak {
+        TextInputWeak {
+            focus_handle: self.focus_handle.clone(),
+            view: self.view.downgrade(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct TextInputWeak {
+    pub focus_handle: FocusHandle,
+    pub view: WeakView<TextView>,
+}
+
+impl TextInputWeak {
     pub fn set_placeholder(&self, placeholder: impl ToString, cx: &mut WindowContext) {
         self.view.update(cx, |editor, cx| {
             editor.placeholder = placeholder.to_string();
@@ -58,6 +74,9 @@ impl TextView {
             masked: false,
         };
         let view = cx.new_view(|cx| {
+            #[cfg(debug_assertions)]
+            cx.on_release(|_, _, _| debug!("Text Input released"))
+                .detach();
             cx.on_blur(focus_handle, |_: &mut TextView, cx| {
                 cx.emit(TextEvent::Blur);
             })

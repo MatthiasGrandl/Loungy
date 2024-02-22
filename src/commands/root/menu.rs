@@ -5,9 +5,11 @@ use swift_rs::SRData;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    components::list::{Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img},
-    query::TextInput,
+    components::{
+        list::{Accessory, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{menu_item_select, menu_items, MenuItem},
 };
@@ -17,7 +19,7 @@ pub struct MenuListBuilder;
 impl StateViewBuilder for MenuListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

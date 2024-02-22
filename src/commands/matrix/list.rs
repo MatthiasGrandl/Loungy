@@ -15,7 +15,8 @@ use crate::{
         list::{AsyncListItems, Item, List, ListItem},
         shared::{Icon, Img, ImgMask},
     },
-    state::{StateItem, StateModel, StateViewBuilder},
+    query::TextInputWeak,
+    state::{ActionsModel, StateItem, StateModel, StateViewBuilder},
 };
 
 use super::{
@@ -43,8 +44,8 @@ struct RoomList {
 impl StateViewBuilder for RoomList {
     fn build(
         &self,
-        query: &crate::query::TextInput,
-        actions: &crate::state::ActionsModel,
+        query: &TextInputWeak,
+        actions: &ActionsModel,
         update_receiver: std::sync::mpsc::Receiver<bool>,
         cx: &mut WindowContext,
     ) -> AnyView {
@@ -166,9 +167,10 @@ async fn sync(
                     cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                         .unwrap()
                         .into(),
-                    Some(Box::new(move |cx| {
-                        StateItem::init(preview.clone(), false, cx)
-                    })),
+                    Some((
+                        room_id.to_string(),
+                        Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
+                    )),
                     vec![],
                     None,
                     timestamp,

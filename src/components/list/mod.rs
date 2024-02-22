@@ -9,9 +9,10 @@ pub mod nucleo;
 use async_std::task::sleep;
 
 use gpui::*;
+use log::debug;
 
 use crate::{
-    query::{TextEvent, TextInput},
+    query::{TextEvent, TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateItem},
     theme::Theme,
 };
@@ -134,7 +135,7 @@ impl Render for ListItem {
 pub struct Item {
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<Box<dyn Preview>>,
+    preview: Option<(String, Box<dyn Preview>)>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -192,7 +193,7 @@ impl Item {
     pub fn new(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<Box<dyn Preview>>,
+        preview: Option<(String, Box<dyn Preview>)>,
         actions: Vec<Action>,
         weight: Option<u16>,
     ) -> Self {
@@ -209,7 +210,7 @@ impl Item {
     pub fn new_with_meta(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<Box<dyn Preview>>,
+        preview: Option<(String, Box<dyn Preview>)>,
         actions: Vec<Action>,
         weight: Option<u16>,
         meta: impl Meta + 'static,
@@ -256,19 +257,19 @@ pub struct List {
     pub actions: ActionsModel,
     pub items_all: Vec<Item>,
     pub items: Vec<Item>,
-    pub query: TextInput,
+    pub query: TextInputWeak,
     pub update:
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
-    preview: Option<StateItem>,
+    preview: Option<(String, StateItem)>,
 }
 
 impl Render for List {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         let preview = self
             .preview
-            .clone()
-            .map(|p| div().child(p.view.clone()).w_1_2().pl_1());
+            .as_ref()
+            .map(|p| div().child(p.1.view.clone()).w_1_2().pl_1());
 
         if self.items.len() == 0 {
             div()
@@ -354,7 +355,11 @@ impl List {
                 let mut item = items[i].clone();
                 item.selected = selected;
                 let action = item.actions.first().cloned();
-                let actions = actions.inner.read(cx).clone();
+                let actions = actions.inner.upgrade();
+                if actions.is_none() {
+                    return div().into_any_element();
+                }
+                let actions = actions.unwrap().read(cx).clone();
                 let sender = sender.clone();
                 div()
                     .child(item)
@@ -381,7 +386,7 @@ impl List {
         cx.notify();
     }
     pub fn new(
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update: impl Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>
             + 'static,
@@ -403,7 +408,15 @@ impl List {
             query: query.clone(),
             update: Box::new(update),
             filter: filter.unwrap_or(Box::new(|this, cx| {
-                let text = this.query.clone().view.read(cx).text.clone();
+                let text = this
+                    .query
+                    .clone()
+                    .view
+                    .upgrade()
+                    .unwrap()
+                    .read(cx)
+                    .text
+                    .clone();
                 fuzzy_match(&text, this.items_all.clone(), false)
             })),
             update_actions,
@@ -418,7 +431,14 @@ impl List {
                         this.actions.update_local(selected.actions.clone(), cx);
                     }
                     if let Some(preview) = selected.preview.as_ref() {
-                        this.preview = Some(preview(cx));
+                        if !preview.0.eq(&this
+                            .preview
+                            .as_ref()
+                            .map(|p| p.0.clone())
+                            .unwrap_or_default())
+                        {
+                            this.preview = Some((preview.0.clone(), preview.1(cx)));
+                        }
                     } else {
                         this.preview = None;
                     }
@@ -431,6 +451,10 @@ impl List {
                 cx.notify();
             })
             .detach();
+            list.selected.update(cx, |_, cx| {
+                // call once to update actions and preview
+                cx.notify();
+            });
             cx.spawn(|view, mut cx| async move {
                 let mut last = std::time::Instant::now();
                 loop {
@@ -448,29 +472,33 @@ impl List {
                         let triggered = update_receiver.try_recv().is_ok();
 
                         if poll || triggered {
-                            let _ = view.update(&mut cx, |this: &mut Self, cx| {
-                                if this.items_all.is_empty()
-                                    || this.query.has_focus(cx)
-                                    || this
-                                        .actions
-                                        .inner
-                                        .read(cx)
-                                        .query
-                                        .as_ref()
-                                        .unwrap()
-                                        .has_focus(cx)
-                                {
-                                    this.update(triggered, cx);
-                                    last = std::time::Instant::now();
-                                }
-                            });
+                            if view
+                                .update(&mut cx, |this: &mut Self, cx| {
+                                    let actions = this.actions.inner.upgrade();
+                                    if actions.is_none() {
+                                        return Err(());
+                                    }
+                                    if this.items_all.is_empty()
+                                        || this.query.has_focus(cx)
+                                        || actions.unwrap().read(cx).has_focus(cx)
+                                    {
+                                        this.update(triggered, cx);
+                                        last = std::time::Instant::now();
+                                    }
+                                    Ok(())
+                                })
+                                .is_err()
+                            {
+                                debug!("Actions view released");
+                                break;
+                            }
                         }
                         sleep(Duration::from_millis(50)).await;
                         // cx.background_executor()
                         //     .timer(Duration::from_millis(50))
                         //     .await;
                     } else {
-                        eprintln!("update list view dropped");
+                        debug!("List view released");
                         break;
                     }
                 }
@@ -481,35 +509,37 @@ impl List {
         });
         let clone = view.clone();
 
-        cx.subscribe(&query.view, move |_subscriber, emitter: &TextEvent, cx| {
-            //let clone = clone.clone();
-            match emitter {
-                TextEvent::Input { text: _ } => {
-                    clone.update(cx, |this, cx| {
-                        this.selected.update(cx, |this, cx| {
-                            *this = 0;
-                            cx.notify();
-                        });
-                        this.filter(true, cx);
-                    });
-                }
-                TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
-                    "up" => {
+        if let Some(query) = &query.view.upgrade() {
+            cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
+                //let clone = clone.clone();
+                match emitter {
+                    TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
-                            this.up(cx);
+                            this.selected.update(cx, |this, cx| {
+                                *this = 0;
+                                cx.notify();
+                            });
+                            this.filter(true, cx);
                         });
                     }
-                    "down" => {
-                        clone.update(cx, |this, cx| {
-                            this.down(cx);
-                        });
-                    }
+                    TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {
+                        "up" => {
+                            clone.update(cx, |this, cx| {
+                                this.up(cx);
+                            });
+                        }
+                        "down" => {
+                            clone.update(cx, |this, cx| {
+                                this.down(cx);
+                            });
+                        }
+                        _ => {}
+                    },
                     _ => {}
-                },
-                _ => {}
-            }
-        })
-        .detach();
+                }
+            })
+            .detach();
+        }
         view
     }
 }
@@ -539,22 +569,24 @@ impl AsyncListItems {
         if view.read(cx).initialized {
             return;
         }
-        let a = actions.inner.read(cx).clone();
-        a.loading.update(cx, |this, _| {
-            this.inner = true;
-        });
-        cx.subscribe(view, move |_, event, cx| match event {
-            AsyncListItemsEvent::Initialized => {
-                a.loading.update(cx, |this, _| {
-                    this.inner = false;
-                });
-            }
-            AsyncListItemsEvent::Update => {
-                a.update();
-            }
-            _ => {}
-        })
-        .detach();
+        if let Some(a) = actions.inner.upgrade() {
+            let a = a.read(cx).clone();
+            a.loading.update(cx, |this, _| {
+                this.inner = true;
+            });
+            cx.subscribe(view, move |_, event, cx| match event {
+                AsyncListItemsEvent::Initialized => {
+                    a.loading.update(cx, |this, _| {
+                        this.inner = false;
+                    });
+                }
+                AsyncListItemsEvent::Update => {
+                    a.update();
+                }
+                _ => {}
+            })
+            .detach();
+        }
     }
 }
 

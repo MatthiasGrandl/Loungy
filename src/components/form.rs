@@ -4,7 +4,7 @@ use gpui::*;
 
 use crate::{
     components::shared::{Icon, Img},
-    query::{TextEvent, TextInput},
+    query::{TextEvent, TextInputWeak},
     state::{Action, Actions, ActionsModel, Shortcut},
     theme::Theme,
 };
@@ -52,7 +52,7 @@ impl Input {
 
 pub struct InputView {
     inner: Input,
-    input: TextInput,
+    input: TextInputWeak,
     focused: bool,
     index: usize,
     focus_model: Model<usize>,
@@ -85,7 +85,7 @@ impl Render for InputView {
                     .child(if self.focused {
                         match self.inner.kind.clone() {
                             InputKind::TextField { .. } => {
-                                self.input.view.clone().into_any_element()
+                                self.input.view.upgrade().map(|q| q.into_any_element()).unwrap_or(div().into_any_element())
                             }
                             InputKind::Shortcut { tmp, .. } => div()
                                 .relative()
@@ -311,7 +311,7 @@ impl InputView {
     }
     pub fn new(
         input: Input,
-        query: TextInput,
+        query: TextInputWeak,
         index: usize,
         focus_model: Model<usize>,
         cx: &mut WindowContext,
@@ -332,14 +332,17 @@ impl InputView {
                 cx.notify();
             })
             .detach();
-            cx.subscribe(&query.view, |input: &mut Self, _, event: &TextEvent, cx| {
-                if !input.focused {
-                    return;
-                }
-                input.on_query(event, cx);
-                //
-            })
-            .detach();
+            if let Some(query) = &query.view.upgrade() {
+                cx.subscribe(query, |input: &mut Self, _, event: &TextEvent, cx| {
+                    if !input.focused {
+                        return;
+                    }
+                    input.on_query(event, cx);
+                    //
+                })
+                .detach();
+            }
+
             Self {
                 inner: input,
                 input: query,
@@ -398,7 +401,7 @@ impl Form {
     pub fn new(
         inputs: Vec<Input>,
         submit: impl SubmitFn + 'static,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         cx: &mut WindowContext,
     ) -> View<Self> {
@@ -412,37 +415,40 @@ impl Form {
             cx.notify();
         });
 
-        actions.update_local(
-            vec![Action::new(
-                Img::list_icon(Icon::PlusSquare, None),
-                "Submit",
-                None,
-                {
-                    let inputs = inputs.clone();
-                    let actions = actions.inner.read(cx).clone();
-                    let submit = submit.clone_box();
-                    move |_, cx| {
-                        let mut values = HashMap::<String, Input>::new();
-                        let mut error = false;
-                        for input in inputs.clone() {
-                            input.update(cx, |this, _| {
-                                if this.inner.error.is_some() {
-                                    error = true;
-                                }
-                                this.inner.show_error = true;
-                                values.insert(this.inner.id.clone(), this.inner.clone());
-                            })
+        if let Some(inner) = actions.inner.upgrade() {
+            actions.update_local(
+                vec![Action::new(
+                    Img::list_icon(Icon::PlusSquare, None),
+                    "Submit",
+                    None,
+                    {
+                        let inputs = inputs.clone();
+                        let actions = inner.read(cx).clone();
+                        let submit = submit.clone_box();
+                        move |_, cx| {
+                            let mut values = HashMap::<String, Input>::new();
+                            let mut error = false;
+                            for input in inputs.clone() {
+                                input.update(cx, |this, _| {
+                                    if this.inner.error.is_some() {
+                                        error = true;
+                                    }
+                                    this.inner.show_error = true;
+                                    values.insert(this.inner.id.clone(), this.inner.clone());
+                                })
+                            }
+                            if error {
+                                return;
+                            }
+                            submit(values, &mut actions.clone(), cx);
                         }
-                        if error {
-                            return;
-                        }
-                        submit(values, &mut actions.clone(), cx);
-                    }
-                },
-                false,
-            )],
-            cx,
-        );
+                    },
+                    false,
+                )],
+                cx,
+            );
+        }
+
         cx.new_view(|_| Self {
             list: ListState::new(
                 inputs.len(),

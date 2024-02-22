@@ -28,7 +28,7 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{autofill, keytap},
     window::Window,
@@ -46,7 +46,7 @@ pub struct BitwardenListBuilder {
 impl StateViewBuilder for BitwardenListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

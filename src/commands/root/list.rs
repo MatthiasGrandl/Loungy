@@ -11,7 +11,7 @@ use crate::{
         shared::{Icon, Img},
     },
     paths::{paths, Paths},
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
 };
@@ -24,7 +24,7 @@ pub struct RootListBuilder;
 impl StateViewBuilder for RootListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,
@@ -208,8 +208,11 @@ impl StateViewBuilder for RootListBuilder {
             Some(Box::new(move |this, cx| {
                 let mut items = this.items_all.clone();
                 items.append(&mut commands.clone());
-
-                let query = this.query.view.read(cx).text.clone();
+                let query = this.query.view.upgrade();
+                if query.is_none() {
+                    return vec![];
+                }
+                let query = query.unwrap().read(cx).text.clone();
                 let mut items = fuzzy_match(&query, items, false);
                 if items.len() == 0 {
                     if let Some(result) = numbat.read(cx).result.clone() {

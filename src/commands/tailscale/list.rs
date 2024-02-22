@@ -6,9 +6,11 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    components::list::{Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img},
-    query::TextInput,
+    components::{
+        list::{Accessory, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::Theme,
 };
@@ -46,7 +48,7 @@ pub struct TailscaleListBuilder;
 impl StateViewBuilder for TailscaleListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

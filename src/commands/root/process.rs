@@ -14,7 +14,7 @@ use crate::{
         shared::{Icon, Img},
     },
     paths::paths,
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, StateModel, StateViewBuilder},
     theme::Theme,
 };
@@ -65,7 +65,7 @@ pub struct ProcessListBuilder;
 impl StateViewBuilder for ProcessListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

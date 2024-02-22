@@ -10,7 +10,7 @@ use crate::{
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
 };
 
@@ -156,7 +156,7 @@ pub struct HotkeyBuilder {
 impl StateViewBuilder for HotkeyBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         _update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

@@ -7,7 +7,7 @@ use matrix_sdk::{matrix_auth::MatrixAuth, ruma::OwnedUserId, Client};
 use crate::{
     components::form::{Form, Input, InputKind},
     paths::NAME,
-    query::TextInput,
+    query::{TextInput, TextInputWeak},
     state::{ActionsModel, StateViewBuilder},
 };
 
@@ -19,7 +19,7 @@ pub struct AccountCreationBuilder;
 impl StateViewBuilder for AccountCreationBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         _update_receiver: Receiver<bool>,
         cx: &mut WindowContext,

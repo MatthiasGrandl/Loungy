@@ -34,7 +34,7 @@ impl Render for Workspace {
                 })
                 .child(Img::list_icon(Icon::ArrowLeft, None));
         }
-        let a = item.actions.inner.read(cx).clone();
+        let a = item.actions.read(cx).clone();
         div()
             .size_full()
             .flex()
@@ -67,7 +67,7 @@ impl Render for Workspace {
                     .text_xs()
                     .flex()
                     .child(a.toast.state.clone())
-                    .child(item.actions.inner.clone()),
+                    .child(item.actions.clone()),
             )
     }
 }

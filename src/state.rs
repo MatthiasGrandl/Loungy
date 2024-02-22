@@ -1,6 +1,7 @@
 use ::simple_easing::linear;
 use async_std::task::sleep;
 use gpui::*;
+use log::debug;
 use serde::Deserialize;
 use std::{
     sync::mpsc::{channel, Receiver, Sender},
@@ -9,9 +10,11 @@ use std::{
 
 use crate::{
     commands::root::list::RootListBuilder,
-    components::list::{Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
-    query::{TextEvent, TextInput},
+    components::{
+        list::{Accessory, Item, List, ListItem},
+        shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
+    },
+    query::{TextEvent, TextInput, TextInputWeak},
     theme::{self, Theme},
     window::{Window, WindowStyle, WIDTH},
 };
@@ -260,21 +263,20 @@ impl Render for PopupToast {
     }
 }
 
-#[derive(Clone)]
 pub struct StateItem {
     pub query: TextInput,
     pub view: AnyView,
-    pub actions: ActionsModel,
+    pub actions: View<Actions>,
     pub workspace: bool,
 }
 
 impl StateItem {
     pub fn init(view: impl StateViewBuilder, workspace: bool, cx: &mut WindowContext) -> Self {
         let (s, r) = channel::<bool>();
-        let actions = ActionsModel::init(s, cx);
+        let (actions_weak, actions) = ActionsModel::init(s, cx);
         let query = TextInput::new(cx);
 
-        let actions_clone = actions.clone();
+        let actions_clone = actions_weak.clone();
         cx.subscribe(&query.view, move |_, event, cx| match event {
             TextEvent::Blur => {
                 // if !actions_clone.inner.read(cx).show {
@@ -315,7 +317,7 @@ impl StateItem {
             _ => {}
         })
         .detach();
-        let view = view.build(&query, &actions, r, cx);
+        let view = view.build(&query.downgrade(), &actions_weak, r, cx);
         Self {
             query,
             view,
@@ -328,7 +330,7 @@ impl StateItem {
 pub trait StateViewBuilder: Clone {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,
@@ -657,7 +659,7 @@ pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
     show: bool,
-    pub query: Option<TextInput>,
+    query: Option<TextInput>,
     list: Option<View<List>>,
     update_sender: Sender<bool>,
     pub loading: View<Loading>,
@@ -810,6 +812,9 @@ impl Actions {
         });
         self.update()
     }
+    pub fn has_focus(&self, cx: &WindowContext) -> bool {
+        self.query.as_ref().unwrap().downgrade().has_focus(cx)
+    }
 }
 
 impl Render for Actions {
@@ -835,22 +840,27 @@ impl Render for Actions {
 
 #[derive(Clone)]
 pub struct ActionsModel {
-    pub inner: View<Actions>,
+    pub inner: WeakView<Actions>,
 }
 
 impl ActionsModel {
-    pub fn init(update_sender: Sender<bool>, cx: &mut WindowContext) -> Self {
-        let inner = cx.new_view(|cx| Actions::new(update_sender, cx));
+    pub fn init(update_sender: Sender<bool>, cx: &mut WindowContext) -> (Self, View<Actions>) {
+        let inner = cx.new_view(|cx| {
+            #[cfg(debug_assertions)]
+            cx.on_release(|_, _, _| debug!("ActionsModel released"))
+                .detach();
+            Actions::new(update_sender, cx)
+        });
 
         let model = Self {
-            inner: inner.clone(),
+            inner: inner.downgrade(),
         };
         inner.update(cx, |this, cx| {
             let query = TextInput::new(cx);
             let actions = this.clone();
             let (_s, r) = channel::<bool>();
             let list = List::new(
-                &query,
+                &query.downgrade(),
                 &model,
                 move |_, _, cx| {
                     let actions = actions.combined(cx);
@@ -938,7 +948,7 @@ impl ActionsModel {
 
             cx.notify();
         });
-        model
+        (model, inner)
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
@@ -959,7 +969,10 @@ impl ActionsModel {
         });
     }
     pub fn get_dropdown_value(&self, cx: &WindowContext) -> String {
-        self.inner.read(cx).dropdown.read(cx).value.clone()
+        self.inner
+            .upgrade()
+            .map(|this| this.read(cx).dropdown.read(cx).value.clone())
+            .unwrap_or_default()
     }
     pub fn set_dropdown(
         &mut self,

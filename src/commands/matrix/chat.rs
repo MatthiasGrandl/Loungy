@@ -28,7 +28,8 @@ use crate::{
         list::{AsyncListItems, Item, List},
         shared::{Icon, Img, ImgMask},
     },
-    state::{StateModel, StateViewBuilder},
+    query::TextInputWeak,
+    state::{ActionsModel, StateModel, StateViewBuilder},
 };
 
 use super::{
@@ -325,8 +326,8 @@ async fn sync(
 impl StateViewBuilder for ChatRoom {
     fn build(
         &self,
-        query: &crate::query::TextInput,
-        actions: &crate::state::ActionsModel,
+        query: &TextInputWeak,
+        actions: &ActionsModel,
         update_receiver: std::sync::mpsc::Receiver<bool>,
         cx: &mut WindowContext,
     ) -> AnyView {

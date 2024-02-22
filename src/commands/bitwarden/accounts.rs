@@ -7,10 +7,12 @@ use log::error;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
-    components::form::{Form, Input, InputKind},
-    components::list::{Accessory, Item, List, ListItem},
-    components::shared::{Icon, Img},
-    query::TextInput,
+    components::{
+        form::{Form, Input, InputKind},
+        list::{Accessory, Item, List, ListItem},
+        shared::{Icon, Img},
+    },
+    query::{TextInput, TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
 };
 
@@ -25,7 +27,7 @@ pub(super) struct BitwardenPasswordPromptBuilder {
 impl StateViewBuilder for BitwardenPasswordPromptBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         _: Receiver<bool>,
         cx: &mut WindowContext,
@@ -101,7 +103,7 @@ pub struct BitwardenAccountFormBuilder;
 impl StateViewBuilder for BitwardenAccountFormBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         _: Receiver<bool>,
         cx: &mut WindowContext,
@@ -219,7 +221,7 @@ pub struct BitwardenAccountListBuilder;
 impl StateViewBuilder for BitwardenAccountListBuilder {
     fn build(
         &self,
-        query: &TextInput,
+        query: &TextInputWeak,
         actions: &ActionsModel,
         update_receiver: Receiver<bool>,
         cx: &mut WindowContext,
