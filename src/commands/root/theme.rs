@@ -122,6 +122,8 @@ impl StateViewBuilder for ThemeListBuilder {
                                     ),
                                 ],
                                 None,
+                                None,
+                                None,
                             )
                         })
                         .collect(),

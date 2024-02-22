@@ -163,6 +163,8 @@ impl StateViewBuilder for TailscaleListBuilder {
                                 ),
                             ],
                             None,
+                            None,
+                            None,
                         ))
                     })
                     .collect();

@@ -129,6 +129,8 @@ impl StateViewBuilder for RootListBuilder {
                                         false,
                                     )],
                                     None,
+                                    None,
+                                    None,
                                 );
                                 apps.insert(bundle_id, app);
                             }
@@ -239,6 +241,8 @@ impl StateViewBuilder for RootListBuilder {
                                 },
                                 false,
                             )],
+                            None,
+                            None,
                             None,
                         ));
                     }

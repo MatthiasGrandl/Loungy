@@ -140,6 +140,7 @@ pub struct Item {
     pub weight: Option<u16>,
     selected: bool,
     pub meta: Box<dyn Meta>,
+    render: Option<fn(Self, bool, &WindowContext) -> Div>,
 }
 
 pub trait Meta: std::any::Any {
@@ -196,6 +197,8 @@ impl Item {
         preview: Option<(String, Box<dyn Preview>)>,
         actions: Vec<Action>,
         weight: Option<u16>,
+        meta: Option<Box<dyn Meta>>,
+        render: Option<fn(Self, bool, &WindowContext) -> Div>,
     ) -> Self {
         Self {
             keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
@@ -204,50 +207,32 @@ impl Item {
             actions,
             weight,
             selected: false,
-            meta: Box::new(()),
-        }
-    }
-    pub fn new_with_meta(
-        keywords: Vec<impl ToString>,
-        component: AnyView,
-        preview: Option<(String, Box<dyn Preview>)>,
-        actions: Vec<Action>,
-        weight: Option<u16>,
-        meta: impl Meta + 'static,
-    ) -> Self {
-        Self {
-            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
-            component,
-            preview,
-            actions,
-            weight,
-            selected: false,
-            meta: Box::new(meta),
+            meta: meta.unwrap_or_else(|| Box::new(())),
+            render,
         }
     }
 }
 
 impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        let theme = cx.global::<Theme>();
-        let mut bg_hover = theme.mantle;
-        bg_hover.fade_out(0.5);
-        if self.selected {
-            div().border_color(theme.crust).bg(theme.mantle)
+        if let Some(render) = &self.render {
+            render(self.clone(), self.selected, cx)
         } else {
-            div().hover(|s| s.bg(bg_hover))
+            let theme = cx.global::<Theme>();
+            let mut bg_hover = theme.mantle;
+            bg_hover.fade_out(0.5);
+            if self.selected {
+                div().border_color(theme.crust).bg(theme.mantle)
+            } else {
+                div().hover(|s| s.bg(bg_hover))
+            }
+            .p_2()
+            .border_1()
+            .rounded_xl()
+            .child(self.component)
         }
-        .p_2()
-        .border_1()
-        .rounded_xl()
-        .child(self.component)
     }
 }
-
-// pub struct ListStateInner {
-//     pub items: Vec<Item>,
-//     pub selected: usize,
-// }
 
 pub struct List {
     state: ListState,
@@ -329,7 +314,7 @@ impl List {
             }
             Ok(None) => {}
             Err(_err) => {
-                self.actions.inner.update(cx, |this, cx| {
+                let _ = self.actions.inner.update(cx, |this, cx| {
                     this.toast.error("Failed to refresh list", cx);
                 });
             }

@@ -510,6 +510,8 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                             None,
                                             actions,
                                             None,
+                                            None,
+                                            None
                                         ));
                                     }
                                     _ => {}

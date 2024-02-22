@@ -162,7 +162,7 @@ async fn sync(
                     preview
                 };
 
-                Some(Item::new_with_meta(
+                Some(Item::new(
                     vec![name.clone()],
                     cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                         .unwrap()
@@ -173,7 +173,8 @@ async fn sync(
                     )),
                     vec![],
                     None,
-                    timestamp,
+                    Some(Box::new(timestamp)),
+                    None,
                 ))
             })
             .collect();

@@ -308,6 +308,8 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                 ),
                             ],
                             None,
+                            None,
+                            None,
                         )
                     })
                     .collect();

@@ -207,6 +207,8 @@ impl StateViewBuilder for ProcessListBuilder {
                                     false,
                                 )],
                                 None,
+                                None,
+                                None,
                             )
                         })
                         .collect(),

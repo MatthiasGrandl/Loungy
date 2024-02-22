@@ -71,6 +71,8 @@ impl StateViewBuilder for MenuListBuilder {
                                     None,
                                     actions,
                                     None,
+                                    None,
+                                    None,
                                 )
                             })
                             .collect(),

@@ -30,6 +30,7 @@ use crate::{
     },
     query::TextInputWeak,
     state::{ActionsModel, StateViewBuilder},
+    theme::Theme,
 };
 
 use super::{
@@ -65,39 +66,72 @@ pub struct Message {
     pub in_reply_to: Option<String>,
 }
 
-impl Render for Message {
-    fn render(&mut self, _: &mut ViewContext<Self>) -> impl IntoElement {
+impl Message {
+    fn render(&mut self, selected: bool, cx: &WindowContext) -> Div {
+        let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.last;
 
-        if show_avatar {
-            div()
-            //.mt_8()
-        } else {
-            div()
-        }
-        .text_sm()
-        .relative()
-        .child(if show_avatar {
-            let mut avatar = self.avatar.clone();
-            avatar.mask = ImgMask::Circle;
-            div()
-                .absolute()
-                .z_index(100)
-                .neg_left_6()
-                .neg_top_6()
-                .flex()
-                .items_center()
-                .child(avatar)
-                .child(
-                    div()
-                        .ml_2()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(self.sender.clone()),
-                )
-        } else {
-            div()
-        })
-        .child(self.content.clone())
+        div().flex().child(
+            if self.me {
+                let mut el = div().ml_auto().rounded_lg();
+                if self.first {
+                    el = el.rounded_tr_none();
+                }
+                if self.last {
+                    el = el.rounded_br_none();
+                };
+                el
+            } else {
+                let el = if self.last {
+                    div().ml_4().mr_auto().mt_4()
+                } else {
+                    div().ml_4().mr_auto()
+                };
+                let mut el = el.rounded_lg();
+                if self.first {
+                    el = el.rounded_tl_none();
+                };
+                if self.last {
+                    el = el.rounded_bl_none();
+                };
+                el
+            }
+            .flex_basis(Pixels(0.0))
+            .max_w_3_4()
+            .mb_0p5()
+            .p_2()
+            .bg(if selected {
+                theme.surface0
+            } else {
+                theme.mantle
+            })
+            .border_1()
+            .border_color(theme.crust)
+            .text_sm()
+            .relative()
+            .child(self.content.clone())
+            .child(if show_avatar {
+                let mut avatar = self.avatar.clone();
+                avatar.mask = ImgMask::Circle;
+                div()
+                    .absolute()
+                    .z_index(100)
+                    .neg_left_4()
+                    .neg_top_4()
+                    .flex()
+                    .items_center()
+                    .child(avatar)
+                    .child(
+                        div()
+                            .ml_2()
+                            .text_color(theme.lavender)
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(self.sender.clone()),
+                    )
+            } else {
+                div()
+            }),
+        )
     }
 }
 
@@ -338,10 +372,15 @@ async fn sync(
             info!("{:?}", m.sender);
             Item::new(
                 vec![m.sender.clone(), m.content.clone()],
-                cx.new_view(|_| m.clone()).unwrap().into(),
+                cx.new_view(|_| NoView).unwrap().into(),
                 None,
                 vec![],
                 None,
+                Some(Box::new(m)),
+                Some(|this, selected, cx| {
+                    let message: &Message = this.meta.value().downcast_ref().unwrap();
+                    message.clone().render(selected, cx)
+                }),
             )
         })
         .collect();
@@ -351,6 +390,13 @@ async fn sync(
     })?;
 
     Ok(())
+}
+
+struct NoView;
+impl Render for NoView {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div()
+    }
 }
 
 impl StateViewBuilder for ChatRoom {
