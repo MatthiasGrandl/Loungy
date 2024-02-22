@@ -21,6 +21,7 @@ use matrix_sdk::{
     },
     Client, RoomMemberships, SlidingSync,
 };
+use time::format_description;
 use url::Url;
 
 use crate::{
@@ -50,6 +51,33 @@ pub struct Reaction {
     pub me: Option<String>,
 }
 
+fn human_duration(unix: u64) -> String {
+    let duration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - unix;
+    if duration < 60 {
+        format!(
+            "{} second{} ago",
+            duration,
+            if duration == 1 { "" } else { "s" }
+        )
+    } else if duration < 3600 {
+        let count = duration / 60;
+        format!("{} minute{} ago", count, if count == 1 { "" } else { "s" })
+    } else if duration < 86400 {
+        let count = duration / 3600;
+        format!("{} hour{} ago", count, if count == 1 { "" } else { "s" })
+    } else {
+        // print date YYYY/MM/DD
+        time::OffsetDateTime::from_unix_timestamp(unix as i64)
+            .unwrap()
+            .format(&format_description::parse("[year]/[month]/[day]").unwrap())
+            .unwrap()
+    }
+}
+
 #[derive(Clone)]
 pub struct Message {
     pub id: String,
@@ -74,11 +102,11 @@ impl Message {
         div().flex().child(
             if self.me {
                 let mut el = div().ml_auto().rounded_lg();
-                if self.first {
-                    el = el.rounded_tr_none();
-                }
-                if self.last {
+                if !self.first {
                     el = el.rounded_br_none();
+                }
+                if !self.last {
+                    el = el.rounded_tr_none();
                 };
                 el
             } else {
@@ -88,11 +116,11 @@ impl Message {
                     div().ml_4().mr_auto()
                 };
                 let mut el = el.rounded_lg();
-                if self.first {
-                    el = el.rounded_tl_none();
-                };
-                if self.last {
+                if !self.first {
                     el = el.rounded_bl_none();
+                };
+                if !self.last {
+                    el = el.rounded_tl_none();
                 };
                 el
             }
@@ -110,6 +138,14 @@ impl Message {
             .text_sm()
             .relative()
             .child(self.content.clone())
+            .child(
+                div()
+                    .flex()
+                    .justify_end()
+                    .text_xs()
+                    .text_color(theme.subtext0)
+                    .child(human_duration(self.timestamp)),
+            )
             .child(if show_avatar {
                 let mut avatar = self.avatar.clone();
                 avatar.mask = ImgMask::Circle;
@@ -156,12 +192,7 @@ fn get_content(
     //encrypted: MutexGuard<HashMap<OwnedMxcUri, EncryptedFile>>,
 ) -> String {
     match content.msgtype {
-        MessageType::Text(t) => {
-            if let Some(formatted) = t.formatted {
-                return formatted.body;
-            }
-            t.body
-        }
+        MessageType::Text(t) => t.body,
         MessageType::Image(i) => {
             format!(
                 r#"<img alt="{}" src="{}" />"#,
