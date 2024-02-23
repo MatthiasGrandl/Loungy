@@ -391,7 +391,6 @@ async fn sync(
     let items: Vec<Item> = messages
         .into_iter()
         .map(|m| {
-            info!("{:?}", m.sender);
             Item::new(
                 vec![m.sender.clone()],
                 cx.new_view(|_| NoView).unwrap().into(),

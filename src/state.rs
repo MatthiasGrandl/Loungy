@@ -65,6 +65,10 @@ impl ActiveLoaders {
             }
         })
     }
+    fn retain(&mut self, cx: &mut WindowContext) {
+        self.inner
+            .retain(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
+    }
 }
 
 pub struct ActiveLoaders {
@@ -87,20 +91,28 @@ impl Loading {
             this.inner = inner;
             cx.notify();
         });
-        cx.update_global::<StateModel, _>(|model, cx| {
-            if inner {
-                model.update_loader(Some(m), cx);
-            } else {
-                model.update_loader(None, cx);
-            }
-        });
+        if !cx.has_global::<StateModel>() {
+            return;
+        }
+        StateModel::update(
+            |this, cx| {
+                if inner {
+                    this.update_loader(Some(m), cx);
+                } else {
+                    this.update_loader(None, cx);
+                }
+            },
+            cx,
+        );
     }
 }
 
 impl Render for ActiveLoaders {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        self.retain(cx);
         let theme = cx.global::<theme::Theme>();
         let mut bg = theme.lavender;
+
         bg.fade_out(0.2);
         let el = div().w_full().h_px().bg(theme.mantle).relative();
         if !self.inner.is_empty() {
@@ -384,8 +396,12 @@ impl StateModel {
         this
     }
     pub fn update(f: impl FnOnce(&mut Self, &mut WindowContext), cx: &mut WindowContext) {
+        if !cx.has_global::<Self>() {
+            return;
+        }
         cx.update_global::<Self, _>(|mut this, cx| {
             f(&mut this, cx);
+            this.update_loader(None, cx)
         });
     }
     pub fn update_async(
@@ -433,8 +449,6 @@ impl StateModel {
             if let Some(loader) = loader {
                 this.inner.push(loader);
             }
-            this.inner
-                .retain(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
         });
     }
 }
@@ -712,7 +726,7 @@ impl Actions {
             show: false,
             query: None,
             list: None,
-            loading: cx.new_model(|_| Loading { inner: false }),
+            loading: cx.new_model(|cx| Loading { inner: false }),
             toast: Toast::init(cx),
             dropdown: cx.new_view(|_| Dropdown {
                 value: "".to_string(),
