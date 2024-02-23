@@ -16,30 +16,18 @@ use crate::{
     },
     query::{TextEvent, TextInput, TextInputWeak},
     theme::{self, Theme},
-    window::{Window, WindowStyle, WIDTH},
+    window::{Window, WindowStyle},
 };
 
-pub struct ActiveLoaders {
-    pub inner: Model<Vec<WeakView<Loading>>>,
-}
-
-impl Global for ActiveLoaders {}
-
-pub struct Loading {
-    inner: bool,
-    left: f32,
-    width: f32,
-}
-
-impl Loading {
+impl ActiveLoaders {
     fn init(cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
             cx.spawn(|view, mut cx| async move {
                 let easing: fn(f32) -> f32 = linear;
                 let ts = time::Instant::now();
-                let w = WIDTH as f32;
-                let w_start = w * 0.4;
-                let w_stop = w * 0.5;
+                let w = 1.0;
+                let w_start = 0.4;
+                let w_stop = 0.5;
                 loop {
                     if view.upgrade().is_none() {
                         break;
@@ -56,7 +44,7 @@ impl Loading {
                         (0.0, easing(i) * w_start)
                     };
                     let _ = cx.update(|cx| {
-                        view.update(cx, |this: &mut Loading, cx| {
+                        view.update(cx, |this: &mut ActiveLoaders, cx| {
                             this.left = left;
                             this.width = width;
                             cx.notify();
@@ -71,39 +59,51 @@ impl Loading {
             .detach();
 
             Self {
-                inner: false,
+                inner: vec![],
                 left: 0.0,
                 width: 0.0,
             }
         })
     }
-    pub fn update<C: VisualContext>(this: &mut View<Self>, inner: bool, cx: &mut C) {
+}
+
+pub struct ActiveLoaders {
+    pub inner: Vec<WeakModel<Loading>>,
+    width: f32,
+    left: f32,
+}
+
+pub struct Loading {
+    inner: bool,
+}
+
+impl Loading {
+    pub fn update(this: &mut Model<Self>, inner: bool, cx: &mut WindowContext) {
+        let m = this.downgrade();
         this.update(cx, |this, cx| {
             if this.inner == inner {
                 return;
             }
             this.inner = inner;
-            let view = cx.view().downgrade();
-            cx.update_global::<ActiveLoaders, _>(|model, cx| {
-                model.inner.update(cx, |this2, cx| {
-                    if inner {
-                        this2.push(view);
-                    }
-                    cx.notify();
-                });
-            });
             cx.notify();
+        });
+        cx.update_global::<StateModel, _>(|model, cx| {
+            if inner {
+                model.update_loader(Some(m), cx);
+            } else {
+                model.update_loader(None, cx);
+            }
         });
     }
 }
 
-impl Render for Loading {
+impl Render for ActiveLoaders {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
         let mut bg = theme.lavender;
         bg.fade_out(0.2);
         let el = div().w_full().h_px().bg(theme.mantle).relative();
-        if self.inner {
+        if !self.inner.is_empty() {
             el.child(
                 div()
                     .absolute()
@@ -111,8 +111,8 @@ impl Render for Loading {
                     .top_0()
                     .bottom_0()
                     .bg(bg)
-                    .left(Pixels(self.left))
-                    .w(Pixels(self.width)),
+                    .left(relative(self.left))
+                    .w(relative(self.width)),
             )
         } else {
             el
@@ -368,28 +368,17 @@ pub struct State {
 #[derive(Clone)]
 pub struct StateModel {
     pub inner: Model<State>,
+    pub loader: View<ActiveLoaders>,
 }
 
 impl StateModel {
     pub fn init(cx: &mut WindowContext) -> Self {
         let this = Self {
             inner: cx.new_model(|_| State { stack: vec![] }),
+            loader: ActiveLoaders::init(cx),
         };
         this.push(RootListBuilder {}, cx);
-        let active = ActiveLoaders {
-            inner: cx.new_model(|_| vec![]),
-        };
-        cx.observe(&active.inner, |this, cx| {
-            this.update(cx, |this, cx| {
-                let len = this.len();
-                this.retain(|loader| loader.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
-                if len != this.len() {
-                    cx.notify();
-                }
-            });
-        })
-        .detach();
-        cx.set_global(active);
+
         cx.set_global(this.clone());
 
         this
@@ -437,6 +426,15 @@ impl StateModel {
         self.inner.update(cx, |model, _| {
             model.stack.truncate(1);
             //model.stack[0].query.set_text("", cx);
+        });
+    }
+    pub fn update_loader(&self, loader: Option<WeakModel<Loading>>, cx: &mut WindowContext) {
+        self.loader.update(cx, |this, cx| {
+            if let Some(loader) = loader {
+                this.inner.push(loader);
+            }
+            this.inner
+                .retain(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
         });
     }
 }
@@ -701,7 +699,7 @@ pub struct Actions {
     query: Option<TextInput>,
     list: Option<View<List>>,
     update_sender: Sender<bool>,
-    pub loading: View<Loading>,
+    pub loading: Model<Loading>,
     pub toast: Toast,
     pub dropdown: View<Dropdown>,
 }
@@ -714,7 +712,7 @@ impl Actions {
             show: false,
             query: None,
             list: None,
-            loading: Loading::init(cx),
+            loading: cx.new_model(|_| Loading { inner: false }),
             toast: Toast::init(cx),
             dropdown: cx.new_view(|_| Dropdown {
                 value: "".to_string(),
