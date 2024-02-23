@@ -6,6 +6,7 @@ use log::{debug, error, info};
 use matrix_sdk::{
     room::RoomMember,
     ruma::{
+        api::client::sync::sync_events::v4::RoomSubscription,
         events::{
             room::{
                 message::{
@@ -17,7 +18,7 @@ use matrix_sdk::{
             },
             AnySyncMessageLikeEvent, AnySyncTimelineEvent, OriginalSyncMessageLikeEvent,
         },
-        OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId,
+        OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt,
     },
     Client, RoomMemberships, SlidingSync,
 };
@@ -117,35 +118,35 @@ pub struct Message {
 impl Message {
     fn render(&mut self, selected: bool, cx: &WindowContext) -> Div {
         let theme = cx.global::<Theme>();
-        let show_avatar = !self.me && self.last;
+        let show_avatar = !self.me && self.first;
 
         div().flex().child(
             if self.me {
                 let mut el = div().ml_auto().rounded_lg();
-                if !self.first {
+                if !self.last {
                     el = el.rounded_br_none();
                 }
-                if !self.last {
+                if !self.first {
                     el = el.rounded_tr_none();
                 };
                 el
             } else {
-                let el = if self.last {
+                let el = if self.first {
                     div().ml_4().mr_auto().mt_4()
                 } else {
                     div().ml_4().mr_auto()
                 };
                 let mut el = el.rounded_lg();
-                if !self.first {
+                if !self.last {
                     el = el.rounded_bl_none();
                 };
-                if !self.last {
+                if !self.first {
                     el = el.rounded_tl_none();
                 };
                 el
             }
             .flex_basis(Pixels(0.0))
-            .max_w_3_4()
+            .max_w_4_5()
             .mb_0p5()
             .p_2()
             .bg(if selected {
@@ -385,7 +386,7 @@ async fn sync(
     });
 
     let mut messages: Vec<Message> = messages.into_iter().map(|(_, v)| v).collect();
-    messages.sort_unstable_by_key(|m| Reverse(m.timestamp));
+    messages.sort_unstable_by_key(|m| m.timestamp);
 
     let items: Vec<Item> = messages
         .into_iter()
@@ -430,44 +431,53 @@ impl StateViewBuilder for ChatRoom {
     ) -> AnyView {
         query.set_placeholder("Search your rooms...", cx);
 
-        let id = self.room_id.clone();
-
+        let sliding_sync = self.updates.read(cx).sliding_sync.clone();
         let view = cx.new_view(|cx| {
-            #[cfg(debug_assertions)]
             {
-                debug!("Chat view created");
-                cx.on_release(|_, _, _| debug!("Chat view released"))
-                    .detach();
-            }
-            cx.subscribe(&self.updates, move |_, model, event, cx| match event {
-                RoomUpdateEvent::Update(room_id) => {
-                    if id.eq(room_id) {
-                        let room_id = room_id.clone();
-                        let model = model.clone();
-                        cx.spawn(move |view, mut cx| async move {
-                            if let Err(err) = sync(room_id, model, view, &mut cx).await {
-                                error!("Updating room failed: {:?}", err);
-                            }
-                        })
-                        .detach();
+                let id = self.room_id.clone();
+                cx.subscribe(&self.updates, move |_, model, event, cx| match event {
+                    RoomUpdateEvent::Update(room_id) => {
+                        if id.eq(room_id) {
+                            let room_id = room_id.clone();
+                            let model = model.clone();
+                            cx.spawn(move |view, mut cx| async move {
+                                if let Err(err) = sync(room_id, model, view, &mut cx).await {
+                                    error!("Updating room failed: {:?}", err);
+                                }
+                            })
+                            .detach();
+                        }
                     }
+                })
+                .detach();
+            }
+            {
+                let id = self.room_id.clone();
+                debug!("Chat view created");
+
+                let mut subscription = RoomSubscription::default();
+                subscription.timeline_limit = Some(UInt::new(300).unwrap());
+                {
+                    let sliding_sync = sliding_sync.clone();
+
+                    sliding_sync.subscribe_to_room(id.clone(), Some(subscription));
                 }
-            })
-            .detach();
-            let id = self.room_id.clone();
-            let model = self.updates.clone();
-            cx.spawn(move |view, mut cx| async move {
-                if let Err(err) = sync(id, model, view, &mut cx).await {
-                    error!("Updating room failed: {:?}", err);
+                {
+                    let sliding_sync = sliding_sync.clone();
+                    let id = id.clone();
+                    cx.on_release(move |_, _, _| {
+                        sliding_sync.unsubscribe_from_room(id);
+                        debug!("Chat view released")
+                    })
+                    .detach();
                 }
-            })
-            .detach();
+            }
             AsyncListItems::new()
         });
 
         AsyncListItems::loader(&view, &actions, cx);
 
-        List::new(
+        let list = List::new(
             query,
             &actions,
             move |_, _, cx| {
@@ -480,7 +490,11 @@ impl StateViewBuilder for ChatRoom {
             update_receiver,
             true,
             cx,
-        )
-        .into()
+        );
+        list.update(cx, |this, cx| {
+            this.change_alignment(ListAlignment::Bottom, cx);
+        });
+
+        list.into()
     }
 }

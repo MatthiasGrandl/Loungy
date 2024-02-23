@@ -247,6 +247,7 @@ pub struct List {
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
     preview: Option<(String, StateItem)>,
+    alignment: ListAlignment,
 }
 
 impl Render for List {
@@ -333,7 +334,7 @@ impl List {
         let scroll = self.state.logical_scroll_top().clone();
         self.state = ListState::new(
             self.items.len(),
-            ListAlignment::Top,
+            self.alignment.clone(),
             Pixels(20.0),
             move |i, cx| {
                 let selected = i.eq(s.read(cx));
@@ -369,6 +370,17 @@ impl List {
             self.state.scroll_to(scroll);
         }
         cx.notify();
+    }
+    pub fn change_alignment(&mut self, alignment: ListAlignment, cx: &mut ViewContext<Self>) {
+        self.alignment = alignment;
+        let s = match self.alignment {
+            ListAlignment::Top => 0,
+            ListAlignment::Bottom => 1.max(self.items.len()) - 1,
+        };
+        self.selected.update(cx, |this, cx| {
+            *this = s;
+            cx.notify();
+        });
     }
     pub fn new(
         query: &TextInputWeak,
@@ -407,6 +419,7 @@ impl List {
             update_actions,
             selection_sender,
             preview: None,
+            alignment: ListAlignment::Top,
         };
 
         let view = cx.new_view(|cx| {
@@ -500,8 +513,12 @@ impl List {
                 match emitter {
                     TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
+                            let s = match this.alignment {
+                                ListAlignment::Top => 0,
+                                ListAlignment::Bottom => this.items.len() - 1,
+                            };
                             this.selected.update(cx, |this, cx| {
-                                *this = 0;
+                                *this = s;
                                 cx.notify();
                             });
                             this.filter(true, cx);
