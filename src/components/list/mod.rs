@@ -504,22 +504,12 @@ impl List {
                         if poll || triggered {
                             if view
                                 .update(&mut cx, |this: &mut Self, cx| {
-                                    let actions = this.actions.inner.upgrade();
-                                    if actions.is_none() {
-                                        return Err(());
-                                    }
-                                    if this.items_all.is_empty()
-                                        || this.query.has_focus(cx)
-                                        || actions.unwrap().read(cx).has_focus(cx)
-                                    {
-                                        this.update(triggered, cx);
-                                        last = std::time::Instant::now();
-                                    }
-                                    Ok(())
+                                    this.update(triggered, cx);
+                                    last = std::time::Instant::now();
                                 })
                                 .is_err()
                             {
-                                debug!("Actions view released");
+                                debug!("List view released");
                                 break;
                             }
                         }
