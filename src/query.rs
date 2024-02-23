@@ -277,7 +277,7 @@ impl RenderOnce for TextInput {
                                     editor.selection.end = editor.selection.start;
                                 }
                             }
-                            "enter" | "return" => {
+                            "enter" => {
                                 if ev.keystroke.modifiers.shift {
                                     editor.text.insert(
                                         editor.char_range_to_text_range(&editor.text).start,

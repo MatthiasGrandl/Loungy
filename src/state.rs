@@ -512,7 +512,7 @@ impl RenderOnce for Shortcut {
             el = key_icon(el, Icon::Command);
         }
         match shortcut.key.as_str() {
-            "enter" | "return" => {
+            "enter" => {
                 el = key_icon(el, Icon::CornerDownLeft);
             }
             "backspace" => {
@@ -692,10 +692,7 @@ impl Actions {
         let mut combined = self.local.read(cx).clone();
         combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
-            #[cfg(target_os = "macos")]
             let key = "enter";
-            #[cfg(not(target_os = "macos"))]
-            let key = "return";
             action.shortcut = Some(Shortcut::simple(key));
             combined.push(Action::new(
                 Img::list_icon(Icon::BookOpen, None),
@@ -913,10 +910,7 @@ impl ActionsModel {
                         cx.notify();
                     }
                     TextEvent::KeyDown(ev) => {
-                        #[cfg(target_os = "macos")]
                         let key = "enter";
-                        #[cfg(not(target_os = "macos"))]
-                        let key = "return";
                         if Shortcut::simple(key).inner.eq(&ev.keystroke) {
                             let _ = list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
