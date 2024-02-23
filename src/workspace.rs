@@ -1,7 +1,7 @@
 use gpui::*;
 
 use crate::components::shared::{Icon, Img};
-use crate::state::{StateItem, StateModel};
+use crate::state::{ActiveLoaders, StateItem, StateModel};
 use crate::theme::Theme;
 
 pub struct Workspace {
@@ -21,6 +21,15 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
+        let loader = cx
+            .global::<ActiveLoaders>()
+            .inner
+            .read(cx)
+            .first()
+            .cloned()
+            .map(|l| l.upgrade().map(|l| l.into_any_element()))
+            .flatten()
+            .unwrap_or(div().h_px().bg(theme.mantle).into_any_element());
         let stack: &Vec<StateItem> = self.state.inner.read(cx).stack.as_ref();
         let item = stack.last().unwrap();
         let view = stack.iter().filter(|item| item.workspace).last().unwrap();
@@ -52,7 +61,7 @@ impl Render for Workspace {
                     .p_2()
                     .w_full(),
             )
-            .child(a.loading.clone())
+            .child(loader)
             .child(div().flex_1().size_full().p_2().child(view.view.clone()))
             .child(
                 div()

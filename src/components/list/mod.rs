@@ -13,7 +13,7 @@ use log::debug;
 
 use crate::{
     query::{TextEvent, TextInput, TextInputWeak},
-    state::{Action, ActionsModel, Shortcut, StateItem},
+    state::{Action, ActionsModel, Loading, Shortcut, StateItem},
     theme::Theme,
 };
 
@@ -574,20 +574,15 @@ impl AsyncListItems {
             return;
         }
         if let Some(a) = actions.inner.upgrade() {
-            let a = a.read(cx).clone();
-            a.loading.update(cx, |this, _| {
-                this.inner = true;
-            });
+            let mut a = a.read(cx).clone();
+            Loading::update(&mut a.loading, true, cx);
             cx.subscribe(view, move |_, event, cx| match event {
                 AsyncListItemsEvent::Initialized => {
-                    a.loading.update(cx, |this, _| {
-                        this.inner = false;
-                    });
+                    Loading::update(&mut a.loading, false, cx);
                 }
                 AsyncListItemsEvent::Update => {
                     a.update();
                 }
-                _ => {}
             })
             .detach();
         }

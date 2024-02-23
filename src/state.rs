@@ -19,8 +19,14 @@ use crate::{
     window::{Window, WindowStyle, WIDTH},
 };
 
+pub struct ActiveLoaders {
+    pub inner: Model<Vec<WeakView<Loading>>>,
+}
+
+impl Global for ActiveLoaders {}
+
 pub struct Loading {
-    pub inner: bool,
+    inner: bool,
     left: f32,
     width: f32,
 }
@@ -70,6 +76,24 @@ impl Loading {
                 width: 0.0,
             }
         })
+    }
+    pub fn update<C: VisualContext>(this: &mut View<Self>, inner: bool, cx: &mut C) {
+        this.update(cx, |this, cx| {
+            if this.inner == inner {
+                return;
+            }
+            this.inner = inner;
+            let view = cx.view().downgrade();
+            cx.update_global::<ActiveLoaders, _>(|model, cx| {
+                model.inner.update(cx, |this2, cx| {
+                    if inner {
+                        this2.push(view);
+                    }
+                    cx.notify();
+                });
+            });
+            cx.notify();
+        });
     }
 }
 
@@ -284,7 +308,7 @@ impl StateItem {
                 // };
             }
             TextEvent::KeyDown(ev) => {
-                actions_clone.inner.update(cx, |this, cx| {
+                let _ = actions_clone.inner.update(cx, |this, cx| {
                     if let Some(action) = this.check(&ev.keystroke, cx) {
                         if ev.is_held {
                             return;
@@ -352,7 +376,22 @@ impl StateModel {
             inner: cx.new_model(|_| State { stack: vec![] }),
         };
         this.push(RootListBuilder {}, cx);
+        let active = ActiveLoaders {
+            inner: cx.new_model(|_| vec![]),
+        };
+        cx.observe(&active.inner, |this, cx| {
+            this.update(cx, |this, cx| {
+                let len = this.len();
+                this.retain(|loader| loader.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
+                if len != this.len() {
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.set_global(active);
         cx.set_global(this.clone());
+
         this
     }
     pub fn update(f: impl FnOnce(&mut Self, &mut WindowContext), cx: &mut WindowContext) {

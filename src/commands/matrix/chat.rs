@@ -132,9 +132,9 @@ impl Message {
                 el
             } else {
                 let el = if self.first {
-                    div().ml_4().mr_auto().mt_4()
+                    div().ml_6().mr_auto().mt_6()
                 } else {
-                    div().ml_4().mr_auto()
+                    div().ml_6().mr_auto()
                 };
                 let mut el = el.rounded_lg();
                 if !self.last {
@@ -173,8 +173,8 @@ impl Message {
                 div()
                     .absolute()
                     .z_index(100)
-                    .neg_left_4()
-                    .neg_top_4()
+                    .neg_left_6()
+                    .neg_top_6()
                     .flex()
                     .items_center()
                     .child(avatar)
