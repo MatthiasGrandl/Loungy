@@ -135,7 +135,7 @@ impl Render for ListItem {
 pub struct Item {
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<(String, Box<dyn Preview>)>,
+    preview: Option<(String, f32, Box<dyn Preview>)>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -194,7 +194,7 @@ impl Item {
     pub fn new(
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<(String, Box<dyn Preview>)>,
+        preview: Option<(String, f32, Box<dyn Preview>)>,
         actions: Vec<Action>,
         weight: Option<u16>,
         meta: Option<Box<dyn Meta>>,
@@ -246,16 +246,22 @@ pub struct List {
     pub update:
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
-    preview: Option<(String, StateItem)>,
+    preview: Option<(String, f32, StateItem)>,
     alignment: ListAlignment,
 }
 
 impl Render for List {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let preview = self
+        let (width, preview) = self
             .preview
             .as_ref()
-            .map(|p| div().child(p.1.view.clone()).w_1_2().pl_1());
+            .map(|p| {
+                (
+                    relative(1.0 - p.1),
+                    div().child(p.2.view.clone()).w(relative(p.1)).pl_1(),
+                )
+            })
+            .unwrap_or((relative(1.0), div()));
 
         if self.items.len() == 0 {
             div()
@@ -263,12 +269,8 @@ impl Render for List {
             div()
                 .size_full()
                 .flex()
-                .child(if preview.is_some() {
-                    list(self.state.clone()).w_1_2().pr_1().h_full()
-                } else {
-                    list(self.state.clone()).size_full()
-                })
-                .child(preview.unwrap_or(div()))
+                .child(list(self.state.clone()).w(width).pr_1().h_full())
+                .child(preview)
         }
     }
 }
@@ -370,6 +372,9 @@ impl List {
             self.state.scroll_to(scroll);
         }
         cx.notify();
+        self.selected.update(cx, |_, cx| {
+            cx.notify();
+        });
     }
     pub fn change_alignment(&mut self, alignment: ListAlignment, cx: &mut ViewContext<Self>) {
         self.alignment = alignment;
@@ -435,7 +440,8 @@ impl List {
                             .map(|p| p.0.clone())
                             .unwrap_or_default())
                         {
-                            this.preview = Some((preview.0.clone(), preview.1(cx)));
+                            this.preview =
+                                Some((preview.0.clone(), preview.1.clone(), preview.2(cx)));
                         }
                     } else {
                         this.preview = None;
@@ -449,10 +455,6 @@ impl List {
                 cx.notify();
             })
             .detach();
-            list.selected.update(cx, |_, cx| {
-                // call once to update actions and preview
-                cx.notify();
-            });
             cx.spawn(|view, mut cx| async move {
                 let mut last = std::time::Instant::now();
                 loop {

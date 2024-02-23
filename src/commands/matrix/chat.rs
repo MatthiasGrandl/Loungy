@@ -242,7 +242,7 @@ async fn sync(
     let members = client
         .get_room(&room_id)
         .ok_or(anyhow::Error::msg("Room not found"))?
-        .members(RoomMemberships::all())
+        .members_no_sync(RoomMemberships::all())
         .compat()
         .await?;
 

@@ -169,6 +169,7 @@ async fn sync(
                         .into(),
                     Some((
                         room_id.to_string(),
+                        0.66,
                         Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
                     )),
                     vec![],
