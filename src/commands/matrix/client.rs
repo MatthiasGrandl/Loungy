@@ -70,7 +70,7 @@ impl Session {
             })
             .bump_event_types(&[TimelineEventType::RoomMessage])
             .filters(Some(filter))
-            .timeline_limit(10)
+            .timeline_limit(100)
             .sort(vec![String::from("by_recency")])
             .required_state(vec![
                 (StateEventType::RoomAvatar, String::from("")),

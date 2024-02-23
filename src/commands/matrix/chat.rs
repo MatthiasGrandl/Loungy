@@ -46,9 +46,29 @@ pub(super) struct ChatRoom {
 }
 
 #[derive(Clone)]
-pub struct Reaction {
+pub(super) struct Reaction {
     pub count: u16,
     pub me: Option<String>,
+}
+
+#[derive(Clone, IntoElement)]
+pub(super) enum MessageContent {
+    Text(String),
+    Image(ImageSource),
+    // Notice(String),
+    // Audio(Img),
+    // Video(ImageSource),
+    // File(String),
+    // Emote(String),
+}
+
+impl RenderOnce for MessageContent {
+    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+        match self {
+            MessageContent::Text(t) => t.into_any_element(),
+            MessageContent::Image(i) => img(i).w_64().h_48().into_any_element(),
+        }
+    }
 }
 
 fn human_duration(unix: u64) -> String {
@@ -84,7 +104,7 @@ pub struct Message {
     pub room_id: String,
     pub sender: String,
     pub avatar: Img,
-    pub content: String,
+    pub content: MessageContent,
     pub timestamp: u64,
     pub edited: bool,
     pub me: bool,
@@ -190,43 +210,13 @@ fn get_content(
     content: RoomMessageEventContentWithoutRelation,
     server: Url,
     //encrypted: MutexGuard<HashMap<OwnedMxcUri, EncryptedFile>>,
-) -> String {
+) -> MessageContent {
     match content.msgtype {
-        MessageType::Text(t) => t.body,
+        MessageType::Text(t) => MessageContent::Text(t.body),
         MessageType::Image(i) => {
-            format!(
-                r#"<img alt="{}" src="{}" />"#,
-                i.body,
-                get_source(i.source, server)
-            )
+            MessageContent::Image(ImageSource::Uri(get_source(i.source, server).into()))
         }
-        MessageType::Notice(n) => n.body,
-        MessageType::Audio(a) => {
-            format!(
-                r#"<audio preload="none" controls src="{}" class="w-full" />"#,
-                get_source(a.source, server)
-            )
-        }
-        MessageType::Video(v) => {
-            format!(
-                r#"<video preload="none" controls src="{}" class="w-full" />"#,
-                get_source(v.source, server)
-            )
-        }
-        MessageType::File(f) => {
-            format!(
-                r#"<a href="{}" download>{}</a>"#,
-                get_source(f.source, server),
-                f.body
-            )
-        }
-        MessageType::Emote(e) => {
-            let body = e.formatted.map(|f| f.body).unwrap_or(e.body);
-            format!(r#"<span class="text-4xl">{}</span>"#, body)
-        }
-        e => {
-            format!("msgtype not yet supported: {}", e.msgtype())
-        }
+        e => MessageContent::Text(format!("msgtype not yet supported: {}", e.msgtype())),
     }
 }
 
@@ -402,7 +392,7 @@ async fn sync(
         .map(|m| {
             info!("{:?}", m.sender);
             Item::new(
-                vec![m.sender.clone(), m.content.clone()],
+                vec![m.sender.clone()],
                 cx.new_view(|_| NoView).unwrap().into(),
                 None,
                 vec![],
