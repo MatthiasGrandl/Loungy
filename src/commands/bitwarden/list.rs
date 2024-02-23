@@ -493,6 +493,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         // }).ok();
                                         actions.append(&mut login.get_actions(&id, &account));
                                         items.push(Item::new(
+                                            id.clone(),
                                             keywords,
                                             cx.new_view(|_| {
                                                 ListItem::new(

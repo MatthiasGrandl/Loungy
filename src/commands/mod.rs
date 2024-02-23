@@ -98,6 +98,7 @@ impl RootCommands {
                 let mut keywords = vec![command.title.clone(), command.subtitle.clone()];
                 keywords.append(&mut command.keywords.clone());
                 Item::new(
+                    command.id.clone(),
                     keywords,
                     cx.new_view(|_| {
                         ListItem::new(

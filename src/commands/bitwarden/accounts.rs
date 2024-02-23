@@ -250,6 +250,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                     .map(|account| {
                         let account = account.contents;
                         Item::new(
+                            account.id.clone(),
                             vec![account.id.clone()],
                             cx.new_view({
                                 let id = account.id.clone();

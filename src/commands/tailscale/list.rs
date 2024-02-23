@@ -93,6 +93,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                         let ipv6 = p.tailscale_ips.last().unwrap();
                         let url = format!("https://{}", &ip);
                         Some(Item::new(
+                            p.id.clone(),
                             vec![name],
                             cx.new_view(|_| {
                                 ListItem::new(

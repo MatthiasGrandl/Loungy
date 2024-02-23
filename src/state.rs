@@ -726,7 +726,7 @@ impl Actions {
             show: false,
             query: None,
             list: None,
-            loading: cx.new_model(|cx| Loading { inner: false }),
+            loading: cx.new_model(|_| Loading { inner: false }),
             toast: Toast::init(cx),
             dropdown: cx.new_view(|_| Dropdown {
                 value: "".to_string(),
@@ -926,6 +926,7 @@ impl ActionsModel {
                                     vec![]
                                 };
                                 Some(Item::new(
+                                    item.label.clone(),
                                     vec![item.label.clone()],
                                     cx.new_view(|_| {
                                         ListItem::new(

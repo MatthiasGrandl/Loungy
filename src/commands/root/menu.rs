@@ -63,6 +63,7 @@ impl StateViewBuilder for MenuListBuilder {
                                 };
 
                                 Item::new(
+                                    path.clone(),
                                     vec![name.clone(), subtitle.clone()],
                                     cx.new_view(|_| {
                                         ListItem::new(None, name, Some(subtitle), accessories)

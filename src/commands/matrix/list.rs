@@ -163,12 +163,12 @@ async fn sync(
                 };
 
                 Some(Item::new(
+                    room_id,
                     vec![name.clone()],
                     cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                         .unwrap()
                         .into(),
                     Some((
-                        room_id.to_string(),
                         0.66,
                         Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
                     )),

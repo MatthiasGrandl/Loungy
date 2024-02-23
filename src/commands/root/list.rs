@@ -96,6 +96,7 @@ impl StateViewBuilder for RootListBuilder {
                                 icon_path.push(format!("{}.png", bundle_id.clone()));
                                 let id = bundle_id.clone();
                                 let app = Item::new(
+                                    bundle_id.clone(),
                                     vec![name.clone()],
                                     cx.new_view(|_cx| {
                                         ListItem::new(
@@ -221,6 +222,7 @@ impl StateViewBuilder for RootListBuilder {
                 if items.len() == 0 {
                     if let Some(result) = numbat.read(cx).result.clone() {
                         items.push(Item::new(
+                            "Numbat",
                             Vec::<String>::new(),
                             numbat.clone().into(),
                             None,

@@ -1,5 +1,6 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::DefaultHasher, HashMap},
+    hash::{Hash, Hasher},
     sync::mpsc::{channel, Receiver, Sender},
     time::Duration,
 };
@@ -133,9 +134,10 @@ impl Render for ListItem {
 #[derive(IntoElement, Clone)]
 #[allow(dead_code)]
 pub struct Item {
+    id: u64,
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<(String, f32, Box<dyn Preview>)>,
+    preview: Option<(f32, Box<dyn Preview>)>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -191,16 +193,21 @@ impl<'a> Clone for Box<dyn 'a + Preview> {
 }
 
 impl Item {
-    pub fn new(
+    pub fn new<T: Hash>(
+        t: T,
         keywords: Vec<impl ToString>,
         component: AnyView,
-        preview: Option<(String, f32, Box<dyn Preview>)>,
+        preview: Option<(f32, Box<dyn Preview>)>,
         actions: Vec<Action>,
         weight: Option<u16>,
         meta: Option<Box<dyn Meta>>,
         render: Option<fn(Self, bool, &WindowContext) -> Div>,
     ) -> Self {
+        let mut s = DefaultHasher::new();
+        t.hash(&mut s);
+        let id = s.finish();
         Self {
+            id,
             keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
             component,
             preview,
@@ -236,9 +243,9 @@ impl RenderOnce for Item {
 
 pub struct List {
     state: ListState,
-    selected: Model<usize>,
+    selected: Model<u64>,
     update_actions: bool,
-    selection_sender: Sender<usize>,
+    selection_sender: Sender<u64>,
     pub actions: ActionsModel,
     pub items_all: Vec<Item>,
     pub items: Vec<Item>,
@@ -246,7 +253,7 @@ pub struct List {
     pub update:
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
-    preview: Option<(String, f32, StateItem)>,
+    preview: Option<(u64, f32, StateItem)>,
     alignment: ListAlignment,
 }
 
@@ -280,31 +287,51 @@ impl List {
         if !self.query.has_focus(cx) {
             return;
         }
-        self.selected.update(cx, |this, cx| {
-            if *this > 0 {
-                *this -= 1;
-                self.state.scroll_to_reveal_item(*this);
-                cx.notify();
+        let index = if let Some((index, _)) = self.selected(cx) {
+            if index > 0 {
+                index - 1
+            } else {
+                0
             }
+        } else {
+            0
+        };
+
+        self.selected.update(cx, |this, cx| {
+            *this = self.items[index].id;
+
+            cx.notify();
         });
+        self.state.scroll_to_reveal_item(index);
     }
     pub fn down(&mut self, cx: &mut ViewContext<Self>) {
         if !self.query.has_focus(cx) {
             return;
         }
-        self.selected.update(cx, |this, cx| {
-            if *this < self.items.len() - 1 {
-                *this += 1;
-                self.state.scroll_to_reveal_item(*this);
-                cx.notify();
+        let index = if let Some((index, _)) = self.selected(cx) {
+            if index < self.items.len() - 1 {
+                index + 1
+            } else {
+                self.items.len() - 1
             }
+        } else {
+            0
+        };
+        self.selected.update(cx, |this, cx| {
+            *this = self.items[index].id;
+            cx.notify();
         });
+        self.state.scroll_to_reveal_item(index);
     }
-    pub fn selected(&self, cx: &AppContext) -> Option<&Item> {
-        self.items.get(*self.selected.read(cx))
+    pub fn selected(&self, cx: &AppContext) -> Option<(usize, &Item)> {
+        let id = self.selected.read(cx);
+        self.items
+            .iter()
+            .enumerate()
+            .find(|(_, item)| item.id.eq(id))
     }
     pub fn default_action(&self, cx: &AppContext) -> Option<&Action> {
-        self.selected(cx).and_then(|item| item.actions.first())
+        self.selected(cx).and_then(|(_, item)| item.actions.first())
     }
     pub fn update(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
         let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _, _| Ok(None)));
@@ -339,8 +366,8 @@ impl List {
             self.alignment.clone(),
             Pixels(20.0),
             move |i, cx| {
-                let selected = i.eq(s.read(cx));
                 let mut item = items[i].clone();
+                let selected = item.id.eq(s.read(cx));
                 item.selected = selected;
                 let action = item.actions.first().cloned();
                 let actions = actions.inner.upgrade();
@@ -349,12 +376,13 @@ impl List {
                 }
                 let actions = actions.unwrap().read(cx).clone();
                 let sender = sender.clone();
+                let id = item.id.clone();
                 div()
                     .child(item)
                     .on_mouse_down(MouseButton::Left, {
                         move |ev, cx| match ev.click_count {
                             1 => {
-                                let _ = sender.send(i);
+                                let _ = sender.send(id);
                             }
                             2 => {
                                 let mut actions = actions.clone();
@@ -372,18 +400,21 @@ impl List {
             self.state.scroll_to(scroll);
         }
         cx.notify();
-        self.selected.update(cx, |_, cx| {
-            cx.notify();
-        });
+        if self.selected(cx).is_none() {
+            self.change_alignment(self.alignment, cx);
+        }
     }
     pub fn change_alignment(&mut self, alignment: ListAlignment, cx: &mut ViewContext<Self>) {
         self.alignment = alignment;
+        if self.items.is_empty() {
+            return;
+        }
         let s = match self.alignment {
             ListAlignment::Top => 0,
             ListAlignment::Bottom => 1.max(self.items.len()) - 1,
         };
         self.selected.update(cx, |this, cx| {
-            *this = s;
+            *this = self.items[s].id;
             cx.notify();
         });
     }
@@ -398,7 +429,7 @@ impl List {
         update_actions: bool,
         cx: &mut WindowContext,
     ) -> View<Self> {
-        let (selection_sender, r) = channel::<usize>();
+        let (selection_sender, r) = channel::<u64>();
         let mut list = Self {
             state: ListState::new(0, ListAlignment::Top, Pixels(20.0), move |_, _| {
                 div().into_any_element()
@@ -429,19 +460,18 @@ impl List {
 
         let view = cx.new_view(|cx| {
             cx.observe(&list.selected, |this: &mut List, _, cx| {
-                if let Some(selected) = this.selected(cx) {
+                if let Some((_, selected)) = this.selected(cx) {
                     if this.update_actions {
                         this.actions.update_local(selected.actions.clone(), cx);
                     }
                     if let Some(preview) = selected.preview.as_ref() {
-                        if !preview.0.eq(&this
+                        if !selected.id.eq(&this
                             .preview
                             .as_ref()
                             .map(|p| p.0.clone())
                             .unwrap_or_default())
                         {
-                            this.preview =
-                                Some((preview.0.clone(), preview.1.clone(), preview.2(cx)));
+                            this.preview = Some((selected.id, preview.0.clone(), preview.1(cx)));
                         }
                     } else {
                         this.preview = None;
@@ -515,15 +545,8 @@ impl List {
                 match emitter {
                     TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
-                            let s = match this.alignment {
-                                ListAlignment::Top => 0,
-                                ListAlignment::Bottom => this.items.len() - 1,
-                            };
-                            this.selected.update(cx, |this, cx| {
-                                *this = s;
-                                cx.notify();
-                            });
                             this.filter(true, cx);
+                            this.change_alignment(this.alignment, cx);
                         });
                     }
                     TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {

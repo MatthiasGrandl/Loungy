@@ -1390,7 +1390,7 @@ checksum = "186dce98367766de751c42c4f03970fc60fc012296e706ccbb9d5df9b6c1e271"
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "rustc-hash",
 ]
@@ -1692,7 +1692,7 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "socket2 0.5.5",
+ "socket2 0.5.6",
  "windows-sys 0.52.0",
 ]
 
@@ -1951,7 +1951,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2950,7 +2950,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "anyhow",
  "as-raw-xcb-connection",
@@ -3025,7 +3025,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3281,7 +3281,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.5",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
@@ -4201,7 +4201,7 @@ dependencies = [
 [[package]]
 name = "media"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -5448,7 +5448,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "derive_refineable",
  "proc-macro2",
@@ -6384,12 +6384,12 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
+checksum = "05ffd9c0a93b7543e062e759284fcf5f5e3b098501104bfbdde4d404db792871"
 dependencies = [
  "libc",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6448,7 +6448,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "arrayvec 0.7.4",
  "log",
@@ -6834,7 +6834,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.5.5",
+ "socket2 0.5.6",
  "tokio-macros",
  "windows-sys 0.48.0",
 ]
@@ -7315,7 +7315,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/zed-industries/zed#caa156ab13f07a39272e356eb7c3d748ccbf7d92"
+source = "git+https://github.com/zed-industries/zed#0f584cb353afe0483d8a044619b7dabcfcd10e40"
 dependencies = [
  "anyhow",
  "backtrace",

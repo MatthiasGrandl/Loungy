@@ -159,6 +159,7 @@ impl StateViewBuilder for ProcessListBuilder {
                             );
 
                             Item::new(
+                                p.pid,
                                 vec![name.clone()],
                                 cx.new_view(|_cx| {
                                     let (m, c) = if sort_by_cpu {

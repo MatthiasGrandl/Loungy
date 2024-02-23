@@ -35,6 +35,7 @@ impl StateViewBuilder for ThemeListBuilder {
                         .into_iter()
                         .map(|theme| {
                             Item::new(
+                                theme.name.clone(),
                                 vec![theme.name.clone()],
                                 cx.new_view(|_| {
                                     ListItem::new(

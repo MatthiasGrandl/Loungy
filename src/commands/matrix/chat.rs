@@ -392,6 +392,7 @@ async fn sync(
         .into_iter()
         .map(|m| {
             Item::new(
+                m.id.clone(),
                 vec![m.sender.clone()],
                 cx.new_view(|_| NoView).unwrap().into(),
                 None,
