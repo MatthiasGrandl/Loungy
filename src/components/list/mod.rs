@@ -137,7 +137,7 @@ pub struct Item {
     id: u64,
     pub keywords: Vec<String>,
     component: AnyView,
-    preview: Option<(f32, Box<dyn Preview>)>,
+    pub preview: Option<(f32, Box<dyn Preview>)>,
     actions: Vec<Action>,
     pub weight: Option<u16>,
     selected: bool,
@@ -461,24 +461,31 @@ impl List {
         let view = cx.new_view(|cx| {
             cx.observe(&list.selected, |this: &mut List, _, cx| {
                 if let Some((_, selected)) = this.selected(cx) {
-                    if this.update_actions {
-                        this.actions.update_local(selected.actions.clone(), cx);
-                    }
-                    if let Some(preview) = selected.preview.as_ref() {
+                    let preview = if let Some(preview) = selected.preview.as_ref() {
                         if !selected.id.eq(&this
                             .preview
                             .as_ref()
                             .map(|p| p.0.clone())
                             .unwrap_or_default())
                         {
-                            this.preview = Some((selected.id, preview.0.clone(), preview.1(cx)));
+                            Some((selected.id, preview.0.clone(), preview.1(cx)))
+                        } else {
+                            this.preview.clone()
                         }
                     } else {
-                        this.preview = None;
+                        None
+                    };
+                    if this.update_actions {
+                        this.actions.update_local(
+                            selected.actions.clone(),
+                            preview.clone().map(|p| p.2),
+                            cx,
+                        );
                     }
+                    this.preview = preview;
                 } else {
                     if this.update_actions {
-                        this.actions.update_local(vec![], cx);
+                        this.actions.clear_local(cx);
                     }
                     this.preview = None;
                 }

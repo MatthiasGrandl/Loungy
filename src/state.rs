@@ -299,6 +299,7 @@ impl Render for PopupToast {
     }
 }
 
+#[derive(Clone)]
 pub struct StateItem {
     pub query: TextInput,
     pub view: AnyView,
@@ -709,6 +710,7 @@ impl Render for Dropdown {
 pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
+    pub active: Option<StateItem>,
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
@@ -723,6 +725,7 @@ impl Actions {
         Self {
             global: cx.new_model(|_| Vec::new()),
             local: cx.new_model(|_| Vec::new()),
+            active: None,
             show: false,
             query: None,
             list: None,
@@ -999,7 +1002,7 @@ impl ActionsModel {
         (model, inner)
     }
     pub fn update_global(&self, actions: Vec<Action>, cx: &mut WindowContext) {
-        self.inner.update(cx, |model, cx| {
+        let _ = self.inner.update(cx, |model, cx| {
             model.global.update(cx, |this, cx| {
                 *this = actions;
                 cx.notify();
@@ -1007,10 +1010,26 @@ impl ActionsModel {
             model.update_list(cx);
         });
     }
-    pub fn update_local(&self, actions: Vec<Action>, cx: &mut WindowContext) {
-        self.inner.update(cx, |model, cx| {
+    pub fn update_local(
+        &self,
+        actions: Vec<Action>,
+        item: Option<StateItem>,
+        cx: &mut WindowContext,
+    ) {
+        let _ = self.inner.update(cx, |model, cx| {
+            model.active = item;
             model.local.update(cx, |this, cx| {
                 *this = actions;
+                cx.notify();
+            });
+            model.update_list(cx);
+        });
+    }
+    pub fn clear_local(&self, cx: &mut WindowContext) {
+        let _ = self.inner.update(cx, |model, cx| {
+            model.active = None;
+            model.local.update(cx, |this, cx| {
+                this.clear();
                 cx.notify();
             });
             model.update_list(cx);
@@ -1028,7 +1047,7 @@ impl ActionsModel {
         items: Vec<(impl ToString, impl ToString)>,
         cx: &mut WindowContext,
     ) {
-        self.inner.update(cx, |model, cx| {
+        let _ = self.inner.update(cx, |model, cx| {
             model.dropdown.update(cx, |this, cx| {
                 this.items = items
                     .into_iter()

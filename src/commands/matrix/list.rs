@@ -16,7 +16,7 @@ use crate::{
         shared::{Icon, Img, ImgMask},
     },
     query::TextInputWeak,
-    state::{ActionsModel, StateItem, StateModel, StateViewBuilder},
+    state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
 };
 
 use super::{
@@ -97,100 +97,113 @@ async fn sync(
     view: WeakView<AsyncListItems>,
     mut cx: AsyncWindowContext,
 ) -> Result<()> {
-    let (client, ss) = session.load().await?;
-    let sync = ss.sync();
-    let mut sync_stream = Box::pin(sync);
-    let server = client.homeserver();
-    let model = cx
-        .new_model(|_| RoomUpdate {
-            client: client.clone(),
-            sliding_sync: ss.clone(),
-        })
-        .unwrap();
-
-    let mut previews = HashMap::<OwnedRoomId, ChatRoom>::new();
-    while let Some(Ok(response)) = sync_stream.next().compat().await {
-        if response.rooms.is_empty() {
-            continue;
-        }
-
-        let list: Vec<Item> = ss
-            .get_all_rooms()
-            .compat()
-            .await
-            .iter()
-            .filter_map(|room| {
-                let mut queue = room.timeline_queue().into_iter();
-                let timestamp: u64 = loop {
-                    let Some(ev) = queue.next_back() else {
-                        break 0;
-                    };
-                    match ev.event.deserialize_as::<OriginalSyncRoomMessageEvent>() {
-                        Ok(m) => {
-                            break m.origin_server_ts.as_secs().into();
-                        }
-                        Err(_) => {
-                            continue;
-                        }
-                    }
-                };
-                let name = room.name().unwrap_or("".to_string());
-                let mut img = match room.avatar_url() {
-                    Some(source) => {
-                        Img::list_url(mxc_to_http(server.clone(), OwnedMxcUri::from(source), true))
-                    }
-                    None => match room.is_dm() {
-                        Some(true) => Img::list_icon(Icon::User, None),
-                        _ => Img::list_icon(Icon::Users, None),
-                    },
-                };
-
-                img.mask = ImgMask::Circle;
-
-                let room_id = room.room_id().to_owned();
-                let _ = model.update(&mut cx, |_, cx| {
-                    cx.emit(RoomUpdateEvent::Update(room_id.clone()));
-                });
-                let preview = if let Some(preview) = previews.get(&room_id) {
-                    preview.clone()
-                } else {
-                    let preview = ChatRoom {
-                        room_id: room_id.clone(),
-                        updates: model.clone(),
-                    };
-                    previews.insert(room_id.clone(), preview.clone());
-                    preview
-                };
-
-                Some(Item::new(
-                    room_id,
-                    vec![name.clone()],
-                    cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
-                        .unwrap()
-                        .into(),
-                    Some((
-                        0.66,
-                        Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
-                    )),
-                    vec![],
-                    None,
-                    Some(Box::new(timestamp)),
-                    None,
-                ))
+    loop {
+        let (client, ss) = session.load().await?;
+        let sync = ss.sync();
+        let mut sync_stream = Box::pin(sync);
+        let server = client.homeserver();
+        let model = cx
+            .new_model(|_| RoomUpdate {
+                client: client.clone(),
+                sliding_sync: ss.clone(),
             })
-            .collect();
+            .unwrap();
 
-        let id = session.id.clone();
-        if let Some(view) = view.upgrade() {
-            view.update(&mut cx, |view, cx| {
-                view.update(id, list, cx);
-            })?;
-        } else {
-            break;
+        let mut previews = HashMap::<OwnedRoomId, ChatRoom>::new();
+        while let Some(Ok(response)) = sync_stream.next().compat().await {
+            if response.rooms.is_empty() {
+                continue;
+            }
+
+            let list: Vec<Item> = ss
+                .get_all_rooms()
+                .compat()
+                .await
+                .iter()
+                .filter_map(|room| {
+                    let mut queue = room.timeline_queue().into_iter();
+                    let timestamp: u64 = loop {
+                        let Some(ev) = queue.next_back() else {
+                            break 0;
+                        };
+                        match ev.event.deserialize_as::<OriginalSyncRoomMessageEvent>() {
+                            Ok(m) => {
+                                break m.origin_server_ts.as_secs().into();
+                            }
+                            Err(_) => {
+                                continue;
+                            }
+                        }
+                    };
+                    let name = room.name().unwrap_or("".to_string());
+                    let mut img = match room.avatar_url() {
+                        Some(source) => Img::list_url(mxc_to_http(
+                            server.clone(),
+                            OwnedMxcUri::from(source),
+                            true,
+                        )),
+                        None => match room.is_dm() {
+                            Some(true) => Img::list_icon(Icon::User, None),
+                            _ => Img::list_icon(Icon::Users, None),
+                        },
+                    };
+
+                    img.mask = ImgMask::Circle;
+
+                    let room_id = room.room_id().to_owned();
+                    let _ = model.update(&mut cx, |_, cx| {
+                        cx.emit(RoomUpdateEvent::Update(room_id.clone()));
+                    });
+                    let preview = if let Some(preview) = previews.get(&room_id) {
+                        preview.clone()
+                    } else {
+                        let preview = ChatRoom {
+                            room_id: room_id.clone(),
+                            updates: model.clone(),
+                        };
+                        previews.insert(room_id.clone(), preview.clone());
+                        preview
+                    };
+
+                    Some(Item::new(
+                        room_id,
+                        vec![name.clone()],
+                        cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
+                            .unwrap()
+                            .into(),
+                        Some((
+                            0.66,
+                            Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
+                        )),
+                        vec![Action::new(
+                            Img::list_icon(Icon::Search, None),
+                            "Search",
+                            None,
+                            |actions, cx| {
+                                StateModel::update(
+                                    |this, cx| this.push_item(actions.active.clone().unwrap(), cx),
+                                    cx,
+                                );
+                            },
+                            false,
+                        )],
+                        None,
+                        Some(Box::new(timestamp)),
+                        None,
+                    ))
+                })
+                .collect();
+
+            let id = session.id.clone();
+            if let Some(view) = view.upgrade() {
+                view.update(&mut cx, |view, cx| {
+                    view.update(id, list, cx);
+                })?;
+            } else {
+                break;
+            }
         }
     }
-
-    Ok(())
 }
 
 impl RootCommandBuilder for MatrixCommandBuilder {
