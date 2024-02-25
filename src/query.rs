@@ -32,6 +32,12 @@ pub struct TextInputWeak {
 }
 
 impl TextInputWeak {
+    pub fn get_text(&self, cx: &WindowContext) -> String {
+        if let Some(view) = self.view.upgrade() {
+            return view.read(cx).text.clone();
+        }
+        "".to_string()
+    }
     pub fn set_placeholder(&self, placeholder: impl ToString, cx: &mut WindowContext) {
         self.view.update(cx, |editor, cx| {
             editor.placeholder = placeholder.to_string();

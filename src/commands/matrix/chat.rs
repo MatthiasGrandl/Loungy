@@ -28,7 +28,7 @@ use url::Url;
 use crate::{
     components::{
         list::{AsyncListItems, Item, List},
-        shared::{Icon, Img, ImgMask},
+        shared::{Icon, Img, ImgMask, NoView},
     },
     query::TextInputWeak,
     state::{ActionsModel, StateViewBuilder},
@@ -414,13 +414,6 @@ async fn sync(
     Ok(())
 }
 
-struct NoView;
-impl Render for NoView {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        div()
-    }
-}
-
 impl StateViewBuilder for ChatRoom {
     fn build(
         &self,
@@ -429,7 +422,7 @@ impl StateViewBuilder for ChatRoom {
         update_receiver: std::sync::mpsc::Receiver<bool>,
         cx: &mut WindowContext,
     ) -> AnyView {
-        query.set_placeholder("Search your rooms...", cx);
+        query.set_placeholder("Search this chat...", cx);
 
         let sliding_sync = self.updates.read(cx).sliding_sync.clone();
         let view = cx.new_view(|cx| {
@@ -485,7 +478,26 @@ impl StateViewBuilder for ChatRoom {
                     view.read(cx).items.values().flatten().cloned().collect(),
                 ))
             },
-            None,
+            Some(Box::new(move |this, cx| {
+                this.items_all
+                    .clone()
+                    .into_iter()
+                    .filter(|item| {
+                        let text = this.query.get_text(cx).to_lowercase();
+                        let message: &Message = item.meta.value().downcast_ref().unwrap();
+                        match &message.content {
+                            MessageContent::Text(t) => {
+                                if t.to_lowercase().contains(&text) {
+                                    return true;
+                                }
+                            }
+                            _ => {}
+                        }
+                        message.sender.to_lowercase().contains(&text)
+                    })
+                    .collect()
+                //
+            })),
             None,
             update_receiver,
             true,

@@ -23,6 +23,7 @@ use super::{
     account::AccountCreationBuilder,
     chat::ChatRoom,
     client::{db, Session},
+    compose::{Compose, ComposeKind},
     mxc::mxc_to_http,
 };
 
@@ -166,7 +167,7 @@ async fn sync(
                     };
 
                     Some(Item::new(
-                        room_id,
+                        room_id.clone(),
                         vec![name.clone()],
                         cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
                             .unwrap()
@@ -175,18 +176,44 @@ async fn sync(
                             0.66,
                             Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
                         )),
-                        vec![Action::new(
-                            Img::list_icon(Icon::Search, None),
-                            "Search",
-                            None,
-                            |actions, cx| {
-                                StateModel::update(
-                                    |this, cx| this.push_item(actions.active.clone().unwrap(), cx),
-                                    cx,
-                                );
-                            },
-                            false,
-                        )],
+                        vec![
+                            Action::new(
+                                Img::list_icon(Icon::MessageCircle, None),
+                                "Write",
+                                None,
+                                {
+                                    let client = client.clone();
+                                    let room_id = room_id.clone();
+                                    move |_, cx| {
+                                        let item = StateItem::init(
+                                            Compose::new(
+                                                client.clone(),
+                                                room_id.clone(),
+                                                ComposeKind::Message,
+                                            ),
+                                            false,
+                                            cx,
+                                        );
+                                        StateModel::update(|this, cx| this.push_item(item, cx), cx);
+                                    }
+                                },
+                                false,
+                            ),
+                            Action::new(
+                                Img::list_icon(Icon::Search, None),
+                                "Search",
+                                None,
+                                |actions, cx| {
+                                    StateModel::update(
+                                        |this, cx| {
+                                            this.push_item(actions.active.clone().unwrap(), cx)
+                                        },
+                                        cx,
+                                    );
+                                },
+                                false,
+                            ),
+                        ],
                         None,
                         Some(Box::new(timestamp)),
                         None,

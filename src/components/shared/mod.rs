@@ -128,3 +128,10 @@ impl RenderOnce for Img {
         el.child(img)
     }
 }
+
+pub struct NoView;
+impl Render for NoView {
+    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div()
+    }
+}

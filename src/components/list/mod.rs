@@ -441,15 +441,7 @@ impl List {
             query: query.clone(),
             update: Box::new(update),
             filter: filter.unwrap_or(Box::new(|this, cx| {
-                let text = this
-                    .query
-                    .clone()
-                    .view
-                    .upgrade()
-                    .unwrap()
-                    .read(cx)
-                    .text
-                    .clone();
+                let text = this.query.get_text(cx);
                 fuzzy_match(&text, this.items_all.clone(), false)
             })),
             update_actions,
