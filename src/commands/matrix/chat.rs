@@ -48,8 +48,45 @@ pub(super) struct ChatRoom {
 
 #[derive(Clone)]
 pub(super) struct Reaction {
-    pub count: u16,
-    pub me: Option<String>,
+    count: u16,
+    me: Option<String>,
+}
+
+#[derive(Clone, IntoElement)]
+pub(super) struct Reactions {
+    inner: HashMap<String, Reaction>,
+}
+
+impl RenderOnce for Reactions {
+    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        div()
+            .flex()
+            .children(self.inner.into_iter().map(|(emoji, reaction)| {
+                div()
+                    .flex()
+                    .items_center()
+                    .py_0p5()
+                    .px_1()
+                    .mr_0p5()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(theme.crust)
+                    .bg(if reaction.me.is_some() {
+                        theme.surface0
+                    } else {
+                        theme.mantle
+                    })
+                    .child(div().child(emoji).mr_1())
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.text)
+                            .font_weight(FontWeight::BOLD)
+                            .child(reaction.count.to_string()),
+                    )
+            }))
+    }
 }
 
 #[derive(Clone, IntoElement)]
@@ -100,7 +137,7 @@ fn human_duration(unix: u64) -> String {
 }
 
 #[derive(Clone)]
-pub struct Message {
+pub(super) struct Message {
     pub id: String,
     pub room_id: String,
     pub sender: String,
@@ -109,7 +146,7 @@ pub struct Message {
     pub timestamp: u64,
     pub edited: bool,
     pub me: bool,
-    pub reactions: HashMap<String, Reaction>,
+    pub reactions: Reactions,
     pub first: bool,
     pub last: bool,
     pub in_reply_to: Option<String>,
@@ -119,8 +156,15 @@ impl Message {
     fn render(&mut self, selected: bool, cx: &WindowContext) -> Div {
         let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.first;
+        let show_reactions = !self.reactions.inner.is_empty();
 
-        div().flex().child(
+        if show_reactions {
+            div().mb_8()
+        } else {
+            div().mb_0p5()
+        }
+        .flex()
+        .child(
             if self.me {
                 let mut el = div().ml_auto().rounded_lg();
                 if !self.last {
@@ -147,7 +191,6 @@ impl Message {
             }
             .flex_basis(Pixels(0.0))
             .max_w_4_5()
-            .mb_0p5()
             .p_2()
             .bg(if selected {
                 theme.surface0
@@ -187,7 +230,14 @@ impl Message {
                     )
             } else {
                 div()
-            }),
+            })
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .neg_bottom_6()
+                    .child(self.reactions.clone()),
+            ),
         )
     }
     fn actions(&self, client: &Client, cx: &mut AsyncWindowContext) -> Vec<Action> {
@@ -380,7 +430,9 @@ async fn sync(
                                 avatar,
                                 me,
                                 edited: false,
-                                reactions: HashMap::new(),
+                                reactions: Reactions {
+                                    inner: HashMap::new(),
+                                },
                                 first,
                                 last: false,
                                 in_reply_to,
@@ -402,7 +454,7 @@ async fn sync(
 
     reactions.into_iter().for_each(|(eid, (id, emoji, me))| {
         if let Some(m) = messages.get_mut(&id) {
-            match m.reactions.get_mut(&emoji) {
+            match m.reactions.inner.get_mut(&emoji) {
                 Some(r) => {
                     r.count += 1;
                     if me {
@@ -414,7 +466,7 @@ async fn sync(
                     if me {
                         reaction.me = Some(eid.to_string());
                     };
-                    m.reactions.insert(emoji.clone(), reaction);
+                    m.reactions.inner.insert(emoji.clone(), reaction);
                 }
             }
         }
