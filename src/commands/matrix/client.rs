@@ -1,6 +1,5 @@
 use std::{str::FromStr, sync::OnceLock};
 
-use async_compat::CompatExt;
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
@@ -46,14 +45,13 @@ impl Session {
             .server_name(user.server_name())
             .sqlite_store(db, Some(password));
 
-        Ok(builder.build().compat().await?)
+        Ok(builder.build().await?)
     }
     pub(super) async fn load(&self) -> anyhow::Result<(Client, SlidingSync)> {
         let client = Self::client(&self.inner.meta.user_id, &self.passphrase).await?;
         client
             .matrix_auth()
             .restore_session(self.inner.clone())
-            .compat()
             .await?;
 
         if !client.logged_in() {
@@ -81,11 +79,9 @@ impl Session {
             .sliding_sync("sync")
             .unwrap()
             .add_cached_list(list)
-            .compat()
             .await?
             .with_all_extensions()
             .build()
-            .compat()
             .await?;
 
         Ok((client, sliding_sync))
@@ -108,7 +104,6 @@ impl Session {
             .login_username(&username, &password)
             .initial_device_display_name(NAME)
             .send()
-            .compat()
             .await?;
         if let Some(session) = client.matrix_auth().session() {
             let session = Session {

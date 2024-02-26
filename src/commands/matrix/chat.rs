@@ -31,7 +31,7 @@ use crate::{
         shared::{Icon, Img, ImgMask, NoView},
     },
     query::TextInputWeak,
-    state::{ActionsModel, StateViewBuilder},
+    state::{Action, ActionsModel, Shortcut, StateViewBuilder},
     theme::Theme,
 };
 
@@ -189,6 +189,41 @@ impl Message {
                 div()
             }),
         )
+    }
+    fn actions(&self, client: &Client, cx: &mut AsyncWindowContext) -> Vec<Action> {
+        let mut actions = vec![Action::new(
+            Img::list_icon(Icon::MessageCircleReply, None),
+            "Reply",
+            Some(Shortcut::cmd("r")),
+            move |_, cx| {
+                info!("Reply to message");
+            },
+            false,
+        )];
+        if self.me {
+            actions.append(&mut vec![
+                Action::new(
+                    Img::list_icon(Icon::MessageCircleMore, None),
+                    "Edit",
+                    Some(Shortcut::cmd("e")),
+                    move |_, cx| {
+                        info!("Edit message");
+                    },
+                    false,
+                ),
+                Action::new(
+                    Img::list_icon(Icon::MessageCircleDashed, None),
+                    "Delete",
+                    Some(Shortcut::cmd("backspace")),
+                    move |_, cx| {
+                        info!("Delete message");
+                    },
+                    false,
+                ),
+            ])
+        }
+        //
+        actions
     }
 }
 
@@ -396,7 +431,7 @@ async fn sync(
                 vec![m.sender.clone()],
                 cx.new_view(|_| NoView).unwrap().into(),
                 None,
-                vec![],
+                m.actions(&client, cx),
                 None,
                 Some(Box::new(m)),
                 Some(|this, selected, cx| {

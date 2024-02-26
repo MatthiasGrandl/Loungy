@@ -83,6 +83,7 @@ impl StateViewBuilder for Compose {
                         let content = RoomMessageEventContent::text_markdown(text);
                         if self_clone.send(content).compat().await.is_ok() {
                             toast.success("Messagen sent", &mut cx);
+                            query.set_text("", &mut cx);
                         } else {
                             toast.error("Failed to send message", &mut cx);
                         }

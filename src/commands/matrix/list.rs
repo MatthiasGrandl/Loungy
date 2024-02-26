@@ -16,7 +16,7 @@ use crate::{
         shared::{Icon, Img, ImgMask},
     },
     query::TextInputWeak,
-    state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
+    state::{Action, ActionsModel, Shortcut, StateItem, StateModel, StateViewBuilder},
 };
 
 use super::{
@@ -111,14 +111,13 @@ async fn sync(
             .unwrap();
 
         let mut previews = HashMap::<OwnedRoomId, ChatRoom>::new();
-        while let Some(Ok(response)) = sync_stream.next().compat().await {
+        while let Some(Ok(response)) = sync_stream.next().await {
             if response.rooms.is_empty() {
                 continue;
             }
 
             let list: Vec<Item> = ss
                 .get_all_rooms()
-                .compat()
                 .await
                 .iter()
                 .filter_map(|room| {
@@ -202,7 +201,7 @@ async fn sync(
                             Action::new(
                                 Img::list_icon(Icon::Search, None),
                                 "Search",
-                                None,
+                                Some(Shortcut::cmd("/")),
                                 |actions, cx| {
                                     StateModel::update(
                                         |this, cx| {
@@ -239,7 +238,7 @@ impl RootCommandBuilder for MatrixCommandBuilder {
             let db = db();
             let sessions = Session::all(db).query().unwrap_or_default();
             for session in sessions {
-                cx.spawn(move |view, cx| sync(session.contents, view, cx))
+                cx.spawn(move |view, cx| async { sync(session.contents, view, cx).compat().await })
                     .detach();
             }
 

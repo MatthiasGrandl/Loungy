@@ -38,21 +38,27 @@ impl TextInputWeak {
         }
         "".to_string()
     }
-    pub fn set_placeholder(&self, placeholder: impl ToString, cx: &mut WindowContext) {
-        self.view.update(cx, |editor, cx| {
-            editor.placeholder = placeholder.to_string();
-            cx.notify();
-        });
+    pub fn set_placeholder<C: VisualContext>(&self, placeholder: impl ToString, cx: &mut C) {
+        if let Some(view) = self.view.upgrade() {
+            cx.update_view(&view, |editor: &mut TextView, cx| {
+                editor.placeholder = placeholder.to_string();
+                cx.notify();
+            });
+        }
     }
-    pub fn set_text(&self, text: impl ToString, cx: &mut WindowContext) {
-        self.view.update(cx, |editor, cx| {
-            editor.set_text(text, cx);
-        });
+    pub fn set_text<C: VisualContext>(&self, text: impl ToString, cx: &mut C) {
+        if let Some(view) = self.view.upgrade() {
+            cx.update_view(&view, |editor: &mut TextView, cx| {
+                editor.set_text(text, cx);
+            });
+        }
     }
-    pub fn set_masked(&self, masked: bool, cx: &mut WindowContext) {
-        self.view.update(cx, |editor, cx| {
-            editor.set_masked(masked, cx);
-        });
+    pub fn set_masked<C: VisualContext>(&self, masked: bool, cx: &mut C) {
+        if let Some(view) = self.view.upgrade() {
+            cx.update_view(&view, |editor: &mut TextView, cx| {
+                editor.set_masked(masked, cx);
+            });
+        }
     }
     pub fn has_focus(&self, cx: &WindowContext) -> bool {
         if let Some(fh) = cx.focused() {
