@@ -11,7 +11,7 @@ use std::{
 use crate::{
     commands::root::list::RootListBuilder,
     components::{
-        list::{Accessory, Item, List, ListItem},
+        list::{Accessory, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     query::{TextEvent, TextInput, TextInputWeak},
@@ -775,7 +775,7 @@ impl Actions {
         let query = self.query.clone().unwrap();
         let list = self.list.clone().unwrap();
         let el_height = 42.0;
-        let count = list.read(cx).items.len();
+        let count = list.read(cx).items.read(cx).len();
         let height = Pixels(if count == 0 {
             0.0
         } else if count > 4 {
@@ -910,7 +910,7 @@ impl ActionsModel {
             let query = TextInput::new(cx);
             let actions = this.clone();
             let (_s, r) = channel::<bool>();
-            let list = List::new(
+            let list = ListBuilder::new().disable_action_updates().build(
                 &query.downgrade(),
                 &model,
                 move |_, _, cx| {
@@ -953,7 +953,6 @@ impl ActionsModel {
                 None,
                 None,
                 r,
-                false,
                 cx,
             );
             let list_clone = list.clone();

@@ -9,7 +9,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         form::{Form, Input, InputKind},
-        list::{Accessory, Item, List, ListItem},
+        list::{Accessory, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     query::{TextInput, TextInputWeak},
@@ -239,90 +239,92 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
             )],
             cx,
         );
-        List::new(
-            query,
-            &actions,
-            |_, _, cx| {
-                let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
+        ListBuilder::new()
+            .build(
+                query,
+                &actions,
+                |_, _, cx| {
+                    let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
 
-                let items: Vec<Item> = accounts
-                    .into_iter()
-                    .map(|account| {
-                        let account = account.contents;
-                        Item::new(
-                            account.id.clone(),
-                            vec![account.id.clone()],
-                            cx.new_view({
-                                let id = account.id.clone();
-                                let instance = account.instance.clone();
-                                move |_| {
-                                    ListItem::new(
-                                        Some(Img::list_icon(Icon::User, None)),
-                                        id,
+                    let items: Vec<Item> = accounts
+                        .into_iter()
+                        .map(|account| {
+                            let account = account.contents;
+                            Item::new(
+                                account.id.clone(),
+                                vec![account.id.clone()],
+                                cx.new_view({
+                                    let id = account.id.clone();
+                                    let instance = account.instance.clone();
+                                    move |_| {
+                                        ListItem::new(
+                                            Some(Img::list_icon(Icon::User, None)),
+                                            id,
+                                            None,
+                                            vec![Accessory::new(instance, None)],
+                                        )
+                                    }
+                                })
+                                .into(),
+                                None,
+                                vec![
+                                    Action::new(
+                                        Img::list_icon(Icon::Pen, None),
+                                        "Edit",
                                         None,
-                                        vec![Accessory::new(instance, None)],
-                                    )
-                                }
-                            })
-                            .into(),
-                            None,
-                            vec![
-                                Action::new(
-                                    Img::list_icon(Icon::Pen, None),
-                                    "Edit",
-                                    None,
-                                    {
-                                        // TODO:
-                                        move |actions, cx| {
-                                            actions.toast.error("Not implemented", cx);
-                                        }
-                                    },
-                                    false,
-                                ),
-                                Action::new(
-                                    Img::list_icon(Icon::Delete, None),
-                                    "Delete",
-                                    None,
-                                    {
-                                        //
-                                        let path = account.path();
-                                        let id = account.id.clone();
-                                        move |actions, cx| {
-                                            if let Err(err) = fs::remove_dir_all(path.clone()) {
-                                                error!("Failed to delete account: {}", err);
-                                                actions.toast.error("Failed to delete account", cx);
+                                        {
+                                            // TODO:
+                                            move |actions, cx| {
+                                                actions.toast.error("Not implemented", cx);
                                             }
-                                            if let Some(account) =
-                                                BitwardenAccount::get(&id, db()).unwrap()
-                                            {
-                                                if let Err(err) = account.delete(db()) {
+                                        },
+                                        false,
+                                    ),
+                                    Action::new(
+                                        Img::list_icon(Icon::Delete, None),
+                                        "Delete",
+                                        None,
+                                        {
+                                            //
+                                            let path = account.path();
+                                            let id = account.id.clone();
+                                            move |actions, cx| {
+                                                if let Err(err) = fs::remove_dir_all(path.clone()) {
                                                     error!("Failed to delete account: {}", err);
                                                     actions
                                                         .toast
                                                         .error("Failed to delete account", cx);
                                                 }
-                                            };
-                                            StateModel::update(|this, cx| this.reset(cx), cx);
-                                        }
-                                    },
-                                    false,
-                                ),
-                            ],
-                            None,
-                            None,
-                            None,
-                        )
-                    })
-                    .collect();
-                Ok(Some(items))
-            },
-            None,
-            Some(Duration::from_secs(10)),
-            update_receiver,
-            true,
-            cx,
-        )
-        .into()
+                                                if let Some(account) =
+                                                    BitwardenAccount::get(&id, db()).unwrap()
+                                                {
+                                                    if let Err(err) = account.delete(db()) {
+                                                        error!("Failed to delete account: {}", err);
+                                                        actions
+                                                            .toast
+                                                            .error("Failed to delete account", cx);
+                                                    }
+                                                };
+                                                StateModel::update(|this, cx| this.reset(cx), cx);
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                ],
+                                None,
+                                None,
+                                None,
+                            )
+                        })
+                        .collect();
+                    Ok(Some(items))
+                },
+                None,
+                Some(Duration::from_secs(10)),
+                update_receiver,
+                cx,
+            )
+            .into()
     }
 }
 

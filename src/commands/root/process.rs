@@ -10,7 +10,7 @@ use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, List, ListItem},
+        list::{Accessory, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     paths::paths,
@@ -77,151 +77,151 @@ impl StateViewBuilder for ProcessListBuilder {
             cx,
         );
 
-        List::new(
-            query,
-            &actions,
-            |this, _, cx| {
-                let lavender = cx.global::<Theme>().lavender.clone();
-                let cache_dir = paths().cache.clone();
-                fs::create_dir_all(cache_dir.clone()).unwrap();
-                let ps = Command::new("ps")
-                    .arg("-eo")
-                    .arg("pid,ppid,pcpu,rss,comm")
-                    .output()
-                    .expect("failed to get process list")
-                    .stdout;
+        ListBuilder::new()
+            .build(
+                query,
+                &actions,
+                |this, _, cx| {
+                    let lavender = cx.global::<Theme>().lavender.clone();
+                    let cache_dir = paths().cache.clone();
+                    fs::create_dir_all(cache_dir.clone()).unwrap();
+                    let ps = Command::new("ps")
+                        .arg("-eo")
+                        .arg("pid,ppid,pcpu,rss,comm")
+                        .output()
+                        .expect("failed to get process list")
+                        .stdout;
 
-                let parsed: Vec<Process> = String::from_utf8(ps)
-                    .unwrap()
-                    .split("\n")
-                    .skip(1)
-                    .filter_map(|line| Process::parse(line).ok())
-                    .collect();
+                    let parsed: Vec<Process> = String::from_utf8(ps)
+                        .unwrap()
+                        .split("\n")
+                        .skip(1)
+                        .filter_map(|line| Process::parse(line).ok())
+                        .collect();
 
-                let mut aggregated = HashMap::<u64, Process>::new();
-                parsed.iter().for_each(|p| {
-                    if p.ppid == 1 {
-                        aggregated.insert(p.pid, p.clone());
-                    } else {
-                        if let Some(parent) = aggregated.get(&p.ppid) {
-                            let mut parent = parent.clone();
-                            parent.cpu += p.cpu;
-                            parent.mem += p.mem;
-                            aggregated.insert(p.ppid, parent);
+                    let mut aggregated = HashMap::<u64, Process>::new();
+                    parsed.iter().for_each(|p| {
+                        if p.ppid == 1 {
+                            aggregated.insert(p.pid, p.clone());
+                        } else {
+                            if let Some(parent) = aggregated.get(&p.ppid) {
+                                let mut parent = parent.clone();
+                                parent.cpu += p.cpu;
+                                parent.mem += p.mem;
+                                aggregated.insert(p.ppid, parent);
+                            }
                         }
+                    });
+                    let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
+
+                    let sort_by_cpu = "cpu".to_string().eq(&this.actions.get_dropdown_value(cx));
+                    if sort_by_cpu {
+                        parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
+                    } else {
+                        parsed.sort_unstable_by_key(|p| Reverse(p.mem));
                     }
-                });
-                let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
 
-                let sort_by_cpu = "cpu".to_string().eq(&this.actions.get_dropdown_value(cx));
-                if sort_by_cpu {
-                    parsed.sort_unstable_by_key(|p| Reverse(p.cpu as u64));
-                } else {
-                    parsed.sort_unstable_by_key(|p| Reverse(p.mem));
-                }
+                    let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
+                    Ok(Some(
+                        parsed
+                            .iter()
+                            .map(|p| {
+                                let path = re
+                                    .captures(p.name.as_str())
+                                    .and_then(|caps| caps.get(1))
+                                    .map(|m| String::from(m.as_str()))
+                                    .unwrap_or_default();
 
-                let re = Regex::new(r"(.+\.(?:prefPane|app))(?:/.*)?$").unwrap();
-                Ok(Some(
-                    parsed
-                        .iter()
-                        .map(|p| {
-                            let path = re
-                                .captures(p.name.as_str())
-                                .and_then(|caps| caps.get(1))
-                                .map(|m| String::from(m.as_str()))
-                                .unwrap_or_default();
-
-                            #[cfg(target_os = "macos")]
-                            let (name, image) = match unsafe {
-                                get_application_data(
-                                    &cache_dir.to_str().unwrap().into(),
-                                    &path.as_str().into(),
-                                )
-                            } {
-                                Some(d) => {
-                                    let mut icon_path = cache_dir.clone();
-                                    icon_path.push(format!("{}.png", d.id.to_string()));
-                                    (d.name.to_string(), Img::list_file(icon_path))
-                                }
-                                None => {
-                                    let mut icon_path = cache_dir.clone();
-                                    icon_path.push("com.apple.Terminal.png");
-                                    (
-                                        p.name.split("/").last().unwrap().to_string(),
-                                        Img::list_file(icon_path),
+                                #[cfg(target_os = "macos")]
+                                let (name, image) = match unsafe {
+                                    get_application_data(
+                                        &cache_dir.to_str().unwrap().into(),
+                                        &path.as_str().into(),
                                     )
-                                }
-                            };
-                            #[cfg(target_os = "linux")]
-                            let (name, image) = (
-                                p.name.split("/").last().unwrap().to_string(),
-                                Img::list_icon(Icon::Cpu, None),
-                            );
+                                } {
+                                    Some(d) => {
+                                        let mut icon_path = cache_dir.clone();
+                                        icon_path.push(format!("{}.png", d.id.to_string()));
+                                        (d.name.to_string(), Img::list_file(icon_path))
+                                    }
+                                    None => {
+                                        let mut icon_path = cache_dir.clone();
+                                        icon_path.push("com.apple.Terminal.png");
+                                        (
+                                            p.name.split("/").last().unwrap().to_string(),
+                                            Img::list_file(icon_path),
+                                        )
+                                    }
+                                };
+                                #[cfg(target_os = "linux")]
+                                let (name, image) = (
+                                    p.name.split("/").last().unwrap().to_string(),
+                                    Img::list_icon(Icon::Cpu, None),
+                                );
 
-                            Item::new(
-                                p.pid,
-                                vec![name.clone()],
-                                cx.new_view(|_cx| {
-                                    let (m, c) = if sort_by_cpu {
-                                        (None, Some(lavender))
-                                    } else {
-                                        (Some(lavender), None)
-                                    };
-                                    ListItem::new(
-                                        Some(image),
-                                        name.clone(),
-                                        None,
-                                        vec![
-                                            Accessory::new(
-                                                format!("{: >8}", format_bytes(p.mem * 1024)),
-                                                Some(Img::accessory_icon(Icon::MemoryStick, m)),
-                                            ),
-                                            Accessory::new(
-                                                format!("{: >6.2}%", p.cpu),
-                                                Some(Img::accessory_icon(Icon::Cpu, c)),
-                                            ),
-                                        ],
-                                    )
-                                })
-                                .into(),
-                                None,
-                                vec![Action::new(
-                                    Img::list_icon(Icon::Skull, None),
-                                    "Kill Process",
+                                Item::new(
+                                    p.pid,
+                                    vec![name.clone()],
+                                    cx.new_view(|_cx| {
+                                        let (m, c) = if sort_by_cpu {
+                                            (None, Some(lavender))
+                                        } else {
+                                            (Some(lavender), None)
+                                        };
+                                        ListItem::new(
+                                            Some(image),
+                                            name.clone(),
+                                            None,
+                                            vec![
+                                                Accessory::new(
+                                                    format!("{: >8}", format_bytes(p.mem * 1024)),
+                                                    Some(Img::accessory_icon(Icon::MemoryStick, m)),
+                                                ),
+                                                Accessory::new(
+                                                    format!("{: >6.2}%", p.cpu),
+                                                    Some(Img::accessory_icon(Icon::Cpu, c)),
+                                                ),
+                                            ],
+                                        )
+                                    })
+                                    .into(),
                                     None,
-                                    {
-                                        let pid = p.pid.to_string();
-                                        move |this, cx| {
-                                            if Command::new("kill")
-                                                .arg("-9")
-                                                .arg(pid.clone())
-                                                .output()
-                                                .is_err()
-                                            {
-                                                this.toast.error("Failed to kill process", cx);
-                                            } else {
-                                                this.toast.success("Killed process", cx);
+                                    vec![Action::new(
+                                        Img::list_icon(Icon::Skull, None),
+                                        "Kill Process",
+                                        None,
+                                        {
+                                            let pid = p.pid.to_string();
+                                            move |this, cx| {
+                                                if Command::new("kill")
+                                                    .arg("-9")
+                                                    .arg(pid.clone())
+                                                    .output()
+                                                    .is_err()
+                                                {
+                                                    this.toast.error("Failed to kill process", cx);
+                                                } else {
+                                                    this.toast.success("Killed process", cx);
+                                                }
+                                                this.update();
                                             }
-                                            this.update();
-                                        }
-                                    },
-                                    false,
-                                )],
-                                None,
-                                None,
-                                None,
-                            )
-                        })
-                        .collect(),
-                ))
-            },
-            None,
-            Some(Duration::from_secs(5)),
-            update_receiver,
-            true,
-            cx,
-        )
-        .into()
+                                        },
+                                        false,
+                                    )],
+                                    None,
+                                    None,
+                                    None,
+                                )
+                            })
+                            .collect(),
+                    ))
+                },
+                None,
+                Some(Duration::from_secs(5)),
+                update_receiver,
+                cx,
+            )
+            .into()
     }
 }
 

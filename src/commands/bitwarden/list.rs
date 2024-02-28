@@ -23,7 +23,7 @@ use url::Url;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, AsyncListItems, Item, List, ListItem},
+        list::{Accessory, AsyncListItems, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     db::Db,
@@ -82,7 +82,7 @@ impl StateViewBuilder for BitwardenListBuilder {
         );
         AsyncListItems::loader(&self.view, &actions, cx);
         let view = self.view.clone();
-        List::new(
+        ListBuilder::new().build(
             query,
             &actions,
             move |list, _, cx| {
@@ -97,7 +97,6 @@ impl StateViewBuilder for BitwardenListBuilder {
             None,
             Some(Duration::from_secs(1)),
             update_receiver,
-            true,
             cx,
         )
         .into()

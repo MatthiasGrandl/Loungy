@@ -12,7 +12,7 @@ use matrix_sdk::{
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{AsyncListItems, Item, List, ListItem},
+        list::{AsyncListItems, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask},
     },
     query::TextInputWeak,
@@ -64,30 +64,30 @@ impl StateViewBuilder for RoomList {
 
         AsyncListItems::loader(&self.view, &actions, cx);
         let view = self.view.clone();
-        List::new(
-            query,
-            &actions,
-            move |list, _, cx| {
-                let account = list.actions.get_dropdown_value(cx);
-                let items = view.read(cx).items.clone();
-                let mut items = if account.is_empty() {
-                    items.values().flatten().cloned().collect()
-                } else {
-                    items.get(&account).cloned().unwrap_or_default()
-                };
-                items.sort_unstable_by_key(|item| {
-                    let timestamp = item.meta.value().downcast_ref::<u64>().cloned().unwrap();
-                    Reverse(timestamp)
-                });
-                Ok(Some(items))
-            },
-            None,
-            Some(Duration::from_secs(1)),
-            update_receiver,
-            true,
-            cx,
-        )
-        .into()
+        ListBuilder::new()
+            .build(
+                query,
+                &actions,
+                move |list, _, cx| {
+                    let account = list.actions.get_dropdown_value(cx);
+                    let items = view.read(cx).items.clone();
+                    let mut items = if account.is_empty() {
+                        items.values().flatten().cloned().collect()
+                    } else {
+                        items.get(&account).cloned().unwrap_or_default()
+                    };
+                    items.sort_unstable_by_key(|item| {
+                        let timestamp = item.meta.value().downcast_ref::<u64>().cloned().unwrap();
+                        Reverse(timestamp)
+                    });
+                    Ok(Some(items))
+                },
+                None,
+                Some(Duration::from_secs(1)),
+                update_receiver,
+                cx,
+            )
+            .into()
     }
 }
 

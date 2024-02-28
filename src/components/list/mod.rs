@@ -241,24 +241,67 @@ impl RenderOnce for Item {
     }
 }
 
+pub struct ListBuilder {
+    reverse: bool,
+    update_actions: bool,
+}
+
+impl ListBuilder {
+    pub fn new() -> Self {
+        Self {
+            reverse: false,
+            update_actions: true,
+        }
+    }
+    pub fn disable_action_updates(&mut self) -> &mut Self {
+        self.update_actions = false;
+        self
+    }
+    pub fn reverse(&mut self) -> &mut Self {
+        self.reverse = true;
+        self
+    }
+    pub fn build(
+        &self,
+        query: &TextInputWeak,
+        actions: &ActionsModel,
+        update: impl Fn(&mut List, bool, &mut ViewContext<List>) -> anyhow::Result<Option<Vec<Item>>>
+            + 'static,
+        filter: Option<Box<dyn Fn(&mut List, &mut ViewContext<List>) -> Vec<Item>>>,
+        interval: Option<Duration>,
+        update_receiver: Receiver<bool>,
+        cx: &mut WindowContext,
+    ) -> View<List> {
+        List::new(
+            query,
+            actions,
+            update,
+            filter,
+            interval,
+            update_receiver,
+            self.update_actions,
+            self.reverse,
+            cx,
+        )
+    }
+}
+
 pub struct List {
     state: ListState,
     selected: Model<u64>,
-    update_actions: bool,
-    selection_sender: Sender<u64>,
     pub actions: ActionsModel,
     pub items_all: Vec<Item>,
-    pub items: Vec<Item>,
+    pub items: Model<Vec<Item>>,
     pub query: TextInputWeak,
     pub update:
         Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
     pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
     preview: Option<(u64, f32, StateItem)>,
-    alignment: ListAlignment,
+    reverse: bool,
 }
 
 impl Render for List {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let (width, preview) = self
             .preview
             .as_ref()
@@ -270,7 +313,7 @@ impl Render for List {
             })
             .unwrap_or((relative(1.0), div()));
 
-        if self.items.len() == 0 {
+        if self.items.read(cx).len() == 0 {
             div()
         } else {
             div()
@@ -298,7 +341,7 @@ impl List {
         };
 
         self.selected.update(cx, |this, cx| {
-            *this = self.items[index].id;
+            *this = self.items.read(cx)[index].id;
 
             cx.notify();
         });
@@ -309,29 +352,34 @@ impl List {
             return;
         }
         let index = if let Some((index, _)) = self.selected(cx) {
-            if index < self.items.len() - 1 {
+            let i = self.items.read(cx).len() - 1;
+            if index < i {
                 index + 1
             } else {
-                self.items.len() - 1
+                i
             }
         } else {
             0
         };
         self.selected.update(cx, |this, cx| {
-            *this = self.items[index].id;
+            *this = self.items.read(cx)[index].id;
             cx.notify();
         });
         self.state.scroll_to_reveal_item(index);
     }
-    pub fn selected(&self, cx: &AppContext) -> Option<(usize, &Item)> {
+    pub fn selected(&self, cx: &AppContext) -> Option<(usize, Item)> {
         let id = self.selected.read(cx);
+
         self.items
-            .iter()
+            .read(cx)
+            .clone()
+            .into_iter()
             .enumerate()
             .find(|(_, item)| item.id.eq(id))
     }
-    pub fn default_action(&self, cx: &AppContext) -> Option<&Action> {
-        self.selected(cx).and_then(|(_, item)| item.actions.first())
+    pub fn default_action(&self, cx: &AppContext) -> Option<Action> {
+        self.selected(cx)
+            .and_then(|(_, item)| item.actions.first().cloned())
     }
     pub fn update(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
         let update_fn = std::mem::replace(&mut self.update, Box::new(|_, _, _| Ok(None)));
@@ -352,73 +400,42 @@ impl List {
     }
     pub fn filter(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
         let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
-        self.items = filter_fn(self, cx);
+        let items = filter_fn(self, cx);
         self.filter = filter_fn;
 
-        let items = self.items.clone();
-        let s = self.selected.clone();
-        let actions = self.actions.clone();
-        let sender = self.selection_sender.clone();
-
-        let scroll = self.state.logical_scroll_top().clone();
-        self.state = ListState::new(
-            self.items.len(),
-            self.alignment.clone(),
-            Pixels(20.0),
-            move |i, cx| {
-                let mut item = items[i].clone();
-                let selected = item.id.eq(s.read(cx));
-                item.selected = selected;
-                let action = item.actions.first().cloned();
-                let actions = actions.inner.upgrade();
-                if actions.is_none() {
-                    return div().into_any_element();
-                }
-                let actions = actions.unwrap().read(cx).clone();
-                let sender = sender.clone();
-                let id = item.id.clone();
-                div()
-                    .child(item)
-                    .on_mouse_down(MouseButton::Left, {
-                        move |ev, cx| match ev.click_count {
-                            1 => {
-                                let _ = sender.send(id);
-                            }
-                            2 => {
-                                let mut actions = actions.clone();
-                                if let Some(action) = &action {
-                                    (action.action)(&mut actions, cx);
-                                }
-                            }
-                            _ => {}
-                        }
-                    })
-                    .into_any_element()
-            },
-        );
-        if !no_scroll {
-            self.state.scroll_to(scroll);
-        }
-        cx.notify();
-        if self.selected(cx).is_none() {
-            self.change_alignment(self.alignment, cx);
-        }
-    }
-    pub fn change_alignment(&mut self, alignment: ListAlignment, cx: &mut ViewContext<Self>) {
-        self.alignment = alignment;
-        if self.items.is_empty() {
-            return;
-        }
-        let s = match self.alignment {
-            ListAlignment::Top => 0,
-            ListAlignment::Bottom => 1.max(self.items.len()) - 1,
-        };
-        self.selected.update(cx, |this, cx| {
-            *this = self.items[s].id;
+        let scroll = self.state.logical_scroll_top();
+        self.state.reset(items.len());
+        self.items.update(cx, |this, cx| {
+            *this = items;
             cx.notify();
         });
+        self.state.scroll_to(scroll);
+
+        cx.notify();
+        if self.selected(cx).is_none() {
+            self.reset_selection(cx);
+        }
     }
-    pub fn new(
+    pub fn reset_selection(&mut self, cx: &mut ViewContext<Self>) {
+        self.items.update(cx, |items, cx| {
+            if items.is_empty() {
+                return;
+            }
+            let s = match self.reverse {
+                false => 0,
+                true => 1.max(items.len()) - 1,
+            };
+            self.selected.update(cx, |this, cx| {
+                *this = items[s].id;
+                cx.notify();
+            });
+            self.state.scroll_to(ListOffset {
+                item_ix: s,
+                offset_in_item: Pixels(0.0),
+            })
+        });
+    }
+    fn new(
         query: &TextInputWeak,
         actions: &ActionsModel,
         update: impl Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>
@@ -427,16 +444,61 @@ impl List {
         interval: Option<Duration>,
         update_receiver: Receiver<bool>,
         update_actions: bool,
+        reverse: bool,
         cx: &mut WindowContext,
     ) -> View<Self> {
         let (selection_sender, r) = channel::<u64>();
+        let selected = cx.new_model(|_| 0);
+        let items: Model<Vec<Item>> = cx.new_model(|_| vec![]);
         let mut list = Self {
-            state: ListState::new(0, ListAlignment::Top, Pixels(20.0), move |_, _| {
-                div().into_any_element()
-            }),
-            selected: cx.new_model(|_| 0),
+            state: ListState::new(
+                0,
+                if reverse {
+                    ListAlignment::Bottom
+                } else {
+                    ListAlignment::Top
+                },
+                Pixels(20.0),
+                {
+                    let selected = selected.clone();
+                    let items = items.clone();
+                    let sender = selection_sender.clone();
+                    let actions = actions.clone();
+                    move |i, cx| {
+                        let mut item = items.read(cx)[i].clone();
+                        let selected = item.id.eq(selected.read(cx));
+                        item.selected = selected;
+                        let action = item.actions.first().cloned();
+                        let actions = actions.inner.upgrade();
+                        if actions.is_none() {
+                            return div().into_any_element();
+                        }
+                        let actions = actions.unwrap().read(cx).clone();
+                        let sender = sender.clone();
+                        let id = item.id.clone();
+                        div()
+                            .child(item)
+                            .on_mouse_down(MouseButton::Left, {
+                                move |ev, cx| match ev.click_count {
+                                    1 => {
+                                        let _ = sender.send(id);
+                                    }
+                                    2 => {
+                                        let mut actions = actions.clone();
+                                        if let Some(action) = &action {
+                                            (action.action)(&mut actions, cx);
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            })
+                            .into_any_element()
+                    }
+                },
+            ),
+            selected,
             items_all: vec![],
-            items: vec![],
+            items,
             actions: actions.clone(),
             query: query.clone(),
             update: Box::new(update),
@@ -444,14 +506,12 @@ impl List {
                 let text = this.query.get_text(cx);
                 fuzzy_match(&text, this.items_all.clone(), false)
             })),
-            update_actions,
-            selection_sender,
             preview: None,
-            alignment: ListAlignment::Top,
+            reverse,
         };
 
-        let view = cx.new_view(|cx| {
-            cx.observe(&list.selected, |this: &mut List, _, cx| {
+        let view = cx.new_view(move |cx| {
+            cx.observe(&list.selected, move |this: &mut List, _, cx| {
                 if let Some((_, selected)) = this.selected(cx) {
                     let preview = if let Some(preview) = selected.preview.as_ref() {
                         if !selected.id.eq(&this
@@ -467,7 +527,7 @@ impl List {
                     } else {
                         None
                     };
-                    if this.update_actions {
+                    if update_actions {
                         this.actions.update_local(
                             selected.actions.clone(),
                             preview.clone().map(|p| p.2),
@@ -476,7 +536,7 @@ impl List {
                     }
                     this.preview = preview;
                 } else {
-                    if this.update_actions {
+                    if update_actions {
                         this.actions.clear_local(cx);
                     }
                     this.preview = None;
@@ -535,7 +595,7 @@ impl List {
                     TextEvent::Input { text: _ } => {
                         clone.update(cx, |this, cx| {
                             this.filter(true, cx);
-                            this.change_alignment(this.alignment, cx);
+                            this.reset_selection(cx);
                         });
                     }
                     TextEvent::KeyDown(ev) => match ev.keystroke.key.as_str() {

@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap};
+use std::{collections::HashMap, future::IntoFuture};
 
 use async_compat::CompatExt;
 use gpui::*;
@@ -8,6 +8,8 @@ use matrix_sdk::{
     ruma::{
         api::client::sync::sync_events::v4::RoomSubscription,
         events::{
+            reaction::ReactionEventContent,
+            relation::Annotation,
             room::{
                 message::{
                     MessageType, Relation, RoomMessageEventContent,
@@ -20,14 +22,14 @@ use matrix_sdk::{
         },
         OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt,
     },
-    Client, RoomMemberships, SlidingSync,
+    Client, Room, RoomMemberships, SlidingSync,
 };
 use time::format_description;
 use url::Url;
 
 use crate::{
     components::{
-        list::{AsyncListItems, Item, List},
+        list::{AsyncListItems, Item, List, ListBuilder},
         shared::{Icon, Img, ImgMask, NoView},
     },
     query::TextInputWeak,
@@ -46,10 +48,35 @@ pub(super) struct ChatRoom {
     pub(super) room_id: OwnedRoomId,
 }
 
+pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) -> () {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
+    where
+        Self: 'a;
+}
+
+impl<F> OnMouseDown for F
+where
+    F: Fn(&MouseDownEvent, &mut WindowContext) -> () + Clone,
+{
+    fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
+    where
+        Self: 'a,
+    {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + OnMouseDown> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
 #[derive(Clone)]
 pub(super) struct Reaction {
     count: u16,
     me: Option<String>,
+    on_mouse_down: Box<dyn OnMouseDown>,
 }
 
 #[derive(Clone, IntoElement)]
@@ -85,6 +112,7 @@ impl RenderOnce for Reactions {
                             .font_weight(FontWeight::BOLD)
                             .child(reaction.count.to_string()),
                     )
+                    .on_mouse_down(MouseButton::Left, reaction.on_mouse_down.clone())
             }))
     }
 }
@@ -324,12 +352,11 @@ async fn sync(
 
     let server = client.homeserver();
 
-    let members = client
+    let r = client
         .get_room(&room_id)
-        .ok_or(anyhow::Error::msg("Room not found"))?
-        .members_no_sync(RoomMemberships::all())
-        .compat()
-        .await?;
+        .ok_or(anyhow::Error::msg("Room not found"))?;
+
+    let members = r.members_no_sync(RoomMemberships::all()).compat().await?;
 
     let me = client.user_id().unwrap();
     let mut member_map: HashMap<OwnedUserId, RoomMember> = HashMap::new();
@@ -338,9 +365,9 @@ async fn sync(
     }
 
     let mut prev: Option<OriginalSyncMessageLikeEvent<RoomMessageEventContent>> = None;
-    let mut messages: HashMap<String, Message> = HashMap::new();
+    let mut messages: HashMap<OwnedEventId, Message> = HashMap::new();
     let mut timeline = room.timeline_queue().into_iter();
-    let mut reactions: HashMap<OwnedEventId, (String, String, bool)> = HashMap::new();
+    let mut reactions: HashMap<OwnedEventId, (OwnedEventId, String, bool)> = HashMap::new();
 
     while let Some(ev) = timeline.next() {
         let m = ev.event.deserialize_as::<AnySyncTimelineEvent>();
@@ -353,7 +380,7 @@ async fn sync(
                 AnySyncMessageLikeEvent::Reaction(e) => match e {
                     matrix_sdk::ruma::events::SyncMessageLikeEvent::Original(e) => {
                         let emoji = e.content.relates_to.key;
-                        let id = e.content.relates_to.event_id.to_string();
+                        let id = e.content.relates_to.event_id;
                         let me = e.sender.to_string().eq(&me.to_string());
                         reactions.insert(e.event_id, (id, emoji, me));
                     }
@@ -363,7 +390,7 @@ async fn sync(
                     SyncRoomRedactionEvent::Original(e) => {
                         if let Some(id) = e.content.redacts {
                             _ = reactions.remove(&id);
-                            _ = messages.remove(&id.to_string());
+                            _ = messages.remove(&id);
                         }
                     }
                     _ => {}
@@ -372,7 +399,7 @@ async fn sync(
                     matrix_sdk::ruma::events::SyncMessageLikeEvent::Original(e) => {
                         let in_reply_to = match e.content.clone().relates_to {
                             Some(Relation::Replacement(r)) => {
-                                if let Some(m) = messages.get_mut(&r.event_id.to_string()) {
+                                if let Some(m) = messages.get_mut(&r.event_id) {
                                     m.edited = true;
                                     m.content = get_content(r.new_content, server.clone());
                                 };
@@ -385,7 +412,7 @@ async fn sync(
                         };
                         let clone = e.clone();
                         let sender = e.sender.clone();
-                        let id = e.event_id.to_string();
+                        let id = e.event_id;
                         let me = me.to_string().eq(&sender);
                         let (sender, avatar) = member_map
                             .clone()
@@ -410,7 +437,7 @@ async fn sync(
                         let mut first = true;
                         if let Some(p) = prev {
                             if p.sender != e.sender {
-                                if let Some(m) = messages.get_mut(&p.event_id.to_string()) {
+                                if let Some(m) = messages.get_mut(&p.event_id) {
                                     m.last = true;
                                 }
                             } else {
@@ -422,8 +449,8 @@ async fn sync(
                         messages.insert(
                             id.clone(),
                             Message {
-                                id,
-                                room_id,
+                                id: id.to_string(),
+                                room_id: room_id.clone(),
                                 timestamp: e.origin_server_ts.as_secs().into(),
                                 content,
                                 sender,
@@ -447,22 +474,66 @@ async fn sync(
         }
     }
     if let Some(p) = prev {
-        if let Some(m) = messages.get_mut(&p.event_id.to_string()) {
+        if let Some(m) = messages.get_mut(&p.event_id) {
             m.last = true;
         }
     }
 
     reactions.into_iter().for_each(|(eid, (id, emoji, me))| {
         if let Some(m) = messages.get_mut(&id) {
+            let on_mouse_down: Box<dyn OnMouseDown> = {
+                let room = r.clone();
+                let id = id.clone();
+                let reaction_id = eid.clone();
+                let emoji = emoji.clone();
+                if me {
+                    Box::new({
+                        move |_, cx| {
+                            let reaction_id = reaction_id.clone();
+                            let room = room.clone();
+                            cx.spawn(move |_| async move {
+                                let _ = room
+                                    .redact(&reaction_id, None, None)
+                                    .into_future()
+                                    .compat()
+                                    .await;
+                            })
+                            .detach();
+                        }
+                    })
+                } else {
+                    Box::new({
+                        move |_, cx| {
+                            let room = room.clone();
+                            let id = id.clone();
+                            let emoji = emoji.clone();
+                            cx.spawn(move |_| async move {
+                                eprintln!("Reaction clicked not me");
+                                let content = ReactionEventContent::new(Annotation::new(
+                                    id.clone(),
+                                    emoji.clone(),
+                                ));
+                                let _ = room.send(content).into_future().compat().await;
+                            })
+                            .detach();
+                        }
+                    })
+                }
+            };
             match m.reactions.inner.get_mut(&emoji) {
                 Some(r) => {
                     r.count += 1;
                     if me {
                         r.me = Some(eid.to_string());
+                        r.on_mouse_down = on_mouse_down;
                     }
                 }
                 None => {
-                    let mut reaction = Reaction { count: 1, me: None };
+                    let mut reaction = Reaction {
+                        count: 1,
+                        me: None,
+                        on_mouse_down,
+                    };
                     if me {
                         reaction.me = Some(eid.to_string());
                     };
@@ -557,7 +628,7 @@ impl StateViewBuilder for ChatRoom {
 
         AsyncListItems::loader(&view, &actions, cx);
 
-        let list = List::new(
+        let list = ListBuilder::new().reverse().build(
             query,
             &actions,
             move |_, _, cx| {
@@ -587,12 +658,8 @@ impl StateViewBuilder for ChatRoom {
             })),
             None,
             update_receiver,
-            true,
             cx,
         );
-        list.update(cx, |this, cx| {
-            this.change_alignment(ListAlignment::Bottom, cx);
-        });
 
         list.into()
     }

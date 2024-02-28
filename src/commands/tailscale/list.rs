@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, List, ListItem},
+        list::{Accessory, Item, List, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     query::{TextInput, TextInputWeak},
@@ -59,126 +59,130 @@ impl StateViewBuilder for TailscaleListBuilder {
             vec![("online", "Hide Offline"), ("offline", "Show Offline")],
             cx,
         );
-        List::new(
-            query,
-            &actions,
-            |this, _, cx| {
-                let offline = "offline"
-                    .to_string()
-                    .eq(&this.actions.get_dropdown_value(cx));
-                let theme = cx.global::<Theme>().clone();
-                let status = Command::new("tailscale")
-                    .arg("status")
-                    .arg("--json")
-                    .output()?
-                    .stdout;
-                let json = serde_json::from_slice::<Status>(&status)?;
+        ListBuilder::new()
+            .build(
+                query,
+                &actions,
+                |this, _, cx| {
+                    let offline = "offline"
+                        .to_string()
+                        .eq(&this.actions.get_dropdown_value(cx));
+                    let theme = cx.global::<Theme>().clone();
+                    let status = Command::new("tailscale")
+                        .arg("status")
+                        .arg("--json")
+                        .output()?
+                        .stdout;
+                    let json = serde_json::from_slice::<Status>(&status)?;
 
-                let mut items: Vec<Item> = json
-                    .peer
-                    .values()
-                    .filter_map(|p| {
-                        if !offline && !p.online {
-                            return None;
-                        }
-                        let name = p.dns_name.split('.').next().unwrap();
-                        let (tag, color) = match p.online {
-                            true => ("Connected".to_string(), theme.green),
-                            false => (
-                                format!("Last seen: {}", p.last_seen.date().to_string()),
-                                theme.surface0,
-                            ),
-                        };
-                        let ip = p.tailscale_ips.first().unwrap();
-                        let ipv6 = p.tailscale_ips.last().unwrap();
-                        let url = format!("https://{}", &ip);
-                        Some(Item::new(
-                            p.id.clone(),
-                            vec![name],
-                            cx.new_view(|_| {
-                                ListItem::new(
-                                    Some(Img::list_dot(color)),
-                                    name,
-                                    Some(p.os.to_string()),
-                                    vec![Accessory::Tag { tag, img: None }],
-                                )
-                            })
-                            .into(),
-                            None,
-                            vec![
-                                Action::new(
-                                    Img::list_icon(Icon::ArrowUpRightFromSquare, None),
-                                    "Open",
-                                    None,
-                                    move |this, cx| {
-                                        cx.open_url(&url.clone());
-                                        this.toast.floating(
-                                            "Opened peer in browser",
-                                            Some(Icon::ArrowUpRightFromSquare),
-                                            cx,
-                                        )
-                                    },
-                                    false,
+                    let mut items: Vec<Item> = json
+                        .peer
+                        .values()
+                        .filter_map(|p| {
+                            if !offline && !p.online {
+                                return None;
+                            }
+                            let name = p.dns_name.split('.').next().unwrap();
+                            let (tag, color) = match p.online {
+                                true => ("Connected".to_string(), theme.green),
+                                false => (
+                                    format!("Last seen: {}", p.last_seen.date().to_string()),
+                                    theme.surface0,
                                 ),
-                                Action::new(
-                                    Img::list_icon(Icon::Clipboard, None),
-                                    "Copy IPv4",
-                                    Some(Shortcut::cmd("c")),
-                                    {
-                                        let ip = ip.clone();
+                            };
+                            let ip = p.tailscale_ips.first().unwrap();
+                            let ipv6 = p.tailscale_ips.last().unwrap();
+                            let url = format!("https://{}", &ip);
+                            Some(Item::new(
+                                p.id.clone(),
+                                vec![name],
+                                cx.new_view(|_| {
+                                    ListItem::new(
+                                        Some(Img::list_dot(color)),
+                                        name,
+                                        Some(p.os.to_string()),
+                                        vec![Accessory::Tag { tag, img: None }],
+                                    )
+                                })
+                                .into(),
+                                None,
+                                vec![
+                                    Action::new(
+                                        Img::list_icon(Icon::ArrowUpRightFromSquare, None),
+                                        "Open",
+                                        None,
                                         move |this, cx| {
-                                            cx.write_to_clipboard(ClipboardItem::new(ip.clone()));
+                                            cx.open_url(&url.clone());
                                             this.toast.floating(
-                                                "Copied IPv4 to Clipboard",
-                                                Some(Icon::Clipboard),
+                                                "Opened peer in browser",
+                                                Some(Icon::ArrowUpRightFromSquare),
                                                 cx,
                                             )
-                                        }
-                                    },
-                                    false,
-                                ),
-                                Action::new(
-                                    Img::list_icon(Icon::Clipboard, None),
-                                    "Copy IPv6",
-                                    Some(Shortcut::new(Keystroke {
-                                        modifiers: Modifiers {
-                                            command: true,
-                                            shift: true,
-                                            ..Modifiers::default()
                                         },
-                                        key: "c".to_string(),
-                                        ime_key: None,
-                                    })),
-                                    {
-                                        let ip = ipv6.clone();
-                                        move |this, cx| {
-                                            cx.write_to_clipboard(ClipboardItem::new(ip.clone()));
-                                            this.toast.floating(
-                                                "Copied IPv6 to Clipboard",
-                                                Some(Icon::Clipboard),
-                                                cx,
-                                            )
-                                        }
-                                    },
-                                    false,
-                                ),
-                            ],
-                            None,
-                            None,
-                            None,
-                        ))
-                    })
-                    .collect();
-                items.sort_unstable_by_key(|i| i.keywords.first().unwrap().clone());
-                Ok(Some(items))
-            },
-            None,
-            Some(Duration::from_secs(10)),
-            update_receiver,
-            true,
-            cx,
-        )
-        .into()
+                                        false,
+                                    ),
+                                    Action::new(
+                                        Img::list_icon(Icon::Clipboard, None),
+                                        "Copy IPv4",
+                                        Some(Shortcut::cmd("c")),
+                                        {
+                                            let ip = ip.clone();
+                                            move |this, cx| {
+                                                cx.write_to_clipboard(ClipboardItem::new(
+                                                    ip.clone(),
+                                                ));
+                                                this.toast.floating(
+                                                    "Copied IPv4 to Clipboard",
+                                                    Some(Icon::Clipboard),
+                                                    cx,
+                                                )
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                    Action::new(
+                                        Img::list_icon(Icon::Clipboard, None),
+                                        "Copy IPv6",
+                                        Some(Shortcut::new(Keystroke {
+                                            modifiers: Modifiers {
+                                                command: true,
+                                                shift: true,
+                                                ..Modifiers::default()
+                                            },
+                                            key: "c".to_string(),
+                                            ime_key: None,
+                                        })),
+                                        {
+                                            let ip = ipv6.clone();
+                                            move |this, cx| {
+                                                cx.write_to_clipboard(ClipboardItem::new(
+                                                    ip.clone(),
+                                                ));
+                                                this.toast.floating(
+                                                    "Copied IPv6 to Clipboard",
+                                                    Some(Icon::Clipboard),
+                                                    cx,
+                                                )
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                ],
+                                None,
+                                None,
+                                None,
+                            ))
+                        })
+                        .collect();
+                    items.sort_unstable_by_key(|i| i.keywords.first().unwrap().clone());
+                    Ok(Some(items))
+                },
+                None,
+                Some(Duration::from_secs(10)),
+                update_receiver,
+                cx,
+            )
+            .into()
     }
 }
 
