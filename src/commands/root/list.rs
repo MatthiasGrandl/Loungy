@@ -10,8 +10,8 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    paths::{paths},
-    query::{TextInputWeak},
+    paths::paths,
+    query::TextInputWeak,
     state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
 };
@@ -173,6 +173,7 @@ impl StateViewBuilder for RootListBuilder {
                                     .to_string_lossy()
                                     .to_string();
                                 let app = Item::new(
+                                    name.clone(),
                                     vec![name.clone()],
                                     cx.new_view(|_cx| {
                                         ListItem::new(
