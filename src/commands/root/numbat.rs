@@ -59,8 +59,8 @@ impl Numbat {
                                     let s: Vec<String> = statements
                                         .iter()
                                         .map(|s| {
-                                            let s = formatter.format(&s.pretty_print(), false);
-                                            s
+                                            
+                                            formatter.format(&s.pretty_print(), false)
                                         })
                                         .collect();
                                     let s = s.join(" ");
@@ -89,16 +89,12 @@ impl Numbat {
                                             _ => {}
                                         }
                                     }
-                                    if let Some(value) = value {
-                                        Some(NumbatResult {
+                                    value.map(|value| NumbatResult {
                                             result: value,
                                             unit: unit.unwrap_or_default(),
                                             type_id: type_id.unwrap_or_default(),
-                                            equation: s.replace("➞", "to"),
+                                            equation: s.replace('➞', "to"),
                                         })
-                                    } else {
-                                        None
-                                    }
                                 }
                                 Err(_e) => {
                                     //eprintln!("{:#?}", e);

@@ -10,7 +10,7 @@ use crate::{
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
 };
 
@@ -93,7 +93,6 @@ impl RootCommands {
         let commands = cx.global::<Self>().commands.clone();
         let items: Vec<Item> = commands
             .values()
-            .into_iter()
             .map(|command| {
                 let mut keywords = vec![command.title.clone(), command.subtitle.clone()];
                 keywords.append(&mut command.keywords.clone());
@@ -107,8 +106,7 @@ impl RootCommands {
                             Some(command.subtitle.clone()),
                             command
                                 .shortcut
-                                .clone()
-                                .and_then(|shortcut| Some(vec![Accessory::shortcut(shortcut)]))
+                                .clone().map(|shortcut| vec![Accessory::shortcut(shortcut)])
                                 .unwrap_or(vec![Accessory::new("Command", None)]),
                         )
                     })
@@ -165,7 +163,7 @@ impl StateViewBuilder for HotkeyBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         let id = self.id.clone();
-        let value = HotkeyManager::get(&id).map(|hotkey| Shortcut::new(hotkey));
+        let value = HotkeyManager::get(&id).map(Shortcut::new);
         Form::new(
             vec![Input::new(
                 "hotkey",
@@ -185,13 +183,11 @@ impl StateViewBuilder for HotkeyBuilder {
                     } else {
                         actions.toast.success("Hotkey set", cx);
                     }
+                } else if let Err(err) = HotkeyManager::unset(&id, cx) {
+                    error!("Failed to unset hotkey: {}", err);
+                    actions.toast.error("Failed to unset hotkey", cx);
                 } else {
-                    if let Err(err) = HotkeyManager::unset(&id, cx) {
-                        error!("Failed to unset hotkey: {}", err);
-                        actions.toast.error("Failed to unset hotkey", cx);
-                    } else {
-                        actions.toast.success("Hotkey unset", cx);
-                    }
+                    actions.toast.success("Hotkey unset", cx);
                 }
                 // let shortcut = values["hotkey"].value::<Option<Shortcut>>().unwrap();
                 // if let Some(shortcut) = shortcut {

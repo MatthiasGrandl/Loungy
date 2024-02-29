@@ -37,7 +37,7 @@ impl Input {
         self.error = match &self.kind {
             InputKind::TextField {
                 value, validate, ..
-            } => validate.map(|f| f(&value)).flatten().map(|s| s.to_string()),
+            } => validate.map(|f| f(value)).flatten().map(|s| s.to_string()),
             _ => None,
         }
     }
@@ -63,7 +63,7 @@ impl Render for InputView {
         //cx.focus(&self.focus_handle);
         let theme = cx.global::<Theme>();
         let fm = self.focus_model.clone();
-        let index = self.index.clone();
+        let index = self.index;
 
         div()
             .flex()
@@ -137,12 +137,10 @@ impl Render for InputView {
                             } => {
                                 if value.is_empty() {
                                     placeholder.into_any_element()
+                                } else if password {
+                                    "•".repeat(value.len()).into_any_element()
                                 } else {
-                                    if password {
-                                        "•".repeat(value.len()).into_any_element()
-                                    } else {
-                                        value.into_any_element()
-                                    }
+                                    value.into_any_element()
                                 }
                             }
                             InputKind::Shortcut { value, .. } => {
@@ -369,7 +367,7 @@ pub enum InputKind {
     },
 }
 
-pub trait SubmitFn: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) -> () {
+pub trait SubmitFn: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) {
     fn clone_box<'a>(&self) -> Box<dyn 'a + SubmitFn>
     where
         Self: 'a;
@@ -377,7 +375,7 @@ pub trait SubmitFn: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext)
 
 impl<F> SubmitFn for F
 where
-    F: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) -> () + Clone,
+    F: Fn(HashMap<String, Input>, &mut Actions, &mut WindowContext) + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + SubmitFn>
     where

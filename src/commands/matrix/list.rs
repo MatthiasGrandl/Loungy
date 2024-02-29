@@ -11,7 +11,7 @@ use matrix_sdk::{
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{AsyncListItems, Item, List, ListBuilder, ListItem},
+        list::{AsyncListItems, Item, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask},
     },
     query::TextInputWeak,

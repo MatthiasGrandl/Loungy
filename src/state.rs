@@ -400,8 +400,8 @@ impl StateModel {
         if !cx.has_global::<Self>() {
             return;
         }
-        cx.update_global::<Self, _>(|mut this, cx| {
-            f(&mut this, cx);
+        cx.update_global::<Self, _>(|this, cx| {
+            f(this, cx);
             this.update_loader(None, cx)
         });
     }
@@ -409,8 +409,8 @@ impl StateModel {
         f: impl FnOnce(&mut Self, &mut WindowContext),
         cx: &mut AsyncWindowContext,
     ) {
-        let _ = cx.update_global::<Self, _>(|mut this, cx| {
-            f(&mut this, cx);
+        let _ = cx.update_global::<Self, _>(|this, cx| {
+            f(this, cx);
         });
     }
     pub fn pop(&self, cx: &mut WindowContext) {
@@ -446,7 +446,7 @@ impl StateModel {
         });
     }
     pub fn update_loader(&self, loader: Option<WeakModel<Loading>>, cx: &mut WindowContext) {
-        self.loader.update(cx, |this, cx| {
+        self.loader.update(cx, |this, _cx| {
             if let Some(loader) = loader {
                 this.inner.push(loader);
             }
@@ -458,7 +458,7 @@ impl Global for StateModel {}
 
 // Actions
 
-pub trait CloneableFn: Fn(&mut Actions, &mut WindowContext) -> () {
+pub trait CloneableFn: Fn(&mut Actions, &mut WindowContext) {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
         Self: 'a;
@@ -466,7 +466,7 @@ pub trait CloneableFn: Fn(&mut Actions, &mut WindowContext) -> () {
 
 impl<F> CloneableFn for F
 where
-    F: Fn(&mut Actions, &mut WindowContext) -> () + Clone,
+    F: Fn(&mut Actions, &mut WindowContext) + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
     where
@@ -595,27 +595,27 @@ impl RenderOnce for Shortcut {
                 el = key_icon(el, Icon::ArrowRight);
             }
             "comma" => {
-                el = key_string(el, &theme, ",");
+                el = key_string(el, theme, ",");
             }
             "dot" => {
-                el = key_string(el, &theme, ".");
+                el = key_string(el, theme, ".");
             }
             "questionmark" => {
-                el = key_string(el, &theme, "?");
+                el = key_string(el, theme, "?");
             }
             "exclamationmark" => {
-                el = key_string(el, &theme, "!");
+                el = key_string(el, theme, "!");
             }
             "slash" => {
-                el = key_string(el, &theme, "/");
+                el = key_string(el, theme, "/");
             }
             "backslash" => {
-                el = key_string(el, &theme, "\\");
+                el = key_string(el, theme, "\\");
             }
             _ => {
                 el = key_string(
                     el,
-                    &theme,
+                    theme,
                     shortcut.ime_key.unwrap_or(shortcut.key).to_uppercase(),
                 );
             }
@@ -836,7 +836,7 @@ impl Actions {
         self.dropdown.update(cx, |this, cx| {
             let value = value.to_string();
             if !value.is_empty() {
-                if this.items.iter().find(|item| item.0.eq(&value)).is_some() {
+                if this.items.iter().any(|item| item.0.eq(&value)) {
                     this.value = value;
                     cx.notify();
                 };
@@ -849,7 +849,7 @@ impl Actions {
     }
     pub fn dropdown_cycle(&mut self, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
-            if this.items.len() == 0 {
+            if this.items.is_empty() {
                 return;
             }
             let index = this
@@ -872,7 +872,7 @@ impl Render for Actions {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let combined = self.combined(cx).clone();
         let theme = cx.global::<theme::Theme>();
-        if let Some(action) = combined.get(0) {
+        if let Some(action) = combined.first() {
             let open = combined.last().unwrap().clone();
             div()
                 .ml_auto()
@@ -966,7 +966,7 @@ impl ActionsModel {
                     TextEvent::KeyDown(ev) => {
                         let key = "enter";
                         if Shortcut::simple(key).inner.eq(&ev.keystroke) {
-                            let _ = list_clone.update(cx, |this2, cx| {
+                            list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
                                 }

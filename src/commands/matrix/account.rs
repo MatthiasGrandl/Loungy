@@ -1,13 +1,12 @@
-use std::{str::FromStr, sync::mpsc::Receiver};
+use std::{sync::mpsc::Receiver};
 
 use gpui::*;
 use log::error;
-use matrix_sdk::{matrix_auth::MatrixAuth, ruma::OwnedUserId, Client};
+
 
 use crate::{
     components::form::{Form, Input, InputKind},
-    paths::NAME,
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{ActionsModel, StateViewBuilder},
 };
 

@@ -58,7 +58,7 @@ impl Window {
         });
     }
     pub fn open(cx: &mut WindowContext) {
-        let _ = cx.update_global::<Self, _>(|this, cx| {
+        cx.update_global::<Self, _>(|this, cx| {
             if this.hidden {
                 cx.activate_window();
                 this.hidden = false;

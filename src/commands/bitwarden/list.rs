@@ -23,12 +23,12 @@ use url::Url;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, AsyncListItems, Item, List, ListBuilder, ListItem},
+        list::{Accessory, AsyncListItems, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     db::Db,
     paths::paths,
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{autofill, keytap},
     window::Window,

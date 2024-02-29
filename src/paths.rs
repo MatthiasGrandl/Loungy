@@ -34,5 +34,5 @@ impl Paths {
 
 pub fn paths() -> &'static Paths {
     static PATHS: OnceLock<Paths> = OnceLock::new();
-    PATHS.get_or_init(|| Paths::new())
+    PATHS.get_or_init(Paths::new)
 }

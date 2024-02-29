@@ -25,7 +25,7 @@ pub struct Db {
 
 pub fn db() -> &'static Db {
     static DB: OnceLock<Db> = OnceLock::new();
-    DB.get_or_init(|| Db::new())
+    DB.get_or_init(Db::new)
 }
 
 impl Db {
@@ -51,10 +51,10 @@ impl Db {
         storage
             .register_schema::<C>()
             .expect("Failed to register schema");
-        let db = storage
+        
+        storage
             .create_database::<C>(&C::collection_name().to_string(), true)
-            .expect("Failed to open database");
-        db
+            .expect("Failed to open database")
     }
     pub fn get<T: de::DeserializeOwned>(&self, id: &str) -> Option<T> {
         if let Ok(value) = self.inner.get_key(id).into() {

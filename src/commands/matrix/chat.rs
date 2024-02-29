@@ -21,14 +21,14 @@ use matrix_sdk::{
         },
         OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt,
     },
-    Client, Room, RoomMemberships, SlidingSync,
+    Client, RoomMemberships, SlidingSync,
 };
 use time::format_description;
 use url::Url;
 
 use crate::{
     components::{
-        list::{AsyncListItems, Item, List, ListBuilder},
+        list::{AsyncListItems, Item, ListBuilder},
         shared::{Icon, Img, ImgMask, NoView},
     },
     query::TextInputWeak,
@@ -128,7 +128,7 @@ pub(super) enum MessageContent {
 }
 
 impl RenderOnce for MessageContent {
-    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+    fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
         match self {
             MessageContent::Text(t) => t.into_any_element(),
             MessageContent::Image(i) => img(i).w_64().h_48().into_any_element(),
@@ -164,6 +164,7 @@ fn human_duration(unix: u64) -> String {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub(super) struct Message {
     pub id: String,
     pub room_id: String,
@@ -267,12 +268,12 @@ impl Message {
             ),
         )
     }
-    fn actions(&self, client: &Client, cx: &mut AsyncWindowContext) -> Vec<Action> {
+    fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
         let mut actions = vec![Action::new(
             Img::list_icon(Icon::MessageCircleReply, None),
             "Reply",
             Some(Shortcut::cmd("r")),
-            move |_, cx| {
+            move |_, _cx| {
                 info!("Reply to message");
             },
             false,
@@ -283,7 +284,7 @@ impl Message {
                     Img::list_icon(Icon::MessageCircleMore, None),
                     "Edit",
                     Some(Shortcut::cmd("e")),
-                    move |_, cx| {
+                    move |_, _cx| {
                         info!("Edit message");
                     },
                     false,
@@ -292,7 +293,7 @@ impl Message {
                     Img::list_icon(Icon::MessageCircleDashed, None),
                     "Delete",
                     Some(Shortcut::cmd("backspace")),
-                    move |_, cx| {
+                    move |_, _cx| {
                         info!("Delete message");
                     },
                     false,

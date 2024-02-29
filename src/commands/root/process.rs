@@ -10,11 +10,11 @@ use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, List, ListBuilder, ListItem},
+        list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     paths::paths,
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, StateModel, StateViewBuilder},
     theme::Theme,
 };
@@ -80,9 +80,9 @@ impl StateViewBuilder for ProcessListBuilder {
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |this, _, cx| {
-                    let lavender = cx.global::<Theme>().lavender.clone();
+                    let lavender = cx.global::<Theme>().lavender;
                     let cache_dir = paths().cache.clone();
                     fs::create_dir_all(cache_dir.clone()).unwrap();
                     let ps = Command::new("ps")
@@ -94,7 +94,7 @@ impl StateViewBuilder for ProcessListBuilder {
 
                     let parsed: Vec<Process> = String::from_utf8(ps)
                         .unwrap()
-                        .split("\n")
+                        .split('\n')
                         .skip(1)
                         .filter_map(|line| Process::parse(line).ok())
                         .collect();
@@ -103,13 +103,11 @@ impl StateViewBuilder for ProcessListBuilder {
                     parsed.iter().for_each(|p| {
                         if p.ppid == 1 {
                             aggregated.insert(p.pid, p.clone());
-                        } else {
-                            if let Some(parent) = aggregated.get(&p.ppid) {
-                                let mut parent = parent.clone();
-                                parent.cpu += p.cpu;
-                                parent.mem += p.mem;
-                                aggregated.insert(p.ppid, parent);
-                            }
+                        } else if let Some(parent) = aggregated.get(&p.ppid) {
+                            let mut parent = parent.clone();
+                            parent.cpu += p.cpu;
+                            parent.mem += p.mem;
+                            aggregated.insert(p.ppid, parent);
                         }
                     });
                     let mut parsed = aggregated.values().cloned().collect::<Vec<Process>>();
@@ -141,14 +139,14 @@ impl StateViewBuilder for ProcessListBuilder {
                                 } {
                                     Some(d) => {
                                         let mut icon_path = cache_dir.clone();
-                                        icon_path.push(format!("{}.png", d.id.to_string()));
+                                        icon_path.push(format!("{}.png", d.id));
                                         (d.name.to_string(), Img::list_file(icon_path))
                                     }
                                     None => {
                                         let mut icon_path = cache_dir.clone();
                                         icon_path.push("com.apple.Terminal.png");
                                         (
-                                            p.name.split("/").last().unwrap().to_string(),
+                                            p.name.split('/').last().unwrap().to_string(),
                                             Img::list_file(icon_path),
                                         )
                                     }

@@ -1,7 +1,7 @@
 use gpui::*;
 
 use crate::components::shared::{Icon, Img};
-use crate::state::{ActiveLoaders, StateItem, StateModel};
+use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
 
 pub struct Workspace {
@@ -10,11 +10,11 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
-        let view = cx.new_view(|cx| {
+        
+        cx.new_view(|cx| {
             let state = StateModel::init(cx);
             Workspace { state }
-        });
-        view
+        })
     }
 }
 

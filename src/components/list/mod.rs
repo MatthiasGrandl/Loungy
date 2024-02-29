@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{channel, Receiver},
     time::Duration,
 };
 
@@ -13,7 +13,7 @@ use gpui::*;
 use log::debug;
 
 use crate::{
-    query::{TextEvent, TextInput, TextInputWeak},
+    query::{TextEvent, TextInputWeak},
     state::{Action, ActionsModel, Loading, Shortcut, StateItem},
     theme::Theme,
 };
@@ -313,7 +313,7 @@ impl Render for List {
             })
             .unwrap_or((relative(1.0), div()));
 
-        if self.items.read(cx).len() == 0 {
+        if self.items.read(cx).is_empty() {
             div()
         } else {
             div()
@@ -398,7 +398,7 @@ impl List {
             }
         }
     }
-    pub fn filter(&mut self, no_scroll: bool, cx: &mut ViewContext<Self>) {
+    pub fn filter(&mut self, _no_scroll: bool, cx: &mut ViewContext<Self>) {
         let filter_fn = std::mem::replace(&mut self.filter, Box::new(|_, _| vec![]));
         let items = filter_fn(self, cx);
         self.filter = filter_fn;
@@ -475,7 +475,7 @@ impl List {
                         }
                         let actions = actions.unwrap().read(cx).clone();
                         let sender = sender.clone();
-                        let id = item.id.clone();
+                        let id = item.id;
                         div()
                             .child(item)
                             .on_mouse_down(MouseButton::Left, {
@@ -517,10 +517,10 @@ impl List {
                         if !selected.id.eq(&this
                             .preview
                             .as_ref()
-                            .map(|p| p.0.clone())
+                            .map(|p| p.0)
                             .unwrap_or_default())
                         {
-                            Some((selected.id, preview.0.clone(), preview.1(cx)))
+                            Some((selected.id, preview.0, preview.1(cx)))
                         } else {
                             this.preview.clone()
                         }
@@ -560,17 +560,14 @@ impl List {
                         }
                         let triggered = update_receiver.try_recv().is_ok();
 
-                        if poll || triggered {
-                            if view
+                        if (poll || triggered) && view
                                 .update(&mut cx, |this: &mut Self, cx| {
                                     this.update(triggered, cx);
                                     last = std::time::Instant::now();
                                 })
-                                .is_err()
-                            {
-                                debug!("List view released");
-                                break;
-                            }
+                                .is_err() {
+                            debug!("List view released");
+                            break;
                         }
                         sleep(Duration::from_millis(50)).await;
                         // cx.background_executor()

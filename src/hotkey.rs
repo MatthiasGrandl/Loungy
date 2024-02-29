@@ -29,7 +29,7 @@ impl Global for HotkeyManager {}
 
 fn db() -> &'static Database {
     static DB: OnceLock<Database> = OnceLock::new();
-    DB.get_or_init(|| Db::init_collection::<CommandHotkeys>())
+    DB.get_or_init(Db::init_collection::<CommandHotkeys>)
 }
 
 impl HotkeyManager {
@@ -136,7 +136,7 @@ impl HotkeyManager {
         CommandHotkeys::get(&id.to_string(), db()).ok()?.map(|hk| {
             hk.contents
                 .hotkey
-                .split("+")
+                .split('+')
                 .fold(Keystroke::default(), |mut keystroke, token| {
                     match token {
                         "alt" => keystroke.modifiers.alt = true,

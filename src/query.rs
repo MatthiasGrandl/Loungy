@@ -64,7 +64,7 @@ impl TextInputWeak {
         if let Some(fh) = cx.focused() {
             return fh.eq(&self.focus_handle);
         }
-        return false;
+        false
     }
 }
 
@@ -222,7 +222,7 @@ impl RenderOnce for TextInput {
                                     let text = clipboard.text();
                                     editor.text.replace_range(
                                         editor.char_range_to_text_range(&editor.text),
-                                        &text,
+                                        text,
                                     );
                                     let i = editor.selection.start + text.chars().count();
                                     editor.selection = i..i;
@@ -240,7 +240,7 @@ impl RenderOnce for TextInput {
                             }
                             _ => {}
                         }
-                    } else if ev.keystroke.ime_key.clone().unwrap_or_default().len() > 0 {
+                    } else if !ev.keystroke.ime_key.clone().unwrap_or_default().is_empty() {
                         let ime_key = &ev.keystroke.ime_key.clone().unwrap_or_default();
                         editor
                             .text
@@ -270,7 +270,7 @@ impl RenderOnce for TextInput {
                                 }
                             }
                             "backspace" => {
-                                if editor.text.len() == 0 && !ev.is_held {
+                                if editor.text.is_empty() && !ev.is_held {
                                     cx.emit(TextEvent::Back);
                                 } else if editor.selection.start == editor.selection.end
                                     && editor.selection.start > 0
@@ -337,7 +337,7 @@ impl Render for TextView {
         let mut style = TextStyle::default();
         style.color = theme.text;
         style.font_family = theme.font_sans.clone();
-        if text.len() == 0 {
+        if text.is_empty() {
             text = self.placeholder.to_string();
             style.color = theme.subtext0;
             highlights = vec![];

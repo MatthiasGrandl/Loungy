@@ -5,11 +5,11 @@ use gpui::*;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Item, List, ListBuilder, ListItem},
+        list::{Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     db::db,
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::{Theme, ThemeSettings},
 };
@@ -28,7 +28,7 @@ impl StateViewBuilder for ThemeListBuilder {
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |_, _, cx| {
                     let themes = Theme::list();
                     Ok(Some(
@@ -80,12 +80,12 @@ impl StateViewBuilder for ThemeListBuilder {
                                                         .set::<ThemeSettings>("theme", &settings)
                                                         .is_err()
                                                     {
-                                                        let _ = this.toast.error(
+                                                        this.toast.error(
                                                             "Failed to change light theme",
                                                             cx,
                                                         );
                                                     } else {
-                                                        let _ = this
+                                                        this
                                                             .toast
                                                             .success("Changed light theme", cx);
                                                     }
@@ -110,12 +110,12 @@ impl StateViewBuilder for ThemeListBuilder {
                                                         .set::<ThemeSettings>("theme", &settings)
                                                         .is_err()
                                                     {
-                                                        let _ = this.toast.error(
+                                                        this.toast.error(
                                                             "Failed to change dark theme",
                                                             cx,
                                                         );
                                                     } else {
-                                                        let _ = this
+                                                        this
                                                             .toast
                                                             .success("Changed dark theme", cx);
                                                     }

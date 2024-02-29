@@ -9,10 +9,10 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         form::{Form, Input, InputKind},
-        list::{Accessory, Item, List, ListBuilder, ListItem},
+        list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::{TextInput, TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
 };
 

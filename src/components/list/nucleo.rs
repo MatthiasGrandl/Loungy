@@ -77,7 +77,7 @@ impl Score for Item {
             .map(|needle| pattern.score(Utf32Str::new(&needle, buf), matcher));
 
         // Consider using `filter_map` to avoid the inner `unwrap_or(None)`
-        let highest = scores.filter_map(|s| s).max();
+        let highest = scores.flatten().max();
 
         let weight = self.weight.unwrap_or(1);
         highest.map(|score| ((*self).clone(), score * weight)) // Cloning self to avoid borrowing issues

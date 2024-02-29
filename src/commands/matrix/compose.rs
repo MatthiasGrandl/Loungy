@@ -12,10 +12,11 @@ use matrix_sdk::{
 use crate::{
     components::shared::{Icon, Img, NoView},
     query::TextInputWeak,
-    state::{Action, ActionsModel, StateViewBuilder, Toast},
+    state::{Action, ActionsModel, StateViewBuilder},
 };
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub(super) enum ComposeKind {
     Message,
     Reply { event_id: OwnedEventId },
@@ -24,6 +25,7 @@ pub(super) enum ComposeKind {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub(super) struct Compose {
     client: Client,
     room_id: OwnedRoomId,

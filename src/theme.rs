@@ -188,7 +188,7 @@ impl Theme {
         };
         let mut themes: Vec<Theme> = catppuccin::Flavour::all()
             .into_iter()
-            .map(|f| Self::from(f))
+            .map(Self::from)
             .collect();
         themes.append(&mut user_themes);
 

@@ -6,10 +6,10 @@ use swift_rs::SRData;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, List, ListBuilder, ListItem},
+        list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::{TextInput, TextInputWeak},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     swift::{menu_item_select, menu_items, MenuItem},
 };
@@ -28,7 +28,7 @@ impl StateViewBuilder for MenuListBuilder {
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |_, _, cx| {
                     let data = unsafe { menu_items() };
                     if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {

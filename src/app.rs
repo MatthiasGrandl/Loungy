@@ -20,7 +20,7 @@ pub fn run_app(app: gpui::App) {
                 height: GlobalPixels::from(1080.0),
             },
         });
-        cx.open_window(WindowStyle::Main.options(bounds.clone()), |cx| {
+        cx.open_window(WindowStyle::Main.options(bounds), |cx| {
             RootCommands::init(cx);
             HotkeyManager::init(cx);
             let view = Workspace::build(cx);

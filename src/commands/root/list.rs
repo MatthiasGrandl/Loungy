@@ -7,11 +7,11 @@ use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder, RootCommands},
     components::{
-        list::{nucleo::fuzzy_match, Accessory, Item, List, ListBuilder, ListItem},
+        list::{nucleo::fuzzy_match, Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    paths::{paths, Paths},
-    query::{TextInput, TextInputWeak},
+    paths::{paths},
+    query::{TextInputWeak},
     state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
 };
@@ -30,12 +30,12 @@ impl StateViewBuilder for RootListBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         query.set_placeholder("Search for apps and commands...", cx);
-        let numbat = Numbat::init(&query, cx);
+        let numbat = Numbat::init(query, cx);
         let commands = RootCommands::list(cx);
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |_, _, cx| {
                     #[cfg(target_os = "macos")]
                     {
@@ -221,7 +221,7 @@ impl StateViewBuilder for RootListBuilder {
                     }
                     let query = query.unwrap().read(cx).text.clone();
                     let mut items = fuzzy_match(&query, items, false);
-                    if items.len() == 0 {
+                    if items.is_empty() {
                         if let Some(result) = numbat.read(cx).result.clone() {
                             items.push(Item::new(
                                 "Numbat",
