@@ -504,7 +504,6 @@ async fn sync(
                             let id = id.clone();
                             let emoji = emoji.clone();
                             cx.spawn(move |_| async move {
-                                eprintln!("Reaction clicked not me");
                                 let content = ReactionEventContent::new(Annotation::new(
                                     id.clone(),
                                     emoji.clone(),
