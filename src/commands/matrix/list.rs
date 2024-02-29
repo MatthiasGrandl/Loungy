@@ -1,6 +1,5 @@
 use std::{cmp::Reverse, collections::HashMap, time::Duration};
 
-use async_compat::CompatExt;
 use bonsaidb::core::schema::SerializedCollection;
 use futures::StreamExt;
 use gpui::*;
@@ -238,7 +237,7 @@ impl RootCommandBuilder for MatrixCommandBuilder {
             let db = db();
             let sessions = Session::all(db).query().unwrap_or_default();
             for session in sessions {
-                cx.spawn(move |view, cx| async { sync(session.contents, view, cx).compat().await })
+                cx.spawn(move |view, cx| async { sync(session.contents, view, cx).await })
                     .detach();
             }
 

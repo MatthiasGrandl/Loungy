@@ -1,6 +1,5 @@
 use std::{str::FromStr, sync::mpsc::Receiver};
 
-use async_compat::CompatExt;
 use gpui::*;
 use log::error;
 use matrix_sdk::{matrix_auth::MatrixAuth, ruma::OwnedUserId, Client};
@@ -57,10 +56,7 @@ impl StateViewBuilder for AccountCreationBuilder {
                 let actions = actions.clone();
                 cx.spawn(move |mut cx| async move {
                     let mut actions_clone = actions.clone();
-                    if let Err(err) = Session::login(username, password, actions, &mut cx)
-                        .compat()
-                        .await
-                    {
+                    if let Err(err) = Session::login(username, password, actions, &mut cx).await {
                         error!("Failed to login: {}", err);
                         actions_clone
                             .toast

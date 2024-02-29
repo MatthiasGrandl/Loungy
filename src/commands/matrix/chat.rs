@@ -1,6 +1,5 @@
 use std::{collections::HashMap, future::IntoFuture};
 
-use async_compat::CompatExt;
 use gpui::*;
 use log::{debug, error, info};
 use matrix_sdk::{
@@ -356,7 +355,7 @@ async fn sync(
         .get_room(&room_id)
         .ok_or(anyhow::Error::msg("Room not found"))?;
 
-    let members = r.members_no_sync(RoomMemberships::all()).compat().await?;
+    let members = r.members_no_sync(RoomMemberships::all()).await?;
 
     let me = client.user_id().unwrap();
     let mut member_map: HashMap<OwnedUserId, RoomMember> = HashMap::new();
@@ -492,11 +491,7 @@ async fn sync(
                             let reaction_id = reaction_id.clone();
                             let room = room.clone();
                             cx.spawn(move |_| async move {
-                                let _ = room
-                                    .redact(&reaction_id, None, None)
-                                    .into_future()
-                                    .compat()
-                                    .await;
+                                let _ = room.redact(&reaction_id, None, None).await;
                             })
                             .detach();
                         }
@@ -513,7 +508,7 @@ async fn sync(
                                     id.clone(),
                                     emoji.clone(),
                                 ));
-                                let _ = room.send(content).into_future().compat().await;
+                                let _ = room.send(content).into_future().await;
                             })
                             .detach();
                         }

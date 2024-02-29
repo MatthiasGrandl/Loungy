@@ -1,6 +1,5 @@
 use std::sync::mpsc::Receiver;
 
-use async_compat::CompatExt;
 use gpui::*;
 use matrix_sdk::{
     ruma::{
@@ -81,7 +80,7 @@ impl StateViewBuilder for Compose {
                     let self_clone = self_clone.clone();
                     cx.spawn(|mut cx| async move {
                         let content = RoomMessageEventContent::text_markdown(text);
-                        if self_clone.send(content).compat().await.is_ok() {
+                        if self_clone.send(content).await.is_ok() {
                             toast.success("Messagen sent", &mut cx);
                             query.set_text("", &mut cx);
                         } else {
