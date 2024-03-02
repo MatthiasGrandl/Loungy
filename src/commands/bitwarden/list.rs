@@ -95,7 +95,7 @@ impl StateViewBuilder for BitwardenListBuilder {
                 }
             },
             None,
-            Some(Duration::from_secs(1)),
+            None,
             update_receiver,
             cx,
         )

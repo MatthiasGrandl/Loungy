@@ -10,7 +10,7 @@ use crate::{
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
 };
 
@@ -20,6 +20,8 @@ use self::root::{list, process, theme};
 
 #[cfg(feature = "bitwarden")]
 mod bitwarden;
+#[cfg(feature = "clipboard")]
+mod clipboard;
 #[cfg(feature = "matrix")]
 mod matrix;
 pub mod root;
@@ -81,6 +83,8 @@ impl RootCommands {
             Box::new(bitwarden::list::BitwardenCommandBuilder),
             #[cfg(feature = "matrix")]
             Box::new(matrix::list::MatrixCommandBuilder),
+            #[cfg(feature = "clipboard")]
+            Box::new(clipboard::list::ClipboardCommandBuilder),
         ];
         let mut map = HashMap::new();
         for command in commands {
@@ -106,7 +110,8 @@ impl RootCommands {
                             Some(command.subtitle.clone()),
                             command
                                 .shortcut
-                                .clone().map(|shortcut| vec![Accessory::shortcut(shortcut)])
+                                .clone()
+                                .map(|shortcut| vec![Accessory::shortcut(shortcut)])
                                 .unwrap_or(vec![Accessory::new("Command", None)]),
                         )
                     })

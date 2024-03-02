@@ -514,11 +514,9 @@ impl List {
             cx.observe(&list.selected, move |this: &mut List, _, cx| {
                 if let Some((_, selected)) = this.selected(cx) {
                     let preview = if let Some(preview) = selected.preview.as_ref() {
-                        if !selected.id.eq(&this
-                            .preview
-                            .as_ref()
-                            .map(|p| p.0)
-                            .unwrap_or_default())
+                        if !selected
+                            .id
+                            .eq(&this.preview.as_ref().map(|p| p.0).unwrap_or_default())
                         {
                             Some((selected.id, preview.0, preview.1(cx)))
                         } else {
@@ -560,12 +558,14 @@ impl List {
                         }
                         let triggered = update_receiver.try_recv().is_ok();
 
-                        if (poll || triggered) && view
+                        if (poll || triggered)
+                            && view
                                 .update(&mut cx, |this: &mut Self, cx| {
                                     this.update(triggered, cx);
                                     last = std::time::Instant::now();
                                 })
-                                .is_err() {
+                                .is_err()
+                        {
                             debug!("List view released");
                             break;
                         }
@@ -638,13 +638,22 @@ impl AsyncListItems {
         cx.emit(AsyncListItemsEvent::Update);
         cx.notify();
     }
+    pub fn push(&mut self, key: String, item: Item, cx: &mut ViewContext<Self>) {
+        self.items.entry(key).or_insert_with(Vec::new).push(item);
+        if !self.initialized {
+            self.initialized = true;
+            cx.emit(AsyncListItemsEvent::Initialized);
+        };
+        cx.emit(AsyncListItemsEvent::Update);
+        cx.notify();
+    }
     pub fn loader(view: &View<Self>, actions: &ActionsModel, cx: &mut WindowContext) {
-        if view.read(cx).initialized {
-            return;
-        }
         if let Some(a) = actions.inner.upgrade() {
+            let init = view.read(cx).initialized;
             let mut a = a.read(cx).clone();
-            Loading::update(&mut a.loading, true, cx);
+            if !init {
+                Loading::update(&mut a.loading, true, cx);
+            }
             cx.subscribe(view, move |_, event, cx| match event {
                 AsyncListItemsEvent::Initialized => {
                     Loading::update(&mut a.loading, false, cx);

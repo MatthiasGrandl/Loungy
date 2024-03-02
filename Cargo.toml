@@ -17,7 +17,6 @@ nucleo = "0.3.0"
 parking_lot = "0.12.1"
 serde = "1.0.195"
 serde_json = "1.0.111"
-swift-rs = "1.0.6"
 numbat = "1.10.0"
 numbat-exchange-rates = "0.5.0"
 whoami = { version = "1.4.1", default-features = false }
@@ -56,11 +55,16 @@ matrix-sdk = { version = "0.7.1", default_features = false, optional = true, fea
     "rustls-tls",
 ] }
 rand = "0.8.5"
+arboard = { version = "3.3.1", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+swift-rs = "1.0.6"
 
 
 [features]
 tailscale = []
 bitwarden = []
+clipboard = ["dep:arboard"]
 matrix = ["dep:matrix-sdk", "dep:matrix-sdk-crypto"]
 
 [[bin]]

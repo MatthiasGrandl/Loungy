@@ -82,7 +82,7 @@ impl StateViewBuilder for RoomList {
                     Ok(Some(items))
                 },
                 None,
-                Some(Duration::from_secs(1)),
+                None,
                 update_receiver,
                 cx,
             )

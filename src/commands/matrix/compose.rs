@@ -78,13 +78,13 @@ impl StateViewBuilder for Compose {
                     if text.is_empty() {
                         return;
                     }
+                    query.set_text("", cx);
                     let mut toast = this.toast.clone();
                     let self_clone = self_clone.clone();
                     cx.spawn(|mut cx| async move {
                         let content = RoomMessageEventContent::text_markdown(text);
                         if self_clone.send(content).await.is_ok() {
                             toast.success("Messagen sent", &mut cx);
-                            query.set_text("", &mut cx);
                         } else {
                             toast.error("Failed to send message", &mut cx);
                         }
