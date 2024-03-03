@@ -103,6 +103,24 @@ public class AppData: NSObject {
     }
 }
 
+@_cdecl("get_frontmost_application_data")
+public func getFrontmostApplicationData() -> AppData? {
+    guard let currentApp = NSWorkspace.shared.frontmostApplication else {
+        return nil
+    }
+    guard let bundle = Bundle(identifier: currentApp.bundleIdentifier!) else {
+        return nil
+    }
+    guard let bundleId = bundle.bundleIdentifier else {
+        return nil
+    }
+    guard let name = bundle.name() else {
+        return nil
+    }
+    let data = AppData(bundleId, name)
+    return data
+}
+
 @_cdecl("get_application_data")
 public func getApplicationData(cacheDir: SRString, path: SRString) -> AppData? {
     guard let bundle = Bundle(path: path.toString()) else {
