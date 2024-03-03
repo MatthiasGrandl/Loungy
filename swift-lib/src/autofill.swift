@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import Cocoa
 import CoreGraphics
 import SwiftRs
@@ -83,14 +84,37 @@ func typePasswordWithAppleScript(_ value: String) {
     }
 }
 
-@_cdecl("keytap")
-func keytap(_ value: SRString) {
-    // Wait for modifier keys to be released
-    while areAnyModifierKeysPressed() {
-        // Delaying the next modifier check to avoid tight looping.
-        usleep(100_000) // Sleep for 100 milliseconds
-    }
+@_cdecl("paste")
+func paste(value: SRString) {
+    let pasteboard = NSPasteboard.general
+    pasteboard.declareTypes([.string], owner: nil)
+    pasteboard.setString(value.toString(), forType: .string)
+    simulatePasteEvent()
+}
 
-    // Type the password
-    typePasswordWithAppleScript(value.toString())
+func simulatePasteEvent() {
+    let sourceRef = CGEventSource(stateID: .combinedSessionState)
+
+    // Create the Cmd Down event (Cmd is the Command key on macOS)
+    if let cmdKeyDownEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Command), keyDown: true) {
+        // Set the Command flag to emulate holding down the Cmd key
+        cmdKeyDownEvent.flags = .maskCommand
+
+        // Create the 'V' key Down event
+        if let vKeyDownEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true) {
+            vKeyDownEvent.flags = .maskCommand
+            vKeyDownEvent.post(tap: .cghidEventTap)
+        }
+
+        // Create the 'V' key Up event
+        if let vKeyUpEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false) {
+            vKeyUpEvent.flags = .maskCommand
+            vKeyUpEvent.post(tap: .cghidEventTap)
+        }
+
+        // Create the Cmd Up event
+        if let cmdKeyUpEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Command), keyDown: false) {
+            cmdKeyUpEvent.post(tap: .cghidEventTap)
+        }
+    }
 }

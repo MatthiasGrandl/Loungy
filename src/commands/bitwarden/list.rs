@@ -28,9 +28,9 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
-    swift::{autofill, keytap},
+    swift::{autofill, close_and_paste},
     window::Window,
 };
 
@@ -177,18 +177,11 @@ impl BitwardenLoginItem {
                 let mut account = account.clone();
                 let login = login.clone();
                 let mut actions = actions.clone();
-                Window::close(cx);
                 cx.spawn(move |mut cx| async move {
-                    // TODO: add a better way to make sure the window is closed
-                    // Also the window closing and spawning should be handled by the keytap function as that is always going to be wanted
-                    sleep(Duration::from_millis(250)).await;
-                    // cx.background_executor()
-                    //     .timer(Duration::from_millis(250))
-                    //     .await;
                     if let Ok(value) = login.get_field(&field, &id, &mut account, &mut cx).await {
-                        unsafe {
-                            keytap(SRString::from(value.as_str()));
-                        }
+                        let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                            close_and_paste(value.as_str(), cx);
+                        });
                     } else {
                         actions
                             .toast
@@ -443,6 +436,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                         let login = login.clone();
                                                         let mut account = account.clone();
                                                         cx.spawn(move |mut cx| async move {
+                                                            Window::wait_for_close(&mut cx).await;
                                                             let mut prev = SRString::from("");
                                                             // Timeout after 2 minutes, could probably be lower, but TOTP takes a while sometimes
                                                             let max_tries = 1200;

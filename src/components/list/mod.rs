@@ -652,6 +652,20 @@ impl AsyncListItems {
         cx.emit(AsyncListItemsEvent::Update);
         cx.notify();
     }
+    pub fn remove(&mut self, key: String, id: impl Hash, cx: &mut ViewContext<Self>) {
+        if let Some(items) = self.items.get_mut(&key) {
+            let hash = {
+                let mut s = DefaultHasher::new();
+                id.hash(&mut s);
+                s.finish()
+            };
+            if let Some(i) = items.iter().position(|i| i.id.eq(&hash)) {
+                items.remove(i);
+                cx.emit(AsyncListItemsEvent::Update);
+                cx.notify();
+            }
+        }
+    }
     pub fn loader(view: &View<Self>, actions: &ActionsModel, cx: &mut WindowContext) {
         if let Some(a) = actions.inner.upgrade() {
             let init = view.read(cx).initialized;

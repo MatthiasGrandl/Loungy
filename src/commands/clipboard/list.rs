@@ -8,8 +8,9 @@ use std::{
 
 use arboard::Clipboard;
 use async_std::task::sleep;
-use bonsaidb::core::schema::SerializedCollection;
 use gpui::*;
+#[cfg(target_os = "macos")]
+use swift_rs::SRString;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -19,9 +20,10 @@ use crate::{
     },
     paths::paths,
     query::TextInputWeak,
-    state::{ActionsModel, StateItem, StateModel, StateViewBuilder},
+    state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
     swift,
     theme::Theme,
+    window::Window,
 };
 
 #[derive(Clone)]
@@ -239,8 +241,8 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                         Some(Img::list_icon(Icon::File, None)),
                                         {
                                             let mut text = text.trim().replace("\n", " ");
-                                            if text.len() > 30 {
-                                                text.truncate(30);
+                                            if text.len() > 25 {
+                                                text.truncate(25);
                                                 text.push_str("...");
                                             }
                                             text
@@ -258,7 +260,41 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                         move |cx| StateItem::init(entry.clone(), false, cx)
                                     }),
                                 )),
-                                vec![],
+                                vec![
+                                    Action::new(
+                                        entry
+                                            .application_icon
+                                            .clone()
+                                            .unwrap_or(Img::list_icon(Icon::ClipboardPaste, None)),
+                                        "Paste",
+                                        None,
+                                        {
+                                            let text = text.clone();
+                                            move |_, cx| {
+                                                swift::close_and_paste(text.as_str(), cx);
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                    Action::new(
+                                        Img::list_icon(Icon::Trash, None),
+                                        "Delete",
+                                        None,
+                                        {
+                                            let hash = hash.clone();
+                                            let view = view.clone();
+                                            move |_, cx| {
+                                                let _ = view.update(
+                                                    cx,
+                                                    |view: &mut AsyncListItems, cx| {
+                                                        view.remove("text".to_string(), hash, cx)
+                                                    },
+                                                );
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                ],
                                 None,
                                 Some(Box::new(entry)),
                                 None,
