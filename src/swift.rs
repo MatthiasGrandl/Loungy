@@ -1,6 +1,7 @@
 use gpui::Keystroke;
 use serde::Deserialize;
 use serde_json::Value;
+#[cfg(target_os = "macos")]
 use swift_rs::{swift, Bool, SRData, SRObject, SRString};
 
 #[repr(C)]
