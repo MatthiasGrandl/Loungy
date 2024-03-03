@@ -1,23 +1,15 @@
 use std::{
     cmp::Reverse,
-    collections::{hash_map::DefaultHasher},
+    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    sync::{mpsc::Receiver},
+    sync::mpsc::Receiver,
     time::{Duration, Instant},
 };
 
 use arboard::Clipboard;
-use async_std::{
-    task::sleep,
-};
-use bonsaidb::{
-    core::schema::{SerializedCollection},
-};
+use async_std::task::sleep;
+use bonsaidb::core::schema::SerializedCollection;
 use gpui::*;
-
-
-
-
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -25,8 +17,10 @@ use crate::{
         list::{AsyncListItems, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
+    paths::paths,
     query::TextInputWeak,
     state::{ActionsModel, StateItem, StateModel, StateViewBuilder},
+    swift,
     theme::Theme,
 };
 
@@ -92,15 +86,30 @@ enum ClipboardKind {
 struct ClipboardEntry {
     timestamp: Instant,
     application: String,
+    application_icon: Option<Img>,
     kind: ClipboardKind,
     state: ListState,
 }
 
 impl ClipboardEntry {
     fn new(kind: ClipboardKind) -> Self {
+        #[cfg(target_os = "macos")]
+        let (application, icon) = {
+            let app = unsafe { swift::get_frontmost_application_data() };
+            if let Some(app) = app {
+                let mut icon_path = paths().cache.clone();
+                icon_path.push(format!("{}.png", app.id.to_string()));
+                (app.name.to_string(), Some(Img::list_file(icon_path)))
+            } else {
+                ("Unknown".to_string(), None)
+            }
+        };
+        #[cfg(not(target_os = "macos"))]
+        let (application, icon) = ("Unknown".to_string(), None);
         Self {
             timestamp: Instant::now(),
-            application: "Unknown".to_string(),
+            application,
+            application_icon: icon,
             kind: kind.clone(),
             state: ListState::new(1, ListAlignment::Top, Pixels(100.0), move |_, _| match kind
                 .clone()
@@ -122,10 +131,25 @@ impl Render for ClipboardEntry {
                 characters, words, ..
             } => {
                 let table = vec![
-                    ("Application".to_string(), self.application.clone()),
-                    ("Content Type".to_string(), "Text".to_string()),
-                    ("Characters".to_string(), characters.to_string()),
-                    ("Words".to_string(), words.to_string()),
+                    (
+                        "Application".to_string(),
+                        div()
+                            .flex()
+                            .items_center()
+                            .child(if let Some(icon) = self.application_icon.clone() {
+                                div().child(icon).mr_1()
+                            } else {
+                                div()
+                            })
+                            .child(self.application.clone())
+                            .into_any_element(),
+                    ),
+                    ("Content Type".to_string(), "Text".into_any_element()),
+                    (
+                        "Characters".to_string(),
+                        characters.to_string().into_any_element(),
+                    ),
+                    ("Words".to_string(), words.to_string().into_any_element()),
                 ];
                 div()
                     .ml_2()

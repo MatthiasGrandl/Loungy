@@ -15,6 +15,10 @@ pub struct AppData {
 #[cfg(target_os = "macos")]
 swift!(pub fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppData>>);
 
+// Function to fetch application names and icons
+#[cfg(target_os = "macos")]
+swift!(pub fn get_frontmost_application_data() -> Option<SRObject<AppData>>);
+
 // Function to emulate typing a string to the foreground app
 #[cfg(target_os = "macos")]
 swift!(pub fn keytap(value: SRString));
