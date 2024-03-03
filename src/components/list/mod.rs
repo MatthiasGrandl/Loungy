@@ -639,7 +639,12 @@ impl AsyncListItems {
         cx.notify();
     }
     pub fn push(&mut self, key: String, item: Item, cx: &mut ViewContext<Self>) {
-        self.items.entry(key).or_insert_with(Vec::new).push(item);
+        let items = self.items.entry(key).or_default();
+        // check existing
+        if let Some(i) = items.iter().position(|i| i.id.eq(&item.id)) {
+            items.remove(i);
+        }
+        items.push(item);
         if !self.initialized {
             self.initialized = true;
             cx.emit(AsyncListItemsEvent::Initialized);

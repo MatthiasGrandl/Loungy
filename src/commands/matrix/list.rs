@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, time::Duration};
+use std::{cmp::Reverse, collections::HashMap};
 
 use bonsaidb::core::schema::SerializedCollection;
 use futures::StreamExt;
