@@ -180,7 +180,7 @@ impl BitwardenLoginItem {
                 cx.spawn(move |mut cx| async move {
                     if let Ok(value) = login.get_field(&field, &id, &mut account, &mut cx).await {
                         let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                            close_and_paste(value.as_str(), cx);
+                            close_and_paste(value.as_str(), true, cx);
                         });
                     } else {
                         actions

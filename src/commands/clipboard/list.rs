@@ -271,7 +271,22 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                         {
                                             let text = text.clone();
                                             move |_, cx| {
-                                                swift::close_and_paste(text.as_str(), cx);
+                                                swift::close_and_paste(text.as_str(), false, cx);
+                                            }
+                                        },
+                                        false,
+                                    ),
+                                    Action::new(
+                                        entry
+                                            .application_icon
+                                            .clone()
+                                            .unwrap_or(Img::list_icon(Icon::ClipboardPaste, None)),
+                                        "Paste Formatted",
+                                        None,
+                                        {
+                                            let text = text.clone();
+                                            move |_, cx| {
+                                                swift::close_and_paste(text.as_str(), true, cx);
                                             }
                                         },
                                         false,

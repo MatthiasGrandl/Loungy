@@ -55,50 +55,25 @@ public func autofill(value: SRString, password: Bool, prev: SRString) -> SRStrin
     return SRString(result.1)
 }
 
-func areAnyModifierKeysPressed() -> Bool {
-    let flags = NSEvent.modifierFlags
-    return flags.contains(.shift) ||
-        flags.contains(.control) ||
-        flags.contains(.option) ||
-        flags.contains(.command) ||
-        flags.contains(.help) ||
-        flags.contains(.function)
-}
-
-func typePasswordWithAppleScript(_ value: String) {
-    let escapedValue = value.replacingOccurrences(of: "\"", with: "\\\"")
-
-    let script =
-        """
-        tell application "System Events"
-            keystroke "\(escapedValue)"
-        end tell
-        """
-
-    var error: NSDictionary?
-    if let scriptObject = NSAppleScript(source: script) {
-        scriptObject.executeAndReturnError(&error)
-        if let executionError = error {
-            print("Failed to type password with error: \(executionError)")
-        }
-    }
-}
-
 @_cdecl("paste")
-func paste(value: SRString) {
+func paste(value: SRString, formatting: Bool) {
     let pasteboard = NSPasteboard.general
     pasteboard.declareTypes([.string], owner: nil)
     pasteboard.setString(value.toString(), forType: .string)
-    simulatePasteEvent()
+    simulatePasteEvent(formatting: formatting)
 }
 
-func simulatePasteEvent() {
+func simulatePasteEvent(formatting: Bool = true) {
     let sourceRef = CGEventSource(stateID: .combinedSessionState)
 
     // Create the Cmd Down event (Cmd is the Command key on macOS)
     if let cmdKeyDownEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Command), keyDown: true) {
         // Set the Command flag to emulate holding down the Cmd key
         cmdKeyDownEvent.flags = .maskCommand
+        if !formatting {
+            cmdKeyDownEvent.flags.insert(.maskShift)
+            cmdKeyDownEvent.flags.insert(.maskAlternate)
+        }
 
         // Create the 'V' key Down event
         if let vKeyDownEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true) {
@@ -115,6 +90,18 @@ func simulatePasteEvent() {
         // Create the Cmd Up event
         if let cmdKeyUpEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Command), keyDown: false) {
             cmdKeyUpEvent.post(tap: .cghidEventTap)
+        }
+
+        if !formatting {
+            // Create the Shift Up event
+            if let shiftKeyUpEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Shift), keyDown: false) {
+                shiftKeyUpEvent.post(tap: .cghidEventTap)
+            }
+
+            // Create the Option Up event
+            if let optionKeyUpEvent = CGEvent(keyboardEventSource: sourceRef, virtualKey: CGKeyCode(kVK_Option), keyDown: false) {
+                optionKeyUpEvent.post(tap: .cghidEventTap)
+            }
         }
     }
 }

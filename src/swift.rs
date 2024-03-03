@@ -1,10 +1,8 @@
 use crate::window::Window;
-use async_std::task::sleep;
 use gpui::Keystroke;
 use gpui::WindowContext;
 use serde::Deserialize;
 use serde_json::Value;
-use std::time::Duration;
 #[cfg(target_os = "macos")]
 use swift_rs::{swift, Bool, SRData, SRObject, SRString};
 
@@ -23,17 +21,17 @@ swift!(pub fn get_application_data(cache_dir: &SRString, input: &SRString) -> Op
 #[cfg(target_os = "macos")]
 swift!(pub fn get_frontmost_application_data() -> Option<SRObject<AppData>>);
 
-swift!(pub fn paste(value: SRString));
+swift!(pub fn paste(value: SRString, formatting: Bool));
 
 // Function to emulate typing a string to the foreground app
 #[cfg(target_os = "macos")]
-pub fn close_and_paste(value: &str, cx: &mut WindowContext) {
+pub fn close_and_paste(value: &str, formatting: bool, cx: &mut WindowContext) {
     Window::close(cx);
     let value = value.to_string();
     cx.spawn(move |mut cx| async move {
         Window::wait_for_close(&mut cx).await;
         unsafe {
-            paste(SRString::from(value.as_str()));
+            paste(SRString::from(value.as_str()), Bool::from(formatting));
         }
     })
     .detach();
