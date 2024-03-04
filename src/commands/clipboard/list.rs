@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp::Reverse,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -8,21 +7,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use arboard::{Clipboard, ImageData};
+use arboard::Clipboard;
 use async_std::task::{sleep, spawn};
 use bonsaidb::{
-    core::{
-        connection::LowLevelConnection,
-        schema::{Collection, SerializedCollection},
-    },
-    local::{AsyncDatabase, Database},
+    core::schema::{Collection, SerializedCollection},
+    local::Database,
 };
 use gpui::*;
-use image::{Bgra, DynamicImage, ImageBuffer};
+use image::{DynamicImage, ImageBuffer};
+use log::error;
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
-use swift_rs::SRString;
-use time::{format_description, Date, OffsetDateTime};
+use time::{format_description, OffsetDateTime};
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -36,7 +31,6 @@ use crate::{
     state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
     swift,
     theme::Theme,
-    window::Window,
 };
 
 #[derive(Clone)]
@@ -53,6 +47,33 @@ impl StateViewBuilder for ClipboardListBuilder {
         cx: &mut WindowContext,
     ) -> AnyView {
         query.set_placeholder("Search your clipboard history...", cx);
+
+        actions.update_global(
+            vec![Action::new(
+                Img::list_icon(Icon::Trash, None),
+                "Delete All",
+                None,
+                {
+                    let view = self.view.clone();
+                    move |actions, cx| {
+                        if let Err(err) =
+                            ClipboardListItem::prune(Duration::from_secs(0), view.downgrade(), cx)
+                        {
+                            error!("Failed to prune clipboard: {:?}", err);
+                            actions
+                                .toast
+                                .error("Failed to delete clipboard entries", cx);
+                        } else {
+                            actions
+                                .toast
+                                .success("Successfully deleted clipboard entries", cx);
+                        }
+                    }
+                },
+                false,
+            )],
+            cx,
+        );
 
         AsyncListItems::loader(&self.view, &actions, cx);
         let view = self.view.clone();
@@ -181,7 +202,7 @@ impl ClipboardListItem {
 
         item
     }
-    fn get_item(&self, cx: &mut WindowContext) -> Item {
+    fn get_item(&self, cx: &mut ViewContext<AsyncListItems>) -> Item {
         Item::new(
             self.id,
             vec![self.title.clone()],
@@ -235,18 +256,17 @@ impl ClipboardListItem {
                     "Delete",
                     None,
                     {
-                        let id = self.id.clone();
-                        move |_, cx| {
-                            let _ = ClipboardListItem::get(&id, db_items())
-                                .unwrap()
-                                .unwrap()
-                                .delete(db_items());
-                            spawn(async move {
-                                let _ = ClipboardDetail::get(&id, db_detail())
-                                    .unwrap()
-                                    .unwrap()
-                                    .delete(db_detail());
-                            });
+                        let self_clone = self.clone();
+                        let view = cx.view().clone();
+                        move |actions, cx| {
+                            if let Err(err) = self_clone.delete(view.downgrade(), cx) {
+                                error!("Failed to delete clipboard entry: {:?}", err);
+                                actions.toast.error("Failed to delete clipboard entry", cx);
+                            } else {
+                                actions
+                                    .toast
+                                    .success("Successfully deleted clipboard entry", cx);
+                            }
                         }
                     },
                     false,
@@ -256,6 +276,41 @@ impl ClipboardListItem {
             Some(Box::new(self.clone())),
             None,
         )
+    }
+    fn delete(&self, view: WeakView<AsyncListItems>, cx: &mut WindowContext) -> anyhow::Result<()> {
+        view.update(cx, |view, cx| {
+            view.remove(self.kind.clone().into(), self.id, cx);
+        });
+
+        if let Some(item) = ClipboardDetail::get(&self.id, db_detail())? {
+            item.delete(db_detail())?;
+        };
+        if let Some(item) = Self::get(&self.id, db_items())? {
+            item.delete(db_items())?;
+        };
+        match self.kind.clone() {
+            ClipboardListItemKind::Image { thumbnail } => {
+                let mut path = thumbnail.clone();
+                path.pop();
+                let _ = std::fs::remove_file(thumbnail);
+                let _ = std::fs::remove_file(path.join(format!("{}.png", self.id)));
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    fn prune(
+        age: Duration,
+        view: WeakView<AsyncListItems>,
+        cx: &mut WindowContext,
+    ) -> anyhow::Result<()> {
+        let items = Self::all(db_items()).query()?;
+        for item in items {
+            if item.contents.copied_last < OffsetDateTime::now_utc() - age {
+                let _ = item.contents.delete(view.clone(), cx);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -282,8 +337,11 @@ impl ClipboardPreview {
             id,
             item,
             detail: detail.clone(),
-            state: ListState::new(1, ListAlignment::Top, Pixels(100.0), move |_, cx| {
-                match detail.kind.clone() {
+            state: ListState::new(
+                1,
+                ListAlignment::Top,
+                Pixels(100.0),
+                move |_, cx| match detail.kind.clone() {
                     ClipboardKind::Text { text, .. } => {
                         div().w_full().child(text.clone()).into_any_element()
                     }
@@ -292,32 +350,28 @@ impl ClipboardPreview {
                         height,
                         path,
                         ..
-                    } => canvas(move |bounds, cx| {
-                        img(ImageSource::File(Arc::new(path.clone())))
-                            .w(bounds.size.width)
-                            .h(Pixels(height as f32 / width as f32 * bounds.size.width.0))
-                            .into_any_element()
-                            .draw(
-                                bounds.origin,
-                                Size {
-                                    width: AvailableSpace::MaxContent,
-                                    height: AvailableSpace::MaxContent,
-                                },
-                                // Size {
-                                //     width: bounds.size.width,
-                                //     height: Pixels(
-                                //         height as f32 / width as f32 * bounds.size.width.0,
-                                //     ),
-                                // }
-                                // .map(AvailableSpace::Definite),
-                                cx,
-                            );
-                    })
-                    .w_full()
-                    .h(Pixels(2000.0))
-                    .into_any_element(),
-                }
-            }),
+                    } => div()
+                        .size_full()
+                        .child(
+                            canvas(move |bounds, cx| {
+                                img(ImageSource::File(Arc::new(path.clone())))
+                                    .w(bounds.size.width)
+                                    .h(Pixels(height as f32 / width as f32 * bounds.size.width.0))
+                                    .into_any_element()
+                                    .draw(
+                                        bounds.origin,
+                                        Size {
+                                            width: AvailableSpace::MaxContent,
+                                            height: AvailableSpace::MaxContent,
+                                        },
+                                        cx,
+                                    );
+                            })
+                            .w_full(),
+                        )
+                        .into_any_element(),
+                },
+            ),
         }
     }
 }
@@ -470,7 +524,23 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
             cx.spawn(|view, mut cx| async move {
                 let mut clipboard = Clipboard::new().unwrap();
                 let mut hash: u64 = 0;
+                let cache = paths().cache.join("clipboard");
+                if !cache.exists() {
+                    let _ = std::fs::create_dir_all(&cache);
+                }
+                let mut now = Instant::now();
                 loop {
+                    if Instant::now() - now > Duration::from_secs(3600) {
+                        now = Instant::now();
+                        // Prune clipboard history every hour, keeping entries for a week
+                        let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                            let _ = ClipboardListItem::prune(
+                                Duration::from_secs(60 * 60 * 24 * 7),
+                                view.clone(),
+                                cx,
+                            );
+                        });
+                    }
                     if let Ok(text) = clipboard.get_text() {
                         let mut hasher = DefaultHasher::new();
                         text.hash(&mut hasher);
@@ -529,8 +599,8 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                     ImageBuffer::from_vec(width, height, image.bytes.to_vec())
                                         .unwrap(),
                                 );
-                                let path = paths().cache.join(format!("{}.png", hash));
-                                let thumbnail = paths().cache.join(format!("{}.thumb.png", hash));
+                                let path = cache.join(format!("{}.png", hash));
+                                let thumbnail = cache.join(format!("{}.thumb.png", hash));
                                 let _ = image.save(&path);
                                 let t = image.thumbnail(64, 64);
                                 let _ = t.save(&thumbnail);

@@ -966,6 +966,8 @@ impl ActionsModel {
                     TextEvent::KeyDown(ev) => {
                         let key = "enter";
                         if Shortcut::simple(key).inner.eq(&ev.keystroke) {
+                            this.show = false;
+                            cx.notify();
                             list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
