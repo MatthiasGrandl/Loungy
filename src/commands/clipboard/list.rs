@@ -4,6 +4,7 @@ use std::{
     hash::{Hash, Hasher},
     path::PathBuf,
     sync::{mpsc::Receiver, Arc, OnceLock},
+    thread,
     time::{Duration, Instant},
 };
 
@@ -278,7 +279,7 @@ impl ClipboardListItem {
         )
     }
     fn delete(&self, view: WeakView<AsyncListItems>, cx: &mut WindowContext) -> anyhow::Result<()> {
-        view.update(cx, |view, cx| {
+        let _ = view.update(cx, |view, cx| {
             view.remove(self.kind.clone().into(), self.id, cx);
         });
 
@@ -595,15 +596,26 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                             } else {
                                 let width = image.width.try_into().unwrap();
                                 let height = image.height.try_into().unwrap();
-                                let image = DynamicImage::ImageRgba8(
-                                    ImageBuffer::from_vec(width, height, image.bytes.to_vec())
-                                        .unwrap(),
-                                );
                                 let path = cache.join(format!("{}.png", hash));
                                 let thumbnail = cache.join(format!("{}.thumb.png", hash));
-                                let _ = image.save(&path);
-                                let t = image.thumbnail(64, 64);
-                                let _ = t.save(&thumbnail);
+                                // Spawn a thread to generate thumbnail and saving to filesystem.
+                                {
+                                    let path = path.clone();
+                                    let thumbnail = thumbnail.clone();
+                                    thread::spawn(move || {
+                                        let image = DynamicImage::ImageRgba8(
+                                            ImageBuffer::from_vec(
+                                                width,
+                                                height,
+                                                image.bytes.to_vec(),
+                                            )
+                                            .unwrap(),
+                                        );
+                                        let _ = image.save(&path);
+                                        let t = image.thumbnail(64, 64);
+                                        let _ = t.save(&thumbnail);
+                                    });
+                                }
                                 ClipboardListItem::new(
                                     hash.clone(),
                                     format!("Image ({}x{})", width, height),
