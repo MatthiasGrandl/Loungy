@@ -39,8 +39,10 @@ impl StateViewBuilder for RootListBuilder {
                 |_, _, cx| {
                     #[cfg(target_os = "macos")]
                     {
-                        let cache_dir = paths().cache.clone();
-                        fs::create_dir_all(cache_dir.clone()).unwrap();
+                        let cache_dir = paths().cache.join("apps");
+                        if !cache_dir.exists() {
+                            fs::create_dir_all(cache_dir.clone()).unwrap();
+                        }
 
                         let user_dir = PathBuf::from("/Users")
                             .join(whoami::username())

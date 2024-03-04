@@ -14,7 +14,7 @@ use crate::{
         shared::{Icon, Img},
     },
     paths::paths,
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, StateModel, StateViewBuilder},
     theme::Theme,
 };
@@ -83,8 +83,11 @@ impl StateViewBuilder for ProcessListBuilder {
                 actions,
                 |this, _, cx| {
                     let lavender = cx.global::<Theme>().lavender;
-                    let cache_dir = paths().cache.clone();
-                    fs::create_dir_all(cache_dir.clone()).unwrap();
+                    let cache_dir = paths().cache.join("apps");
+                    if !cache_dir.exists() {
+                        fs::create_dir_all(cache_dir.clone()).unwrap();
+                    }
+
                     let ps = Command::new("ps")
                         .arg("-eo")
                         .arg("pid,ppid,pcpu,rss,comm")
