@@ -78,3 +78,6 @@ swift!(pub fn menu_items() -> SRData);
 // Function to click a menu item
 #[cfg(target_os = "macos")]
 swift!(pub fn menu_item_select(data: SRData));
+
+#[cfg(target_os = "macos")]
+swift!(pub fn ocr(path: SRString));

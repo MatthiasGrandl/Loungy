@@ -18,6 +18,7 @@ use gpui::*;
 use image::{DynamicImage, ImageBuffer};
 use log::error;
 use serde::{Deserialize, Serialize};
+use swift_rs::SRString;
 use time::{format_description, OffsetDateTime};
 
 use crate::{
@@ -148,12 +149,6 @@ enum ClipboardListItemKind {
     Image { thumbnail: PathBuf },
 }
 
-impl ClipboardListItemKind {
-    fn list() -> Vec<String> {
-        vec!["Text".to_string(), "Image".to_string()]
-    }
-}
-
 impl Into<ClipboardListItemKind> for ClipboardKind {
     fn into(self) -> ClipboardListItemKind {
         match self {
@@ -246,51 +241,78 @@ impl ClipboardListItem {
                     move |cx| StateItem::init(ClipboardPreview::init(id, cx), false, cx)
                 }),
             )),
-            vec![
-                Action::new(
-                    Img::list_icon(Icon::ClipboardPaste, None),
-                    "Paste",
-                    None,
-                    {
-                        let id = self.id.clone();
-                        move |_, cx| {
-                            let detail = ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
-                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                                match detail.contents.kind.clone() {
-                                    ClipboardKind::Text { text, .. } => {
-                                        swift::close_and_paste(text.as_str(), false, cx);
-                                    }
-                                    ClipboardKind::Image { path, .. } => {
-                                        swift::close_and_paste_file(&path, cx);
-                                    }
-                                    _ => {}
-                                }
-                            });
-                        }
-                    },
-                    false,
-                ),
-                Action::new(
-                    Img::list_icon(Icon::Trash, None),
-                    "Delete",
-                    None,
-                    {
-                        let self_clone = self.clone();
-                        let view = cx.view().clone();
-                        move |actions, cx| {
-                            if let Err(err) = self_clone.delete(view.downgrade(), cx) {
-                                error!("Failed to delete clipboard entry: {:?}", err);
-                                actions.toast.error("Failed to delete clipboard entry", cx);
-                            } else {
-                                actions
-                                    .toast
-                                    .success("Successfully deleted clipboard entry", cx);
+            {
+                let mut actions = vec![
+                    Action::new(
+                        Img::list_icon(Icon::ClipboardPaste, None),
+                        "Paste",
+                        None,
+                        {
+                            let id = self.id.clone();
+                            move |_, cx| {
+                                let detail =
+                                    ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
+                                let _ =
+                                    cx.update_window(cx.window_handle(), |_, cx| {
+                                        match detail.contents.kind.clone() {
+                                            ClipboardKind::Text { text, .. } => {
+                                                swift::close_and_paste(text.as_str(), false, cx);
+                                            }
+                                            ClipboardKind::Image { path, .. } => {
+                                                swift::close_and_paste_file(&path, cx);
+                                            }
+                                            _ => {}
+                                        }
+                                    });
                             }
-                        }
-                    },
-                    false,
-                ),
-            ],
+                        },
+                        false,
+                    ),
+                    Action::new(
+                        Img::list_icon(Icon::Trash, None),
+                        "Delete",
+                        None,
+                        {
+                            let self_clone = self.clone();
+                            let view = cx.view().clone();
+                            move |actions, cx| {
+                                if let Err(err) = self_clone.delete(view.downgrade(), cx) {
+                                    error!("Failed to delete clipboard entry: {:?}", err);
+                                    actions.toast.error("Failed to delete clipboard entry", cx);
+                                } else {
+                                    actions
+                                        .toast
+                                        .success("Successfully deleted clipboard entry", cx);
+                                }
+                            }
+                        },
+                        false,
+                    ),
+                ];
+                match self.kind.clone() {
+                    ClipboardListItemKind::Image { thumbnail } => actions.insert(
+                        1,
+                        Action::new(
+                            Img::list_icon(Icon::ScanEye, None),
+                            "Copy Text to Clipboard",
+                            None,
+                            {
+                                let mut path = thumbnail.clone();
+                                path.pop();
+                                path = path.join(format!("{}.png", self.id));
+                                let path = path.to_string_lossy().to_string();
+                                move |actions, cx| unsafe {
+                                    let _ = swift::ocr(SRString::from(path.as_str()));
+                                    actions.toast.success("Copied Text to Clipboard", cx);
+                                }
+                            },
+                            false,
+                        ),
+                    ),
+                    _ => {}
+                }
+                actions
+            },
             None,
             Some(Box::new(self.clone())),
             None,
