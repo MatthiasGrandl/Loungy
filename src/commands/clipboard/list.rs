@@ -76,15 +76,27 @@ impl StateViewBuilder for ClipboardListBuilder {
             cx,
         );
 
+        actions.clone().set_dropdown(
+            "memory",
+            vec![("", "All Types"), ("Text", "Text"), ("Image", "Image")],
+            cx,
+        );
+
         AsyncListItems::loader(&self.view, &actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
                 query,
                 &actions,
-                move |_list, _, cx| {
+                move |list, _, cx| {
+                    let t = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
-                    let mut items: Vec<Item> = items.values().flatten().cloned().collect();
+                    let mut items: Vec<Item> = if t.is_empty() {
+                        items.values().flatten().cloned().collect()
+                    } else {
+                        items.get(&t).cloned().unwrap_or_default()
+                    };
+
                     items.sort_by_key(|item| {
                         Reverse(
                             item.meta
@@ -136,6 +148,12 @@ enum ClipboardListItemKind {
     Image { thumbnail: PathBuf },
 }
 
+impl ClipboardListItemKind {
+    fn list() -> Vec<String> {
+        vec!["Text".to_string(), "Image".to_string()]
+    }
+}
+
 impl Into<ClipboardListItemKind> for ClipboardKind {
     fn into(self) -> ClipboardListItemKind {
         match self {
@@ -174,7 +192,7 @@ impl ClipboardListItem {
         let (application, icon_path) = {
             let app = unsafe { swift::get_frontmost_application_data() };
             if let Some(app) = app {
-                let mut icon_path = paths().cache.clone();
+                let mut icon_path = paths().cache.join("apps");
                 icon_path.push(format!("{}.png", app.id.to_string()));
                 (app.name.to_string(), Some(icon_path))
             } else {
