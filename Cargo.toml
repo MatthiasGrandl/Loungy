@@ -56,6 +56,7 @@ matrix-sdk = { version = "0.7.1", default_features = false, optional = true, fea
 ] }
 rand = "0.8.5"
 arboard = { version = "3.3.1", optional = true }
+image = "0.23"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0.6"
