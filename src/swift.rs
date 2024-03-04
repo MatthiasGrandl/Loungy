@@ -3,6 +3,7 @@ use gpui::Keystroke;
 use gpui::WindowContext;
 use serde::Deserialize;
 use serde_json::Value;
+use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 use swift_rs::{swift, Bool, SRData, SRObject, SRString};
 
@@ -21,9 +22,15 @@ swift!(pub fn get_application_data(cache_dir: &SRString, input: &SRString) -> Op
 #[cfg(target_os = "macos")]
 swift!(pub fn get_frontmost_application_data() -> Option<SRObject<AppData>>);
 
+#[cfg(target_os = "macos")]
 swift!(pub fn paste(value: SRString, formatting: Bool));
 
-// Function to emulate typing a string to the foreground app
+#[cfg(target_os = "macos")]
+swift!(pub fn copy_file(path: SRString));
+
+#[cfg(target_os = "macos")]
+swift!(pub fn paste_file(path: SRString));
+
 #[cfg(target_os = "macos")]
 pub fn close_and_paste(value: &str, formatting: bool, cx: &mut WindowContext) {
     Window::close(cx);
@@ -32,6 +39,19 @@ pub fn close_and_paste(value: &str, formatting: bool, cx: &mut WindowContext) {
         Window::wait_for_close(&mut cx).await;
         unsafe {
             paste(SRString::from(value.as_str()), Bool::from(formatting));
+        }
+    })
+    .detach();
+}
+
+#[cfg(target_os = "macos")]
+pub fn close_and_paste_file(path: &PathBuf, cx: &mut WindowContext) {
+    Window::close(cx);
+    let path = path.to_string_lossy().to_string();
+    cx.spawn(move |mut cx| async move {
+        Window::wait_for_close(&mut cx).await;
+        unsafe {
+            paste_file(SRString::from(path.as_str()));
         }
     })
     .detach();

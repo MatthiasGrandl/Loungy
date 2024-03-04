@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::Reverse,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -176,7 +177,7 @@ impl ClipboardListItem {
             application_icon: icon_path,
             kind,
         };
-        spawn(detail.push_into_async(db_detail()));
+        let _ = detail.push_into(db_detail());
 
         item
     }
@@ -213,44 +214,22 @@ impl ClipboardListItem {
                     {
                         let id = self.id.clone();
                         move |_, cx| {
-                            cx.spawn(|mut cx| async move {
-                                let detail = ClipboardDetail::get_async(&id, db_detail())
-                                    .await
-                                    .unwrap()
-                                    .unwrap();
-                                let _ =
-                                    cx.update_window(cx.window_handle(), |_, cx| {
-                                        match detail.contents.kind.clone() {
-                                            ClipboardKind::Text { text, .. } => {
-                                                swift::close_and_paste(text.as_str(), false, cx);
-                                            }
-                                            _ => {}
-                                        }
-                                    });
-                            })
-                            .detach();
+                            let detail = ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
+                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                match detail.contents.kind.clone() {
+                                    ClipboardKind::Text { text, .. } => {
+                                        swift::close_and_paste(text.as_str(), false, cx);
+                                    }
+                                    ClipboardKind::Image { path, .. } => {
+                                        swift::close_and_paste_file(&path, cx);
+                                    }
+                                    _ => {}
+                                }
+                            });
                         }
                     },
                     false,
                 ),
-                // Action::new(
-                //     Img::list_icon(Icon::ClipboardPaste, None),
-                //     "Paste Formatted",
-                //     None,
-                //     {
-                //         let id = self.id.clone();
-                //         move |_, cx| {
-                //             let detail = ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
-                //             match detail.contents.kind.clone() {
-                //                 ClipboardKind::Text { text, .. } => {
-                //                     swift::close_and_paste(text.as_str(), true, cx);
-                //                 }
-                //                 _ => {}
-                //             }
-                //         }
-                //     },
-                //     false,
-                // ),
                 Action::new(
                     Img::list_icon(Icon::Trash, None),
                     "Delete",
@@ -263,11 +242,10 @@ impl ClipboardListItem {
                                 .unwrap()
                                 .delete(db_items());
                             spawn(async move {
-                                let _ = ClipboardDetail::get_async(&id, db_detail())
-                                    .await
+                                let _ = ClipboardDetail::get(&id, db_detail())
                                     .unwrap()
                                     .unwrap()
-                                    .delete_async(db_detail());
+                                    .delete(db_detail());
                             });
                         }
                     },
@@ -285,74 +263,59 @@ impl ClipboardListItem {
 struct ClipboardPreview {
     id: u64,
     item: ClipboardListItem,
-    detail: Model<Option<ClipboardDetail>>,
+    detail: ClipboardDetail,
     state: ListState,
 }
 
 impl ClipboardPreview {
     fn init(id: u64, cx: &mut WindowContext) -> Self {
-        let item = ClipboardListItem::get(&id, db_items()).unwrap().unwrap();
-        let detail = cx.new_model(|cx| {
-            cx.spawn(|model, mut cx| async move {
-                loop {
-                    if let Some(detail) =
-                        ClipboardDetail::get_async(&id, db_detail()).await.unwrap()
-                    {
-                        let _ = model.update(&mut cx, |model, _| {
-                            *model = Some(detail.contents);
-                        });
-                        break;
-                    } else {
-                        sleep(Duration::from_millis(100)).await;
-                    }
-                }
-            })
-            .detach();
-            None
-        });
+        let item = ClipboardListItem::get(&id, db_items())
+            .unwrap()
+            .unwrap()
+            .contents;
+        let detail = ClipboardDetail::get(&id, db_detail())
+            .unwrap()
+            .unwrap()
+            .contents;
 
         Self {
             id,
-            item: item.contents,
+            item,
             detail: detail.clone(),
             state: ListState::new(1, ListAlignment::Top, Pixels(100.0), move |_, cx| {
-                if let Some(detail) = detail.read(cx).as_ref() {
-                    match detail.kind.clone() {
-                        ClipboardKind::Text { text, .. } => {
-                            div().w_full().child(text.clone()).into_any_element()
-                        }
-                        ClipboardKind::Image {
-                            width,
-                            height,
-                            path,
-                            ..
-                        } => canvas(move |bounds, cx| {
-                            img(ImageSource::File(Arc::new(path.clone())))
-                                .w(bounds.size.width)
-                                .h(Pixels(height as f32 / width as f32 * bounds.size.width.0))
-                                .into_any_element()
-                                .draw(
-                                    bounds.origin,
-                                    Size {
-                                        width: AvailableSpace::MaxContent,
-                                        height: AvailableSpace::MaxContent,
-                                    },
-                                    // Size {
-                                    //     width: bounds.size.width,
-                                    //     height: Pixels(
-                                    //         height as f32 / width as f32 * bounds.size.width.0,
-                                    //     ),
-                                    // }
-                                    // .map(AvailableSpace::Definite),
-                                    cx,
-                                );
-                        })
-                        .w_full()
-                        .h(Pixels(2000.0))
-                        .into_any_element(),
+                match detail.kind.clone() {
+                    ClipboardKind::Text { text, .. } => {
+                        div().w_full().child(text.clone()).into_any_element()
                     }
-                } else {
-                    div().child("Loading...").into_any_element()
+                    ClipboardKind::Image {
+                        width,
+                        height,
+                        path,
+                        ..
+                    } => canvas(move |bounds, cx| {
+                        img(ImageSource::File(Arc::new(path.clone())))
+                            .w(bounds.size.width)
+                            .h(Pixels(height as f32 / width as f32 * bounds.size.width.0))
+                            .into_any_element()
+                            .draw(
+                                bounds.origin,
+                                Size {
+                                    width: AvailableSpace::MaxContent,
+                                    height: AvailableSpace::MaxContent,
+                                },
+                                // Size {
+                                //     width: bounds.size.width,
+                                //     height: Pixels(
+                                //         height as f32 / width as f32 * bounds.size.width.0,
+                                //     ),
+                                // }
+                                // .map(AvailableSpace::Definite),
+                                cx,
+                            );
+                    })
+                    .w_full()
+                    .h(Pixels(2000.0))
+                    .into_any_element(),
                 }
             }),
         }
@@ -362,118 +325,110 @@ impl ClipboardPreview {
 impl Render for ClipboardPreview {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        if let Some(detail) = self.detail.read(cx).as_ref() {
-            let mut table = vec![
-                (
-                    "Application".to_string(),
-                    div()
-                        .flex()
-                        .items_center()
-                        .child(if let Some(icon) = detail.application_icon.clone() {
-                            div().child(Img::list_file(icon)).mr_1()
-                        } else {
-                            div()
-                        })
-                        .child(detail.application.clone())
-                        .into_any_element(),
-                ),
-                (
-                    "Last Copied".to_string(),
-                    self.item
-                        .copied_last
-                        .format(
-                            &format_description::parse(
-                                "[year]/[month]/[day] [hour]:[minute]:[second]",
-                            )
+        let mut table = vec![
+            (
+                "Application".to_string(),
+                div()
+                    .flex()
+                    .items_center()
+                    .child(if let Some(icon) = self.detail.application_icon.clone() {
+                        div().child(Img::list_file(icon)).mr_1()
+                    } else {
+                        div()
+                    })
+                    .child(self.detail.application.clone())
+                    .into_any_element(),
+            ),
+            (
+                "Last Copied".to_string(),
+                self.item
+                    .copied_last
+                    .format(
+                        &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
                             .unwrap(),
-                        )
-                        .unwrap()
-                        .into_any_element(),
-                ),
-                (
-                    "First Copied".to_string(),
-                    self.item
-                        .copied_first
-                        .format(
-                            &format_description::parse(
-                                "[year]/[month]/[day] [hour]:[minute]:[second]",
-                            )
+                    )
+                    .unwrap()
+                    .into_any_element(),
+            ),
+            (
+                "First Copied".to_string(),
+                self.item
+                    .copied_first
+                    .format(
+                        &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
                             .unwrap(),
-                        )
-                        .unwrap()
-                        .into_any_element(),
-                ),
-                (
-                    "Times Copied".to_string(),
-                    self.item.copy_count.to_string().into_any_element(),
-                ),
-                ("Content Type".to_string(), {
-                    let kind: String = self.item.kind.clone().into();
-                    kind.into_any_element()
-                }),
-            ];
-            match detail.kind {
-                ClipboardKind::Text {
-                    characters, words, ..
-                } => {
-                    table.push((
-                        "Characters".to_string(),
-                        characters.to_string().into_any_element(),
-                    ));
-                    table.push(("Words".to_string(), words.to_string().into_any_element()));
-                }
-                ClipboardKind::Image { width, height, .. } => {
-                    table.push((
-                        "Dimensions".to_string(),
-                        format!("{}x{}", width, height).into_any_element(),
-                    ));
-                }
+                    )
+                    .unwrap()
+                    .into_any_element(),
+            ),
+            (
+                "Times Copied".to_string(),
+                self.item.copy_count.to_string().into_any_element(),
+            ),
+            ("Content Type".to_string(), {
+                let kind: String = self.item.kind.clone().into();
+                kind.into_any_element()
+            }),
+        ];
+        match self.detail.kind {
+            ClipboardKind::Text {
+                characters, words, ..
+            } => {
+                table.push((
+                    "Characters".to_string(),
+                    characters.to_string().into_any_element(),
+                ));
+                table.push(("Words".to_string(), words.to_string().into_any_element()));
             }
-            div()
-                .ml_2()
-                .pl_2()
-                .border_l_1()
-                .border_color(theme.surface0)
-                .h_full()
-                .flex()
-                .flex_col()
-                .justify_between()
-                .child(
-                    div()
-                        .flex_1()
-                        .p_2()
-                        .text_xs()
-                        .font(theme.font_mono.clone())
-                        .child(list(self.state.clone()).size_full()),
-                )
-                .child(
-                    div()
-                        .border_t_1()
-                        .border_color(theme.surface0)
-                        .mt_auto()
-                        .text_sm()
-                        .p_2()
-                        .children(
-                            table
-                                .into_iter()
-                                .map(|(key, value)| {
-                                    div()
-                                        .flex()
-                                        .justify_between()
-                                        .child(
-                                            div()
-                                                .font_weight(FontWeight::SEMIBOLD)
-                                                .text_color(theme.subtext0)
-                                                .child(key),
-                                        )
-                                        .child(value)
-                                })
-                                .collect::<Vec<_>>(),
-                        ),
-                )
-        } else {
-            div().child("Loading...")
+            ClipboardKind::Image { width, height, .. } => {
+                table.push((
+                    "Dimensions".to_string(),
+                    format!("{}x{}", width, height).into_any_element(),
+                ));
+            }
         }
+        div()
+            .ml_2()
+            .pl_2()
+            .border_l_1()
+            .border_color(theme.surface0)
+            .h_full()
+            .flex()
+            .flex_col()
+            .justify_between()
+            .child(
+                div()
+                    .flex_1()
+                    .p_2()
+                    .text_xs()
+                    .font(theme.font_mono.clone())
+                    .child(list(self.state.clone()).size_full()),
+            )
+            .child(
+                div()
+                    .border_t_1()
+                    .border_color(theme.surface0)
+                    .mt_auto()
+                    .text_sm()
+                    .p_2()
+                    .children(
+                        table
+                            .into_iter()
+                            .map(|(key, value)| {
+                                div()
+                                    .flex()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_color(theme.subtext0)
+                                            .child(key),
+                                    )
+                                    .child(value)
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+            )
     }
 }
 
@@ -494,9 +449,9 @@ pub(super) fn db_items() -> &'static Database {
     DB.get_or_init(|| Db::init_collection::<ClipboardListItem>())
 }
 
-pub(super) fn db_detail() -> &'static AsyncDatabase {
-    static DB: OnceLock<AsyncDatabase> = OnceLock::new();
-    DB.get_or_init(|| Db::init_collection::<ClipboardDetail>().into_async())
+pub(super) fn db_detail() -> &'static Database {
+    static DB: OnceLock<Database> = OnceLock::new();
+    DB.get_or_init(|| Db::init_collection::<ClipboardDetail>())
 }
 
 pub struct ClipboardCommandBuilder;

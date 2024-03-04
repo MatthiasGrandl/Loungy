@@ -63,6 +63,22 @@ func paste(value: SRString, formatting: Bool) {
     simulatePasteEvent(formatting: formatting)
 }
 
+@_cdecl("copy_file")
+func copyFile(path: SRString) {
+    let pasteboard = NSPasteboard.general
+    pasteboard.declareTypes([.fileURL], owner: nil)
+
+    let path = URL(fileURLWithPath: path.toString())
+    pasteboard.writeObjects([path as NSPasteboardWriting])
+}
+
+@_cdecl("paste_file")
+func pasteFile(path: SRString) {
+    copyFile(path: path)
+    simulatePasteEvent()
+}
+
+@_cdecl("simulate_paste_event")
 func simulatePasteEvent(formatting: Bool = true) {
     let sourceRef = CGEventSource(stateID: .combinedSessionState)
 
