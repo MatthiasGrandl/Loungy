@@ -251,7 +251,6 @@ impl ClipboardListItem {
                                             ClipboardKind::Image { path, .. } => {
                                                 close_and_paste_file(&path, cx);
                                             }
-                                            _ => {}
                                         }
                                     });
                             }
@@ -290,7 +289,7 @@ impl ClipboardListItem {
                                 let mut path = thumbnail.clone();
                                 path.pop();
                                 path = path.join(format!("{}.png", self.id));
-                                move |actions, cx| unsafe {
+                                move |actions, cx| {
                                     get_text_from_image(&path);
                                     actions.toast.success("Copied Text to Clipboard", cx);
                                 }
@@ -349,6 +348,7 @@ struct ClipboardPreview {
     id: u64,
     item: ClipboardListItem,
     detail: ClipboardDetail,
+    bounds: Model<Bounds<Pixels>>,
     state: ListState,
 }
 
@@ -363,43 +363,61 @@ impl ClipboardPreview {
             .unwrap()
             .contents;
 
+        let bounds = cx.new_model(|_| Bounds::default());
+
         Self {
             id,
             item,
             detail: detail.clone(),
+            bounds: bounds.clone(),
             state: ListState::new(
                 1,
                 ListAlignment::Top,
                 Pixels(100.0),
                 move |_, cx| match detail.kind.clone() {
                     ClipboardKind::Text { text, .. } => {
-                        div().w_full().child(text.clone()).into_any_element()
+                        div().p_2().w_full().child(text.clone()).into_any_element()
                     }
                     ClipboardKind::Image {
                         width,
                         height,
                         path,
                         ..
-                    } => div()
-                        .size_full()
-                        .child(
-                            canvas(move |bounds, cx| {
+                    } => {
+                        let bounds = bounds.read(cx);
+                        let (mut w, mut h) = if height < width {
+                            (
+                                bounds.size.width.0,
+                                bounds.size.width.0 * height as f32 / width as f32,
+                            )
+                        } else {
+                            (
+                                bounds.size.width.0 * width as f32 / height as f32,
+                                bounds.size.width.0,
+                            )
+                        };
+                        if w > bounds.size.width.0 {
+                            h *= bounds.size.width.0 / w;
+                            w = bounds.size.width.0;
+                        }
+                        if h > bounds.size.height.0 {
+                            w *= bounds.size.height.0 / h;
+                            h = bounds.size.height.0;
+                        }
+                        let ml = (bounds.size.width.0 - w) / 2.0;
+                        let mt = (bounds.size.height.0 - h) / 2.0;
+
+                        div()
+                            .child(
                                 img(ImageSource::File(Arc::new(path.clone())))
-                                    .w(bounds.size.width)
-                                    .h(Pixels(height as f32 / width as f32 * bounds.size.width.0))
-                                    .into_any_element()
-                                    .draw(
-                                        bounds.origin,
-                                        Size {
-                                            width: AvailableSpace::MaxContent,
-                                            height: AvailableSpace::MaxContent,
-                                        },
-                                        cx,
-                                    );
-                            })
-                            .w_full(),
-                        )
-                        .into_any_element(),
+                                    .w(Pixels(w))
+                                    .h(Pixels(h)),
+                            )
+                            .pl(Pixels(ml))
+                            .pt(Pixels(mt))
+                            .size_full()
+                            .into_any_element()
+                    }
                 },
             ),
         }
@@ -423,37 +441,44 @@ impl Render for ClipboardPreview {
                     .child(self.detail.application.clone())
                     .into_any_element(),
             ),
-            (
-                "Last Copied".to_string(),
-                self.item
-                    .copied_last
-                    .format(
-                        &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
-                            .unwrap(),
-                    )
-                    .unwrap()
-                    .into_any_element(),
-            ),
-            (
-                "First Copied".to_string(),
-                self.item
-                    .copied_first
-                    .format(
-                        &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
-                            .unwrap(),
-                    )
-                    .unwrap()
-                    .into_any_element(),
-            ),
-            (
-                "Times Copied".to_string(),
-                self.item.copy_count.to_string().into_any_element(),
-            ),
             ("Content Type".to_string(), {
                 let kind: String = self.item.kind.clone().into();
                 kind.into_any_element()
             }),
         ];
+        let ts = self
+            .item
+            .copied_last
+            .format(
+                &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
+                    .unwrap(),
+            )
+            .unwrap()
+            .into_any_element();
+        table.append(&mut if self.item.copy_count > 1 {
+            vec![
+                ("Last Copied".to_string(), ts),
+                (
+                    "First Copied".to_string(),
+                    self.item
+                        .copied_first
+                        .format(
+                            &format_description::parse(
+                                "[year]/[month]/[day] [hour]:[minute]:[second]",
+                            )
+                            .unwrap(),
+                        )
+                        .unwrap()
+                        .into_any_element(),
+                ),
+                (
+                    "Times Copied".to_string(),
+                    self.item.copy_count.to_string().into_any_element(),
+                ),
+            ]
+        } else {
+            vec![("Copied".to_string(), ts)]
+        });
         match self.detail.kind {
             ClipboardKind::Text {
                 characters, words, ..
@@ -483,10 +508,25 @@ impl Render for ClipboardPreview {
             .child(
                 div()
                     .flex_1()
-                    .p_2()
                     .text_xs()
                     .font(theme.font_mono.clone())
-                    .child(list(self.state.clone()).size_full()),
+                    .child(
+                        canvas({
+                            let b = self.bounds.clone();
+                            let s = self.state.clone();
+                            move |bounds, cx| {
+                                b.update(cx, |this, _| {
+                                    *this = bounds.clone();
+                                });
+                                list(s).size_full().into_any_element().draw(
+                                    bounds.origin,
+                                    bounds.size.map(AvailableSpace::Definite),
+                                    cx,
+                                );
+                            }
+                        })
+                        .size_full(),
+                    ),
             )
             .child(
                 div()
