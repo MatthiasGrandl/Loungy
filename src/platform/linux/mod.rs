@@ -1,3 +1,5 @@
+mod desktop_file;
+
 use crate::components::shared::{Icon, Img};
 use crate::paths::paths;
 
@@ -12,7 +14,7 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         fs::create_dir_all(cache_dir.clone()).unwrap();
     }
     let cache = cache_dir.to_string_lossy().to_string();
-    let name = path
+    let file_name = path
         .components()
         .last()
         .unwrap()
@@ -20,12 +22,14 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         .to_string_lossy()
         .to_string();
 
+    let file = desktop_file::ApplicationDesktopFile::try_from(path).ok()?;
+
     Some(AppData {
-        id: name.clone(),
-        name: name.clone(),
+        id: file_name.clone(),
+        name: file.name.clone(),
         icon: Img::list_icon(Icon::AppWindow, None),
         icon_path: PathBuf::new(),
-        keywords: vec![],
+        keywords: file.keywords,
         tag: "Application".to_string(),
     })
 }
