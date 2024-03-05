@@ -14,13 +14,12 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         fs::create_dir_all(cache_dir.clone()).unwrap();
     }
     let cache = cache_dir.to_string_lossy().to_string();
-    let file_name = path
-        .components()
-        .last()
-        .unwrap()
-        .as_os_str()
-        .to_string_lossy()
-        .to_string();
+    let last = path.components().last();
+    if last.is_none() {
+        return None;
+    }
+
+    let file_name = last.unwrap().as_os_str().to_string_lossy().to_string();
 
     let file = desktop_file::ApplicationDesktopFile::try_from(path).ok()?;
     let icon_url: Option<PathBuf> = file.resolve_icon();
