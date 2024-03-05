@@ -752,7 +752,8 @@ impl Actions {
                 Img::list_icon(Icon::BookOpen, None),
                 "Actions",
                 Some(Shortcut::cmd("k")),
-                |this, _| {
+                |this, cx| {
+                    this.update_list(cx);
                     this.show = !this.show;
                 },
                 true,
@@ -763,6 +764,7 @@ impl Actions {
     fn update_list(&self, cx: &mut WindowContext) {
         if let Some(list) = &self.list {
             list.update(cx, |this, cx| {
+                this.reset_selection(cx);
                 this.update(true, cx);
             });
         }
