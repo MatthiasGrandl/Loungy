@@ -1,7 +1,9 @@
 use std::{sync::mpsc::Receiver, time::Duration};
 
 use gpui::*;
-use swift_rs::SRData;
+use serde::Deserialize;
+use serde_json::Value;
+use swift_rs::{swift, SRData};
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -9,10 +11,24 @@ use crate::{
         list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
-    swift::{menu_item_select, menu_items, MenuItem},
 };
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+pub struct MenuItem {
+    path: Vec<String>,
+    #[serde(alias = "pathIndices")]
+    path_indices: Option<Value>,
+    shortcut: Option<Keystroke>,
+}
+
+// Function to list menu items
+swift!( pub fn menu_items() -> SRData);
+
+// Function to click a menu item
+swift!( pub fn menu_item_select(data: SRData));
 
 #[derive(Clone)]
 pub struct MenuListBuilder;

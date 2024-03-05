@@ -1,12 +1,11 @@
 use gpui::*;
 use std::{
-    cmp::Reverse, collections::HashMap, fs, process::Command, sync::mpsc::Receiver, time::Duration,
+    cmp::Reverse, collections::HashMap, fs, path::PathBuf, process::Command, sync::mpsc::Receiver,
+    time::Duration,
 };
 
 use regex::Regex;
 
-#[cfg(target_os = "macos")]
-use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
@@ -14,6 +13,7 @@ use crate::{
         shared::{Icon, Img},
     },
     paths::paths,
+    platform::{get_app_data, AppData},
     query::TextInputWeak,
     state::{Action, ActionsModel, StateModel, StateViewBuilder},
     theme::Theme,
@@ -133,36 +133,16 @@ impl StateViewBuilder for ProcessListBuilder {
                                     .map(|m| String::from(m.as_str()))
                                     .unwrap_or_default();
 
-                                #[cfg(target_os = "macos")]
-                                let (name, image) = match unsafe {
-                                    get_application_data(
-                                        &cache_dir.to_str().unwrap().into(),
-                                        &path.as_str().into(),
-                                    )
-                                } {
-                                    Some(d) => {
-                                        let mut icon_path = cache_dir.clone();
-                                        icon_path.push(format!("{}.png", d.id));
-                                        (d.name.to_string(), Img::list_file(icon_path))
-                                    }
-                                    None => {
-                                        let mut icon_path = cache_dir.clone();
-                                        icon_path.push("com.apple.Terminal.png");
-                                        (
-                                            p.name.split('/').last().unwrap().to_string(),
-                                            Img::list_file(icon_path),
-                                        )
-                                    }
-                                };
-                                #[cfg(target_os = "linux")]
-                                let (name, image) = (
-                                    p.name.split("/").last().unwrap().to_string(),
-                                    Img::list_icon(Icon::Cpu, None),
-                                );
+                                let data = get_app_data(&PathBuf::from(path)).unwrap_or(AppData {
+                                    id: "".to_string(),
+                                    name: p.name.split('/').last().unwrap().to_string(),
+                                    icon: Img::list_icon(Icon::Cpu, None),
+                                    icon_path: PathBuf::new(),
+                                });
 
                                 Item::new(
                                     p.pid,
-                                    vec![name.clone()],
+                                    vec![data.name.clone()],
                                     cx.new_view(|_cx| {
                                         let (m, c) = if sort_by_cpu {
                                             (None, Some(lavender))
@@ -170,8 +150,8 @@ impl StateViewBuilder for ProcessListBuilder {
                                             (Some(lavender), None)
                                         };
                                         ListItem::new(
-                                            Some(image),
-                                            name.clone(),
+                                            Some(data.icon),
+                                            data.name.clone(),
                                             None,
                                             vec![
                                                 Accessory::new(

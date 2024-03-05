@@ -1,16 +1,14 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::mpsc::Receiver, time::Duration};
+use std::{collections::HashMap, path::PathBuf, sync::mpsc::Receiver, time::Duration};
 
 use gpui::*;
 
-#[cfg(target_os = "macos")]
-use crate::swift::get_application_data;
 use crate::{
     commands::{RootCommand, RootCommandBuilder, RootCommands},
     components::{
         list::{nucleo::fuzzy_match, Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    paths::paths,
+    platform::get_app_data,
     query::TextInputWeak,
     state::{Action, ActionsModel, StateViewBuilder},
     window::Window,
@@ -37,17 +35,12 @@ impl StateViewBuilder for RootListBuilder {
                 query,
                 actions,
                 |_, _, cx| {
-                    #[cfg(target_os = "macos")]
                     {
-                        let cache_dir = paths().cache.join("apps");
-                        if !cache_dir.exists() {
-                            fs::create_dir_all(cache_dir.clone()).unwrap();
-                        }
-
                         let user_dir = PathBuf::from("/Users")
                             .join(whoami::username())
                             .join("Applications");
 
+                        #[cfg(target_os = "macos")]
                         let applications_folders = vec![
                             PathBuf::from("/Applications"),
                             PathBuf::from("/Applications/Chromium Apps"),
@@ -62,10 +55,15 @@ impl StateViewBuilder for RootListBuilder {
                             user_dir.clone().join("Chrome Apps.localized"),
                             user_dir.clone().join("Brave Apps.localized"),
                         ];
-                        // iterate this folder
-                        // for each .app file, create an App struct
-                        // return a vector of App structs
-                        // list all files in applications_folder
+                        #[cfg(target_os = "linux")]
+                        let applications_folders = vec![
+                            PathBuf::from("/usr/share/applications"),
+                            PathBuf::from("/usr/local/share/applications"),
+                            PathBuf::from("/home")
+                                .join(whoami::username())
+                                .join(".local/share/applications"),
+                        ];
+
                         let mut apps = HashMap::<String, Item>::new();
 
                         for applications_folder in applications_folders {
@@ -86,25 +84,18 @@ impl StateViewBuilder for RootListBuilder {
                                         false => "Application",
                                     };
                                     // search for .icns in Contents/Resources
-                                    let (bundle_id, name) = match unsafe {
-                                        get_application_data(
-                                            &cache_dir.to_str().unwrap().into(),
-                                            &path.to_str().unwrap().into(),
-                                        )
-                                    } {
-                                        Some(d) => (d.id.to_string(), d.name.to_string()),
-                                        None => continue,
-                                    };
-                                    let mut icon_path = cache_dir.clone();
-                                    icon_path.push(format!("{}.png", bundle_id.clone()));
-                                    let id = bundle_id.clone();
+                                    let data = get_app_data(&path);
+                                    if data.is_none() {
+                                        continue;
+                                    }
+                                    let data = data.unwrap();
                                     let app = Item::new(
-                                        bundle_id.clone(),
-                                        vec![name.clone()],
+                                        data.id.clone(),
+                                        vec![data.name.clone()],
                                         cx.new_view(|_cx| {
                                             ListItem::new(
-                                                Some(Img::list_file(icon_path)),
-                                                name.clone(),
+                                                Some(data.icon.clone()),
+                                                data.name.clone(),
                                                 None,
                                                 vec![Accessory::new(tag, None)],
                                             )
@@ -115,21 +106,39 @@ impl StateViewBuilder for RootListBuilder {
                                             Img::list_icon(Icon::ArrowUpRightFromSquare, None),
                                             format!("Open {}", tag),
                                             None,
-                                            move |_, cx| {
-                                                Window::close(cx);
-                                                let id = id.clone();
-                                                let mut command =
-                                                    std::process::Command::new("open");
-                                                if ex {
-                                                    command.arg(format!(
-                                                        "x-apple.systempreferences:{}",
-                                                        id
-                                                    ));
-                                                } else {
-                                                    command.arg("-b");
-                                                    command.arg(id);
+                                            {
+                                                let id = data.id.clone();
+                                                #[cfg(target_os = "macos")]
+                                                {
+                                                    move |_, cx| {
+                                                        Window::close(cx);
+                                                        let id = id.clone();
+                                                        let mut command =
+                                                            std::process::Command::new("open");
+                                                        if ex {
+                                                            command.arg(format!(
+                                                                "x-apple.systempreferences:{}",
+                                                                id
+                                                            ));
+                                                        } else {
+                                                            command.arg("-b");
+                                                            command.arg(id);
+                                                        }
+                                                        let _ = command.spawn();
+                                                    }
                                                 }
-                                                let _ = command.spawn();
+                                                #[cfg(target_os = "linux")]
+                                                {
+                                                    move |_, cx| {
+                                                        Window::close(cx);
+                                                        let mut command =
+                                                            std::process::Command::new(
+                                                                "gtk-launch",
+                                                            );
+                                                        command.arg(id.clone());
+                                                        let _ = command.spawn();
+                                                    }
+                                                }
                                             },
                                             false,
                                         )],
@@ -137,77 +146,8 @@ impl StateViewBuilder for RootListBuilder {
                                         None,
                                         None,
                                     );
-                                    apps.insert(bundle_id, app);
+                                    apps.insert(data.id, app);
                                 }
-                            }
-                        }
-                        let mut apps: Vec<Item> = apps.values().cloned().collect();
-                        apps.sort_unstable_by_key(|a| a.keywords[0].clone());
-                        Ok(Some(apps))
-                    }
-                    #[cfg(target_os = "linux")]
-                    {
-                        let applications_folders = vec![
-                            PathBuf::from("/usr/share/applications"),
-                            PathBuf::from("/usr/local/share/applications"),
-                            PathBuf::from("/home")
-                                .join(whoami::username())
-                                .join(".local/share/applications"),
-                        ];
-                        let mut apps = HashMap::<String, Item>::new();
-
-                        for applications_folder in applications_folders {
-                            let dir = applications_folder.read_dir();
-                            if dir.is_err() {
-                                continue;
-                            }
-                            for entry in dir.unwrap() {
-                                if entry.is_err() {
-                                    continue;
-                                }
-                                let entry = entry.unwrap();
-                                let path = entry.path();
-                                let name = path
-                                    .components()
-                                    .last()
-                                    .unwrap()
-                                    .as_os_str()
-                                    .to_string_lossy()
-                                    .to_string();
-                                let app = Item::new(
-                                    name.clone(),
-                                    vec![name.clone()],
-                                    cx.new_view(|_cx| {
-                                        ListItem::new(
-                                            Some(Img::list_icon(Icon::AppWindow, None)),
-                                            name.clone(),
-                                            None,
-                                            vec![Accessory::new("Application", None)],
-                                        )
-                                    })
-                                    .into(),
-                                    None,
-                                    vec![Action::new(
-                                        Img::list_icon(Icon::ArrowUpRightFromSquare, None),
-                                        "Open Application",
-                                        None,
-                                        {
-                                            let name = name.clone();
-                                            move |_, cx| {
-                                                Window::close(cx);
-                                                let mut command =
-                                                    std::process::Command::new("gtk-launch");
-                                                command.arg(name.clone());
-                                                let _ = command.spawn();
-                                            }
-                                        },
-                                        false,
-                                    )],
-                                    None,
-                                    None,
-                                    None,
-                                );
-                                apps.insert(name.to_string(), app);
                             }
                         }
                         let mut apps: Vec<Item> = apps.values().cloned().collect();

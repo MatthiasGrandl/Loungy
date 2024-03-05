@@ -104,7 +104,7 @@ public class AppData: NSObject {
 }
 
 @_cdecl("get_frontmost_application_data")
-public func getFrontmostApplicationData() -> AppData? {
+public func getFrontmostApplicationData(cacheDir: SRString) -> AppData? {
     guard let currentApp = NSWorkspace.shared.frontmostApplication else {
         return nil
     }
@@ -114,10 +114,18 @@ public func getFrontmostApplicationData() -> AppData? {
     guard let bundleId = bundle.bundleIdentifier else {
         return nil
     }
+    guard let path = bundle.executablePath else {
+        return nil
+    }
     guard let name = bundle.name() else {
         return nil
     }
     let data = AppData(bundleId, name)
+
+    if !saveImage(cacheDir: cacheDir, path: path, bundleId: bundleId) {
+        return nil
+    }
+
     return data
 }
 
@@ -139,25 +147,32 @@ public func getApplicationData(cacheDir: SRString, path: SRString) -> AppData? {
     }
 
     let data = AppData(bundleId, name)
+    if !saveImage(cacheDir: cacheDir, path: path.toString(), bundleId: bundleId) {
+        return nil
+    }
 
+    return data
+}
+
+func saveImage(cacheDir: SRString, path: String, bundleId: String) -> Bool {
     let url = NSURL(fileURLWithPath: cacheDir.toString(), isDirectory: true)
     if let pathComponent = url.appendingPathComponent("\(bundleId).png") {
         let filePath = pathComponent.path
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: filePath) {
-            return data
+            return true
         } else {
-            guard let icon: Data = getIcon(path: path.toString(), size: 128) else {
-                return nil
+            guard let icon: Data = getIcon(path: path, size: 128) else {
+                return false
             }
             do {
                 try icon.write(to: pathComponent)
             } catch {
-                return nil
+                return false
             }
         }
     } else {
-        return nil
+        return false
     }
-    return data
+    return true
 }

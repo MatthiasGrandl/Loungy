@@ -9,7 +9,7 @@ use std::{
 };
 
 use arboard::Clipboard;
-use async_std::task::{sleep, spawn};
+use async_std::task::sleep;
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
@@ -29,9 +29,9 @@ use crate::{
     },
     db::Db,
     paths::paths,
+    platform::{close_and_paste, close_and_paste_file, get_focused_app_data, get_text_from_image},
     query::TextInputWeak,
     state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
-    swift,
     theme::Theme,
 };
 
@@ -183,19 +183,9 @@ struct ClipboardListItem {
 
 impl ClipboardListItem {
     fn new(id: u64, title: impl ToString, kind: ClipboardKind) -> Self {
-        #[cfg(target_os = "macos")]
-        let (application, icon_path) = {
-            let app = unsafe { swift::get_frontmost_application_data() };
-            if let Some(app) = app {
-                let mut icon_path = paths().cache.join("apps");
-                icon_path.push(format!("{}.png", app.id.to_string()));
-                (app.name.to_string(), Some(icon_path))
-            } else {
-                ("Unknown".to_string(), None)
-            }
-        };
-        #[cfg(not(target_os = "macos"))]
-        let (application, icon_path) = ("Unknown".to_string(), None);
+        let (application, application_icon) = get_focused_app_data()
+            .map(|data| (data.name, Some(data.icon_path)))
+            .unwrap_or(("Unknown".to_string(), None));
 
         let item = Self {
             id: id.clone(),
@@ -209,7 +199,7 @@ impl ClipboardListItem {
         let detail = ClipboardDetail {
             id: id,
             application,
-            application_icon: icon_path,
+            application_icon,
             kind,
         };
         let _ = detail.push_into(db_detail());
@@ -256,10 +246,10 @@ impl ClipboardListItem {
                                     cx.update_window(cx.window_handle(), |_, cx| {
                                         match detail.contents.kind.clone() {
                                             ClipboardKind::Text { text, .. } => {
-                                                swift::close_and_paste(text.as_str(), false, cx);
+                                                close_and_paste(text.as_str(), false, cx);
                                             }
                                             ClipboardKind::Image { path, .. } => {
-                                                swift::close_and_paste_file(&path, cx);
+                                                close_and_paste_file(&path, cx);
                                             }
                                             _ => {}
                                         }
@@ -300,9 +290,8 @@ impl ClipboardListItem {
                                 let mut path = thumbnail.clone();
                                 path.pop();
                                 path = path.join(format!("{}.png", self.id));
-                                let path = path.to_string_lossy().to_string();
                                 move |actions, cx| unsafe {
-                                    let _ = swift::ocr(SRString::from(path.as_str()));
+                                    get_text_from_image(&path);
                                     actions.toast.success("Copied Text to Clipboard", cx);
                                 }
                             },

@@ -21,17 +21,10 @@ use swift_rs::SRString;
 use url::Url;
 
 use crate::{
-    commands::{RootCommand, RootCommandBuilder},
-    components::{
+    commands::{RootCommand, RootCommandBuilder}, components::{
         list::{Accessory, AsyncListItems, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
-    },
-    db::Db,
-    paths::paths,
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
-    swift::{autofill, close_and_paste},
-    window::Window,
+    }, db::Db, paths::paths, platform::{auto_fill, close_and_paste}, query::TextInputWeak, state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder}, window::Window
 };
 
 use super::accounts::{
@@ -437,7 +430,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                         let mut account = account.clone();
                                                         cx.spawn(move |mut cx| async move {
                                                             Window::wait_for_close(&mut cx).await;
-                                                            let mut prev = SRString::from("");
+                                                            let mut prev = "".to_string();
                                                             // Timeout after 2 minutes, could probably be lower, but TOTP takes a while sometimes
                                                             let max_tries = 1200;
                                                             let mut tries = 0;
@@ -449,15 +442,9 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                         &mut cx,
                                                                     )
                                                                     .await.unwrap();
-                                                                match unsafe {
-                                                                    autofill(
-                                                                        SRString::from(
-                                                                            value.as_str(),
-                                                                        ),
-                                                                        field.eq("password"),
-                                                                        &prev,
-                                                                    )
-                                                                } {
+                                                                match 
+                                                                    auto_fill(value.as_str(), field.eq("password"), &prev)
+                                                                 {
                                                                     Some(p) => {
                                                                         prev = p;
                                                                         break;
