@@ -23,12 +23,24 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         .to_string();
 
     let file = desktop_file::ApplicationDesktopFile::try_from(path).ok()?;
+    let icon_url: Option<PathBuf> = file.resolve_icon();
+
+    let icon_img = if let Some(icon) = icon_url.clone() {
+        if (icon.extension().unwrap_or_default().eq("svg")) {
+            // TODO: Add support for SVG icons
+            Img::list_icon(Icon::AppWindow, None)
+        } else {
+            Img::list_file(icon)
+        }
+    } else {
+        Img::list_icon(Icon::AppWindow, None)
+    };
 
     Some(AppData {
         id: file_name.clone(),
         name: file.name.clone(),
-        icon: Img::list_icon(Icon::AppWindow, None),
-        icon_path: PathBuf::new(),
+        icon: icon_img,
+        icon_path: icon_url.unwrap_or_else(|| PathBuf::new()),
         keywords: file.keywords,
         tag: "Application".to_string(),
     })

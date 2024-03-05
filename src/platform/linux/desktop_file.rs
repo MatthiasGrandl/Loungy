@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use freedesktop_entry_parser::{AttrSelector, parse_entry};
+use freedesktop_icons::lookup;
 
 pub(crate) struct ApplicationDesktopFile {
     pub name: String,
@@ -12,6 +13,17 @@ pub(crate) enum DesktopFileError {
     NoDesktopEntry,
     InvalidFormat,
     HiddenFile,
+}
+
+impl ApplicationDesktopFile {
+    pub(crate) fn resolve_icon(&self) -> Option<PathBuf> {
+        let icon_name = self.icon.as_ref()?;
+
+        lookup(icon_name)
+            .with_cache()
+            .find()
+    }
+
 }
 
 impl TryFrom<&PathBuf> for ApplicationDesktopFile {
