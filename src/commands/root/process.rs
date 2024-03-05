@@ -138,6 +138,8 @@ impl StateViewBuilder for ProcessListBuilder {
                                     name: p.name.split('/').last().unwrap().to_string(),
                                     icon: Img::list_icon(Icon::Cpu, None),
                                     icon_path: PathBuf::new(),
+                                    keywords: vec![],
+                                    tag: "".to_string(),
                                 });
 
                                 Item::new(

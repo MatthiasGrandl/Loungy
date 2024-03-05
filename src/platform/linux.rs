@@ -25,5 +25,7 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         name: name.clone(),
         icon: Img::list_icon(Icon::AppWindow, None),
         icon_path: PathBuf::new(),
+        keywords: vec![],
+        tag: "Application".to_string(),
     })
 }

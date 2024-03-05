@@ -15,4 +15,6 @@ pub struct AppData {
     pub name: String,
     pub icon: Img,
     pub icon_path: PathBuf,
+    pub keywords: Vec<String>,
+    pub tag: String,
 }

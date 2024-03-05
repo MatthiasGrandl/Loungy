@@ -23,6 +23,15 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
         fs::create_dir_all(cache_dir.clone()).unwrap();
     }
     let cache = cache_dir.to_string_lossy().to_string();
+    let extension = match path.extension() {
+        Some(ext) => ext,
+        None => return None,
+    };
+    let ex = extension.to_str().unwrap() == "appex";
+    let tag = match ex {
+        true => "System Setting",
+        false => "Application",
+    };
     let path = path.to_string_lossy().to_string();
     unsafe {
         get_application_data(
@@ -32,11 +41,14 @@ pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
     }
     .map(|data| {
         let icon_path = cache_dir.join(format!("{}.png", data.id));
+
         AppData {
             id: data.id.to_string(),
             name: data.name.to_string(),
             icon: Img::list_file(icon_path.clone()),
             icon_path,
+            keywords: vec![],
+            tag: tag.to_string(),
         }
     })
 }
@@ -57,6 +69,8 @@ pub fn get_focused_app_data() -> Option<AppData> {
             name: data.name.to_string(),
             icon: Img::list_file(icon_path.clone()),
             icon_path,
+            keywords: vec![],
+            tag: "".to_string(),
         }
     })
 }

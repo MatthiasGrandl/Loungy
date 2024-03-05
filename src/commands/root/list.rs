@@ -74,15 +74,7 @@ impl StateViewBuilder for RootListBuilder {
                             for entry in dir.unwrap() {
                                 if let Ok(entry) = entry {
                                     let path = entry.path();
-                                    let extension = match path.extension() {
-                                        Some(ext) => ext,
-                                        None => continue,
-                                    };
-                                    let ex = extension.to_str().unwrap() == "appex";
-                                    let tag = match ex {
-                                        true => "System Setting",
-                                        false => "Application",
-                                    };
+
                                     // search for .icns in Contents/Resources
                                     let data = get_app_data(&path);
                                     if data.is_none() {
@@ -97,19 +89,21 @@ impl StateViewBuilder for RootListBuilder {
                                                 Some(data.icon.clone()),
                                                 data.name.clone(),
                                                 None,
-                                                vec![Accessory::new(tag, None)],
+                                                vec![Accessory::new(data.tag.clone(), None)],
                                             )
                                         })
                                         .into(),
                                         None,
                                         vec![Action::new(
                                             Img::list_icon(Icon::ArrowUpRightFromSquare, None),
-                                            format!("Open {}", tag),
+                                            format!("Open {}", data.tag.clone()),
                                             None,
                                             {
                                                 let id = data.id.clone();
+
                                                 #[cfg(target_os = "macos")]
                                                 {
+                                                    let ex = data.tag == "System Setting";
                                                     move |_, cx| {
                                                         Window::close(cx);
                                                         let id = id.clone();
