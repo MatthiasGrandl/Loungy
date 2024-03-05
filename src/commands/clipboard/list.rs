@@ -18,14 +18,14 @@ use gpui::*;
 use image::{DynamicImage, ImageBuffer};
 use log::error;
 use serde::{Deserialize, Serialize};
-use swift_rs::SRString;
 use time::{format_description, OffsetDateTime};
+use tz::TimeZone;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ListBuilder, ListItem},
-        shared::{Icon, Img},
+        shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     db::Db,
     paths::paths,
@@ -350,6 +350,7 @@ struct ClipboardPreview {
     detail: ClipboardDetail,
     bounds: Model<Bounds<Pixels>>,
     state: ListState,
+    offset: i32,
 }
 
 impl ClipboardPreview {
@@ -364,12 +365,18 @@ impl ClipboardPreview {
             .contents;
 
         let bounds = cx.new_model(|_| Bounds::default());
+        let offset = TimeZone::local()
+            .unwrap()
+            .find_current_local_time_type()
+            .unwrap()
+            .ut_offset();
 
         Self {
             id,
             item,
             detail: detail.clone(),
             bounds: bounds.clone(),
+            offset,
             state: ListState::new(
                 1,
                 ListAlignment::Top,
@@ -424,9 +431,31 @@ impl ClipboardPreview {
     }
 }
 
+fn format_date(date: &OffsetDateTime, offset: i32) -> String {
+    let prefix = if date.day() == OffsetDateTime::now_utc().day() {
+        "Today"
+    } else if date.day()
+        == OffsetDateTime::now_utc()
+            .saturating_sub(time::Duration::days(1))
+            .day()
+    {
+        "Yesterday"
+    } else {
+        "[year][month][day]"
+    };
+    let format = format!("{}, [hour]:[minute]:[second]", prefix);
+    let format = format_description::parse(&format).unwrap();
+
+    date.checked_add(time::Duration::seconds(offset as i64))
+        .unwrap()
+        .format(&format)
+        .unwrap()
+}
+
 impl Render for ClipboardPreview {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
+
         let mut table = vec![
             (
                 "Application".to_string(),
@@ -434,7 +463,13 @@ impl Render for ClipboardPreview {
                     .flex()
                     .items_center()
                     .child(if let Some(icon) = self.detail.application_icon.clone() {
-                        div().child(Img::list_file(icon)).mr_1()
+                        div()
+                            .child(Img::new(
+                                ImgSource::Base(ImageSource::File(Arc::new(icon))),
+                                ImgMask::None,
+                                ImgSize::XS,
+                            ))
+                            .mr_1()
                     } else {
                         div()
                     })
@@ -446,30 +481,13 @@ impl Render for ClipboardPreview {
                 kind.into_any_element()
             }),
         ];
-        let ts = self
-            .item
-            .copied_last
-            .format(
-                &format_description::parse("[year]/[month]/[day] [hour]:[minute]:[second]")
-                    .unwrap(),
-            )
-            .unwrap()
-            .into_any_element();
+        let ts = format_date(&self.item.copied_last, self.offset).into_any_element();
         table.append(&mut if self.item.copy_count > 1 {
             vec![
                 ("Last Copied".to_string(), ts),
                 (
                     "First Copied".to_string(),
-                    self.item
-                        .copied_first
-                        .format(
-                            &format_description::parse(
-                                "[year]/[month]/[day] [hour]:[minute]:[second]",
-                            )
-                            .unwrap(),
-                        )
-                        .unwrap()
-                        .into_any_element(),
+                    format_date(&self.item.copied_first, self.offset).into_any_element(),
                 ),
                 (
                     "Times Copied".to_string(),
@@ -505,35 +523,31 @@ impl Render for ClipboardPreview {
             .flex()
             .flex_col()
             .justify_between()
+            .text_xs()
             .child(
-                div()
-                    .flex_1()
-                    .text_xs()
-                    .font(theme.font_mono.clone())
-                    .child(
-                        canvas({
-                            let b = self.bounds.clone();
-                            let s = self.state.clone();
-                            move |bounds, cx| {
-                                b.update(cx, |this, _| {
-                                    *this = bounds.clone();
-                                });
-                                list(s).size_full().into_any_element().draw(
-                                    bounds.origin,
-                                    bounds.size.map(AvailableSpace::Definite),
-                                    cx,
-                                );
-                            }
-                        })
-                        .size_full(),
-                    ),
+                div().flex_1().font(theme.font_mono.clone()).child(
+                    canvas({
+                        let b = self.bounds.clone();
+                        let s = self.state.clone();
+                        move |bounds, cx| {
+                            b.update(cx, |this, _| {
+                                *this = bounds.clone();
+                            });
+                            list(s).size_full().into_any_element().draw(
+                                bounds.origin,
+                                bounds.size.map(AvailableSpace::Definite),
+                                cx,
+                            );
+                        }
+                    })
+                    .size_full(),
+                ),
             )
             .child(
                 div()
                     .border_t_1()
                     .border_color(theme.surface0)
                     .mt_auto()
-                    .text_sm()
                     .p_2()
                     .children(
                         table
@@ -548,7 +562,7 @@ impl Render for ClipboardPreview {
                                             .text_color(theme.subtext0)
                                             .child(key),
                                     )
-                                    .child(value)
+                                    .child(div().child(value).font(theme.font_mono.clone()))
                             })
                             .collect::<Vec<_>>(),
                     ),
