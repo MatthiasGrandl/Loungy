@@ -34,6 +34,7 @@ time = { version = "0.3.32", features = [
     "formatting",
     "parsing",
     "serde-well-known",
+    "local-offset",
 ] }
 url = "2.5.0"
 async-std = { version = "1.12.0", features = [
@@ -57,6 +58,7 @@ matrix-sdk = { version = "0.7.1", default_features = false, optional = true, fea
 rand = "0.8.5"
 arboard = { version = "3.3.1", optional = true }
 image = "0.23"
+tz-rs = "0.6.14"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1.0.6"
