@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{mpsc::Receiver, OnceLock},
+    sync::{OnceLock},
     time::Duration,
 };
 
@@ -29,8 +29,7 @@ use crate::{
     db::Db,
     paths::paths,
     platform::{auto_fill, close_and_paste},
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     window::Window,
 };
 
@@ -44,14 +43,8 @@ pub struct BitwardenListBuilder {
 }
 
 impl StateViewBuilder for BitwardenListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search your vault...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search your vault...", cx);
         if let Ok(accounts) = BitwardenAccount::all(db()).query() {
             if accounts.len() > 1 {
                 let mut options = vec![("".to_string(), "Show All".to_string())];
@@ -59,11 +52,11 @@ impl StateViewBuilder for BitwardenListBuilder {
                     let id = account.contents.id.clone();
                     options.push((id.clone(), id));
                 }
-                actions.clone().set_dropdown("", options, cx);
+                context.actions.clone().set_dropdown("", options, cx);
             }
         }
 
-        actions.update_global(
+        context.actions.update_global(
             vec![Action::new(
                 Img::list_icon(Icon::UserSearch, None),
                 "List Accounts",
@@ -80,24 +73,21 @@ impl StateViewBuilder for BitwardenListBuilder {
             )],
             cx,
         );
-        AsyncListItems::loader(&self.view, actions, cx);
+        AsyncListItems::loader(&self.view, &context.actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
-                query,
-                actions,
                 move |list, _, cx| {
                     let account = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
                     if account.is_empty() {
-                        return Ok(Some(items.values().flatten().cloned().collect()));
+                        Ok(Some(items.values().flatten().cloned().collect()))
                     } else {
-                        return Ok(Some(items.get(&account).cloned().unwrap_or_default()));
+                        Ok(Some(items.get(&account).cloned().unwrap_or_default()))
                     }
                 },
                 None,
-                None,
-                update_receiver,
+                context,
                 cx,
             )
             .into()

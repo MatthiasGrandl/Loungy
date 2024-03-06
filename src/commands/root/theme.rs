@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Receiver, time::Duration};
+use std::time::Duration;
 
 use gpui::*;
 
@@ -9,26 +9,18 @@ use crate::{
         shared::{Icon, Img},
     },
     db::db,
-    query::{TextInputWeak},
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::{Theme, ThemeSettings},
 };
 
 #[derive(Clone)]
 pub struct ThemeListBuilder;
 impl StateViewBuilder for ThemeListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search for themes...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search for themes...", cx);
         ListBuilder::new()
+            .interval(Duration::from_secs(10))
             .build(
-                query,
-                actions,
                 |_, _, cx| {
                     let themes = Theme::list();
                     Ok(Some(
@@ -85,8 +77,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                                             cx,
                                                         );
                                                     } else {
-                                                        this
-                                                            .toast
+                                                        this.toast
                                                             .success("Changed light theme", cx);
                                                     }
 
@@ -115,8 +106,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                                             cx,
                                                         );
                                                     } else {
-                                                        this
-                                                            .toast
+                                                        this.toast
                                                             .success("Changed dark theme", cx);
                                                     }
                                                     cx.refresh();
@@ -134,8 +124,7 @@ impl StateViewBuilder for ThemeListBuilder {
                     ))
                 },
                 None,
-                Some(Duration::from_secs(10)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

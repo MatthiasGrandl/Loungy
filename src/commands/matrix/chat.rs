@@ -32,8 +32,7 @@ use crate::{
         list::{AsyncListItems, Item, ListBuilder},
         shared::{Icon, Img, ImgMask, NoView},
     },
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateViewBuilder},
+    state::{Action, Shortcut, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -559,14 +558,8 @@ async fn sync(
 }
 
 impl StateViewBuilder for ChatRoom {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: std::sync::mpsc::Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search this chat...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search this chat...", cx);
 
         let sliding_sync = self.updates.read(cx).sliding_sync.clone();
         let view = cx.new_view(|cx| {
@@ -612,11 +605,9 @@ impl StateViewBuilder for ChatRoom {
             AsyncListItems::new()
         });
 
-        AsyncListItems::loader(&view, actions, cx);
+        AsyncListItems::loader(&view, &context.actions, cx);
 
         let list = ListBuilder::new().reverse().build(
-            query,
-            actions,
             move |_, _, cx| {
                 Ok(Some(
                     view.read(cx).items.values().flatten().cloned().collect(),
@@ -639,8 +630,7 @@ impl StateViewBuilder for ChatRoom {
                     .collect()
                 //
             })),
-            None,
-            update_receiver,
+            context,
             cx,
         );
 

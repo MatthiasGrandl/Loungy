@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+
 
 use gpui::*;
 use matrix_sdk::{
@@ -11,8 +11,7 @@ use matrix_sdk::{
 
 use crate::{
     components::shared::{Icon, Img, NoView},
-    query::TextInputWeak,
-    state::{Action, ActionsModel, StateViewBuilder},
+    state::{Action, StateViewBuilder, StateViewContext},
 };
 
 #[derive(Clone)]
@@ -55,19 +54,13 @@ impl Compose {
 }
 
 impl StateViewBuilder for Compose {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        _update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Type a message...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Type a message...", cx);
 
-        let query = query.clone();
+        let query = context.query.clone();
         let self_clone = self.clone();
 
-        actions.update_global(
+        context.actions.update_global(
             vec![Action::new(
                 Img::list_icon(Icon::Send, None),
                 "Send Message",

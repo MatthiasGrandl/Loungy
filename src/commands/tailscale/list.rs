@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Command, sync::mpsc::Receiver, time::Duration};
+use std::{collections::HashMap, process::Command, time::Duration};
 
 use gpui::*;
 use serde::Deserialize;
@@ -10,8 +10,7 @@ use crate::{
         list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -46,23 +45,16 @@ struct Status {
 #[derive(Clone)]
 pub struct TailscaleListBuilder;
 impl StateViewBuilder for TailscaleListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search for peers...", cx);
-        actions.clone().set_dropdown(
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search for peers...", cx);
+        context.actions.set_dropdown(
             "online",
             vec![("online", "Hide Offline"), ("offline", "Show Offline")],
             cx,
         );
         ListBuilder::new()
+            .interval(Duration::from_secs(10))
             .build(
-                query,
-                actions,
                 |this, _, cx| {
                     let offline = "offline"
                         .to_string()
@@ -177,8 +169,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                     Ok(Some(items))
                 },
                 None,
-                Some(Duration::from_secs(10)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

@@ -5,7 +5,7 @@ use gpui::*;
 use crate::{
     components::shared::{Icon, Img},
     query::{TextEvent, TextInputWeak},
-    state::{Action, Actions, ActionsModel, Shortcut},
+    state::{Action, Actions, Shortcut, StateViewContext},
     theme::Theme,
 };
 
@@ -395,22 +395,23 @@ impl Form {
     pub fn new(
         inputs: Vec<Input>,
         submit: impl SubmitFn + 'static,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
+        context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<Self> {
         let focus_model: Model<usize> = cx.new_model(|_| 0);
         let inputs: Vec<View<InputView>> = inputs
             .into_iter()
             .enumerate()
-            .map(|(i, input)| InputView::new(input, query.clone(), i, focus_model.clone(), cx))
+            .map(|(i, input)| {
+                InputView::new(input, context.query.clone(), i, focus_model.clone(), cx)
+            })
             .collect();
         focus_model.update(cx, |_, cx| {
             cx.notify();
         });
 
-        if let Some(inner) = actions.inner.upgrade() {
-            actions.update_local(
+        if let Some(inner) = context.actions.inner.upgrade() {
+            context.actions.update_local(
                 vec![Action::new(
                     Img::list_icon(Icon::PlusSquare, None),
                     "Submit",

@@ -14,8 +14,9 @@ use crate::{
         list::{AsyncListItems, Item, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask},
     },
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateItem, StateModel, StateViewBuilder},
+    state::{
+        Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext,
+    },
 };
 
 use super::{
@@ -42,14 +43,8 @@ struct RoomList {
 }
 
 impl StateViewBuilder for RoomList {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: std::sync::mpsc::Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search your rooms...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search your rooms...", cx);
         if let Ok(accounts) = Session::all(db()).query() {
             if accounts.len() > 1 {
                 let mut options = vec![("".to_string(), "Show All".to_string())];
@@ -57,16 +52,14 @@ impl StateViewBuilder for RoomList {
                     let id = account.contents.id.clone();
                     options.push((id.clone(), id));
                 }
-                actions.clone().set_dropdown("", options, cx);
+                context.actions.set_dropdown("", options, cx);
             }
         }
 
-        AsyncListItems::loader(&self.view, actions, cx);
+        AsyncListItems::loader(&self.view, &context.actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
-                query,
-                actions,
                 move |list, _, cx| {
                     let account = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
@@ -82,8 +75,7 @@ impl StateViewBuilder for RoomList {
                     Ok(Some(items))
                 },
                 None,
-                None,
-                update_receiver,
+                context,
                 cx,
             )
             .into()

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::mpsc::Receiver, time::Duration};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use gpui::*;
 
@@ -9,8 +9,7 @@ use crate::{
         shared::{Icon, Img},
     },
     platform::get_app_data,
-    query::TextInputWeak,
-    state::{Action, ActionsModel, StateViewBuilder},
+    state::{Action, StateViewBuilder, StateViewContext},
     window::Window,
 };
 
@@ -20,20 +19,15 @@ use super::numbat::Numbat;
 pub struct RootListBuilder;
 
 impl StateViewBuilder for RootListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search for apps and commands...", cx);
-        let numbat = Numbat::init(query, cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context
+            .query
+            .set_placeholder("Search for apps and commands...", cx);
+        let numbat = Numbat::init(&context.query, cx);
         let commands = RootCommands::list(cx);
         ListBuilder::new()
+            .interval(Duration::from_secs(60))
             .build(
-                query,
-                actions,
                 |_, _, cx| {
                     {
                         let user_dir = PathBuf::from("/Users")
@@ -188,8 +182,7 @@ impl StateViewBuilder for RootListBuilder {
                     }
                     items
                 })),
-                Some(Duration::from_secs(60)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

@@ -1,4 +1,4 @@
-use std::{fs, sync::mpsc::Receiver, time::Duration};
+use std::{fs, time::Duration};
 
 use async_std::channel::Sender;
 use bonsaidb::core::schema::SerializedCollection;
@@ -12,8 +12,7 @@ use crate::{
         list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
 };
 
 use super::list::{db, BitwardenAccount};
@@ -25,13 +24,7 @@ pub(super) struct BitwardenPasswordPromptBuilder {
 }
 
 impl StateViewBuilder for BitwardenPasswordPromptBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        _: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         let password = self.password.clone();
         Form::new(
             vec![
@@ -87,8 +80,7 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                 })
                 .detach();
             },
-            query,
-            actions,
+            context,
             cx,
         )
         .into()
@@ -100,13 +92,7 @@ impl EventEmitter<Self> for BitwardenPasswordPromptBuilder {}
 #[derive(Clone)]
 pub struct BitwardenAccountFormBuilder;
 impl StateViewBuilder for BitwardenAccountFormBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        _: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         Form::new(
             vec![
                 Input::new(
@@ -207,8 +193,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                 })
                 .detach();
             },
-            query,
-            actions,
+            context,
             cx,
         )
         .into()
@@ -218,15 +203,9 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
 #[derive(Clone)]
 pub struct BitwardenAccountListBuilder;
 impl StateViewBuilder for BitwardenAccountListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search your accounts...", cx);
-        actions.update_global(
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Search your accounts...", cx);
+        context.actions.update_global(
             vec![Action::new(
                 Img::list_icon(Icon::PlusSquare, None),
                 "Add Account",
@@ -239,9 +218,8 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
             cx,
         );
         ListBuilder::new()
+            .interval(Duration::from_secs(10))
             .build(
-                query,
-                actions,
                 |_, _, cx| {
                     let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
 
@@ -319,8 +297,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                     Ok(Some(items))
                 },
                 None,
-                Some(Duration::from_secs(10)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

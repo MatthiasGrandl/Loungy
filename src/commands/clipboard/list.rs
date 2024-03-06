@@ -3,7 +3,7 @@ use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     path::PathBuf,
-    sync::{mpsc::Receiver, Arc, OnceLock},
+    sync::{Arc, OnceLock},
     thread,
     time::{Duration, Instant},
 };
@@ -30,8 +30,7 @@ use crate::{
     db::Db,
     paths::paths,
     platform::{close_and_paste, close_and_paste_file, get_focused_app_data, get_text_from_image},
-    query::TextInputWeak,
-    state::{Action, ActionsModel, StateItem, StateModel, StateViewBuilder},
+    state::{Action, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -41,16 +40,12 @@ pub struct ClipboardListBuilder {
 }
 
 impl StateViewBuilder for ClipboardListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search your clipboard history...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context
+            .query
+            .set_placeholder("Search your clipboard history...", cx);
 
-        actions.update_global(
+        context.actions.update_global(
             vec![Action::new(
                 Img::list_icon(Icon::Trash, None),
                 "Delete All",
@@ -77,18 +72,16 @@ impl StateViewBuilder for ClipboardListBuilder {
             cx,
         );
 
-        actions.clone().set_dropdown(
+        context.actions.set_dropdown(
             "memory",
             vec![("", "All Types"), ("Text", "Text"), ("Image", "Image")],
             cx,
         );
 
-        AsyncListItems::loader(&self.view, actions, cx);
+        AsyncListItems::loader(&self.view, &context.actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
-                query,
-                actions,
                 move |list, _, cx| {
                     let t = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
@@ -110,8 +103,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                     Ok(Some(items))
                 },
                 None,
-                None,
-                update_receiver,
+                context,
                 cx,
             )
             .into()
@@ -568,13 +560,7 @@ impl Render for ClipboardPreview {
 }
 
 impl StateViewBuilder for ClipboardPreview {
-    fn build(
-        &self,
-        _query: &TextInputWeak,
-        _actions: &ActionsModel,
-        _update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
+    fn build(&self, _context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         cx.new_view(|_| self.clone()).into()
     }
 }

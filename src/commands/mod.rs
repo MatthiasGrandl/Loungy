@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::mpsc::Receiver};
+use std::collections::HashMap;
 
 use gpui::*;
 use log::error;
@@ -10,8 +10,7 @@ use crate::{
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
-    query::TextInputWeak,
-    state::{Action, ActionsModel, CloneableFn, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, CloneableFn, Shortcut, StateModel, StateViewBuilder, StateViewContext},
 };
 
 #[cfg(target_os = "macos")]
@@ -160,13 +159,7 @@ pub struct HotkeyBuilder {
 }
 
 impl StateViewBuilder for HotkeyBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        _update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         let id = self.id.clone();
         let value = HotkeyManager::get(&id).map(Shortcut::new);
         Form::new(
@@ -202,8 +195,7 @@ impl StateViewBuilder for HotkeyBuilder {
                 // }
                 //
             },
-            query,
-            actions,
+            context,
             cx,
         )
         .into()

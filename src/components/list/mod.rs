@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
-    sync::mpsc::{channel, Receiver},
+    sync::mpsc::channel,
     time::Duration,
 };
 
@@ -14,7 +14,7 @@ use log::debug;
 
 use crate::{
     query::{TextEvent, TextInputWeak},
-    state::{Action, ActionsModel, Loading, Shortcut, StateItem},
+    state::{Action, ActionsModel, Loading, Shortcut, StateItem, StateViewContext},
     theme::Theme,
 };
 
@@ -244,6 +244,7 @@ impl RenderOnce for Item {
 pub struct ListBuilder {
     reverse: bool,
     update_actions: bool,
+    interval: Option<Duration>,
 }
 
 impl ListBuilder {
@@ -251,6 +252,7 @@ impl ListBuilder {
         Self {
             reverse: false,
             update_actions: true,
+            interval: None,
         }
     }
     pub fn disable_action_updates(&mut self) -> &mut Self {
@@ -261,26 +263,25 @@ impl ListBuilder {
         self.reverse = true;
         self
     }
+    pub fn interval(&mut self, interval: Duration) -> &mut Self {
+        self.interval = Some(interval);
+        self
+    }
     pub fn build(
         &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
         update: impl Fn(&mut List, bool, &mut ViewContext<List>) -> anyhow::Result<Option<Vec<Item>>>
             + 'static,
         filter: Option<Box<dyn Fn(&mut List, &mut ViewContext<List>) -> Vec<Item>>>,
-        interval: Option<Duration>,
-        update_receiver: Receiver<bool>,
+        context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<List> {
         List::new(
-            query,
-            actions,
             update,
             filter,
-            interval,
-            update_receiver,
+            self.interval,
             self.update_actions,
             self.reverse,
+            context,
             cx,
         )
     }
@@ -436,15 +437,13 @@ impl List {
         });
     }
     fn new(
-        query: &TextInputWeak,
-        actions: &ActionsModel,
         update: impl Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>
             + 'static,
         filter: Option<Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>>,
         interval: Option<Duration>,
-        update_receiver: Receiver<bool>,
         update_actions: bool,
         reverse: bool,
+        context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<Self> {
         let (selection_sender, r) = channel::<u64>();
@@ -463,7 +462,7 @@ impl List {
                     let selected = selected.clone();
                     let items = items.clone();
                     let sender = selection_sender.clone();
-                    let actions = actions.clone();
+                    let actions = context.actions.clone();
                     move |i, cx| {
                         let mut item = items.read(cx)[i].clone();
                         let selected = item.id.eq(selected.read(cx));
@@ -499,8 +498,8 @@ impl List {
             selected,
             items_all: vec![],
             items,
-            actions: actions.clone(),
-            query: query.clone(),
+            actions: context.actions.clone(),
+            query: context.query.clone(),
             update: Box::new(update),
             filter: filter.unwrap_or(Box::new(|this, cx| {
                 let text = this.query.get_text(cx);
@@ -510,6 +509,7 @@ impl List {
             reverse,
         };
 
+        let update_receiver = context.update_receiver.clone();
         let view = cx.new_view(move |cx| {
             cx.observe(&list.selected, move |this: &mut List, _, cx| {
                 if let Some((_, selected)) = this.selected(cx) {
@@ -542,6 +542,7 @@ impl List {
                 cx.notify();
             })
             .detach();
+
             cx.spawn(|view, mut cx| async move {
                 let mut last = std::time::Instant::now();
                 loop {
@@ -582,7 +583,7 @@ impl List {
         });
         let clone = view.clone();
 
-        if let Some(query) = &query.view.upgrade() {
+        if let Some(query) = &context.query.view.upgrade() {
             cx.subscribe(query, move |_subscriber, emitter: &TextEvent, cx| {
                 //let clone = clone.clone();
                 match emitter {

@@ -1,6 +1,6 @@
 use gpui::*;
 use std::{
-    cmp::Reverse, collections::HashMap, fs, path::PathBuf, process::Command, sync::mpsc::Receiver,
+    cmp::Reverse, collections::HashMap, fs, path::PathBuf, process::Command,
     time::Duration,
 };
 
@@ -14,8 +14,7 @@ use crate::{
     },
     paths::paths,
     platform::{get_app_data, AppData},
-    query::TextInputWeak,
-    state::{Action, ActionsModel, StateModel, StateViewBuilder},
+    state::{Action, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -63,24 +62,19 @@ fn format_bytes(bytes: u64) -> String {
 #[derive(Clone)]
 pub struct ProcessListBuilder;
 impl StateViewBuilder for ProcessListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search for running processes...", cx);
-        actions.clone().set_dropdown(
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context
+            .query
+            .set_placeholder("Search for running processes...", cx);
+        context.actions.set_dropdown(
             "memory",
             vec![("memory", "Sort by Memory"), ("cpu", "Sort by CPU")],
             cx,
         );
 
         ListBuilder::new()
+            .interval(Duration::from_secs(5))
             .build(
-                query,
-                actions,
                 |this, _, cx| {
                     let lavender = cx.global::<Theme>().lavender;
                     let cache_dir = paths().cache.join("apps");
@@ -200,8 +194,7 @@ impl StateViewBuilder for ProcessListBuilder {
                     ))
                 },
                 None,
-                Some(Duration::from_secs(5)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

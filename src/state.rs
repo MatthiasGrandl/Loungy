@@ -3,10 +3,7 @@ use async_std::task::sleep;
 use gpui::*;
 use log::debug;
 use serde::Deserialize;
-use std::{
-    sync::mpsc::{channel, Receiver, Sender},
-    time::{self, Duration},
-};
+use std::time::{self, Duration};
 
 use crate::{
     commands::root::list::RootListBuilder,
@@ -231,7 +228,7 @@ impl Toast {
     /*
        TODO: This works in theory, but cx.hide() will hide the entire app so the toast won't show.
        I experimented with instead removing the main window with cx.remove_window() and restoring it on hotkey press, but then we lose all state.
-       So right now I have a good solution. I am leaving this here for future reference investigation.
+       So right now I don't have a good solution. I am leaving this here for future reference investigation.
     */
     pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut WindowContext) {
         let bounds = cx.display().map(|d| d.bounds()).unwrap_or(Bounds {
@@ -307,9 +304,15 @@ pub struct StateItem {
     pub workspace: bool,
 }
 
+pub struct StateViewContext {
+    pub query: TextInputWeak,
+    pub actions: ActionsModel,
+    pub update_receiver: crossbeam_channel::Receiver<bool>,
+}
+
 impl StateItem {
     pub fn init(view: impl StateViewBuilder, workspace: bool, cx: &mut WindowContext) -> Self {
-        let (s, r) = channel::<bool>();
+        let (s, r) = crossbeam_channel::unbounded::<bool>();
         let (actions_weak, actions) = ActionsModel::init(s, cx);
         let query = TextInput::new(cx);
 
@@ -351,7 +354,12 @@ impl StateItem {
             _ => {}
         })
         .detach();
-        let view = view.build(&query.downgrade(), &actions_weak, r, cx);
+        let mut context = StateViewContext {
+            query: query.downgrade(),
+            actions: actions_weak,
+            update_receiver: r,
+        };
+        let view = view.build(&mut context, cx);
         Self {
             query,
             view,
@@ -362,13 +370,7 @@ impl StateItem {
 }
 
 pub trait StateViewBuilder: Clone {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView;
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView;
 }
 
 pub struct State {
@@ -711,14 +713,14 @@ pub struct Actions {
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
-    update_sender: Sender<bool>,
+    update_sender: crossbeam_channel::Sender<bool>,
     pub loading: Model<Loading>,
     pub toast: Toast,
     pub dropdown: View<Dropdown>,
 }
 
 impl Actions {
-    fn new(update_sender: Sender<bool>, cx: &mut WindowContext) -> Self {
+    fn new(update_sender: crossbeam_channel::Sender<bool>, cx: &mut WindowContext) -> Self {
         Self {
             global: cx.new_model(|_| Vec::new()),
             local: cx.new_model(|_| Vec::new()),
@@ -736,7 +738,7 @@ impl Actions {
         }
     }
     pub fn default(cx: &mut WindowContext) -> Self {
-        let (s, _) = channel::<bool>();
+        let (s, _) = crossbeam_channel::unbounded::<bool>();
         Self::new(s, cx)
     }
     fn combined(&self, cx: &WindowContext) -> Vec<Action> {
@@ -894,7 +896,10 @@ pub struct ActionsModel {
 }
 
 impl ActionsModel {
-    pub fn init(update_sender: Sender<bool>, cx: &mut WindowContext) -> (Self, View<Actions>) {
+    pub fn init(
+        update_sender: crossbeam_channel::Sender<bool>,
+        cx: &mut WindowContext,
+    ) -> (Self, View<Actions>) {
         let inner = cx.new_view(|cx| {
             #[cfg(debug_assertions)]
             cx.on_release(|_, _, _| debug!("ActionsModel released"))
@@ -906,12 +911,16 @@ impl ActionsModel {
             inner: inner.downgrade(),
         };
         inner.update(cx, |this, cx| {
+            let (_s, r) = crossbeam_channel::unbounded::<bool>();
             let query = TextInput::new(cx);
+            let mut context = StateViewContext {
+                query: query.downgrade(),
+                actions: model.clone(),
+                update_receiver: r,
+            };
+
             let actions = this.clone();
-            let (_s, r) = channel::<bool>();
             let list = ListBuilder::new().disable_action_updates().build(
-                &query.downgrade(),
-                &model,
                 move |_, _, cx| {
                     let actions = actions.combined(cx);
                     Ok(Some(
@@ -950,8 +959,7 @@ impl ActionsModel {
                     ))
                 },
                 None,
-                None,
-                r,
+                &mut context,
                 cx,
             );
             let list_clone = list.clone();

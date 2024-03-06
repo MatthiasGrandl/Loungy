@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Receiver, time::Duration};
+use std::time::Duration;
 
 use gpui::*;
 use serde::Deserialize;
@@ -11,8 +11,7 @@ use crate::{
         list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::TextInputWeak,
-    state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
+    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
 };
 
 #[derive(Deserialize)]
@@ -33,18 +32,13 @@ swift!( pub fn menu_item_select(data: SRData));
 #[derive(Clone)]
 pub struct MenuListBuilder;
 impl StateViewBuilder for MenuListBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Search for menu items...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context
+            .query
+            .set_placeholder("Search for menu items...", cx);
         ListBuilder::new()
+            .interval(Duration::from_secs(10))
             .build(
-                query,
-                actions,
                 |_, _, cx| {
                     let data = unsafe { menu_items() };
                     if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {
@@ -100,8 +94,7 @@ impl StateViewBuilder for MenuListBuilder {
                     }
                 },
                 None,
-                Some(Duration::from_secs(10)),
-                update_receiver,
+                context,
                 cx,
             )
             .into()

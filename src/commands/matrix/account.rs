@@ -1,12 +1,11 @@
-use std::sync::mpsc::Receiver;
+
 
 use gpui::*;
 use log::error;
 
 use crate::{
     components::form::{Form, Input, InputKind},
-    query::TextInputWeak,
-    state::{ActionsModel, StateViewBuilder},
+    state::{StateViewBuilder, StateViewContext},
 };
 
 use super::client::Session;
@@ -15,14 +14,8 @@ use super::client::Session;
 pub struct AccountCreationBuilder;
 
 impl StateViewBuilder for AccountCreationBuilder {
-    fn build(
-        &self,
-        query: &TextInputWeak,
-        actions: &ActionsModel,
-        _update_receiver: Receiver<bool>,
-        cx: &mut WindowContext,
-    ) -> AnyView {
-        query.set_placeholder("Login...", cx);
+    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
+        context.query.set_placeholder("Login...", cx);
         Form::new(
             vec![
                 Input::new(
@@ -65,8 +58,7 @@ impl StateViewBuilder for AccountCreationBuilder {
 
                 //
             },
-            query,
-            actions,
+            context,
             cx,
         )
         .into()
