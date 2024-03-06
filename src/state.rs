@@ -8,7 +8,7 @@ use std::time::{self, Duration};
 use crate::{
     commands::root::list::RootListBuilder,
     components::{
-        list::{Accessory, Item, List, ListBuilder, ListItem},
+        list::{Accessory, ItemBuilder, List, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     query::{TextEvent, TextInput, TextInputWeak},
@@ -936,24 +936,19 @@ impl ActionsModel {
                                 } else {
                                     vec![]
                                 };
-                                Some(Item::new(
-                                    item.label.clone(),
-                                    vec![item.label.clone()],
-                                    cx.new_view(|_| {
+                                Some(
+                                    ItemBuilder::new(
+                                        item.label.clone(),
                                         ListItem::new(
                                             Some(action.image.clone()),
                                             item.label,
                                             None,
                                             accessories,
-                                        )
-                                    })
-                                    .into(),
-                                    None,
-                                    vec![action],
-                                    None,
-                                    None,
-                                    None,
-                                ))
+                                        ),
+                                    )
+                                    .actions(vec![action])
+                                    .build(),
+                                )
                             })
                             .collect(),
                     ))

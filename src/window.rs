@@ -85,15 +85,13 @@ impl Window {
         .detach();
     }
     pub async fn wait_for_close(cx: &mut AsyncWindowContext) {
-        loop {
-            while let Ok(active) =
-                cx.update_window::<bool, _>(cx.window_handle(), |_, cx| cx.is_window_active())
-            {
-                if !active {
-                    break;
-                }
-                sleep(Duration::from_millis(10)).await;
+        while let Ok(active) =
+            cx.update_window::<bool, _>(cx.window_handle(), |_, cx| cx.is_window_active())
+        {
+            if !active {
+                break;
             }
+            sleep(Duration::from_millis(10)).await;
         }
     }
 }

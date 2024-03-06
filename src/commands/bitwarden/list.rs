@@ -18,7 +18,7 @@ use url::Url;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, AsyncListItems, Item, ListBuilder, ListItem},
+        list::{Accessory, AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     db::Db,
@@ -464,25 +464,20 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                     // }).ok();
                                     actions.append(&mut login.get_actions(&id, &account));
-                                    items.push(Item::new(
-                                        id.clone(),
-                                        keywords,
-                                        cx.new_view(|_| {
+                                    items.push(
+                                        ItemBuilder::new(
+                                            id.clone(),
                                             ListItem::new(
                                                 Some(img),
                                                 name.clone(),
                                                 None,
                                                 vec![Accessory::new(login.username.clone(), None)],
-                                            )
-                                        })
-                                        .unwrap()
-                                        .into(),
-                                        None,
-                                        actions,
-                                        None,
-                                        None,
-                                        None,
-                                    ));
+                                            ),
+                                        )
+                                        .keywords(keywords)
+                                        .actions(actions)
+                                        .build(),
+                                    );
                                 }
                             }
                         } else {

@@ -24,7 +24,7 @@ use tz::TimeZone;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{AsyncListItems, Item, ListBuilder, ListItem},
+        list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     db::Db,
@@ -91,15 +91,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                         items.get(&t).cloned().unwrap_or_default()
                     };
 
-                    items.sort_by_key(|item| {
-                        Reverse(
-                            item.meta
-                                .value()
-                                .downcast_ref::<ClipboardListItem>()
-                                .unwrap()
-                                .copied_last,
-                        )
-                    });
+                    items.sort_by_key(|item| Reverse(item.get_meta::<OffsetDateTime>()));
                     Ok(Some(items))
                 },
                 None,
@@ -199,103 +191,92 @@ impl ClipboardListItem {
         item
     }
     fn get_item(&self, cx: &mut ViewContext<AsyncListItems>) -> Item {
-        Item::new(
+        ItemBuilder::new(
             self.id,
-            vec![self.title.clone()],
-            cx.new_view(|_| {
-                ListItem::new(
-                    match self.kind.clone() {
-                        ClipboardListItemKind::Image { thumbnail } => {
-                            Some(Img::list_file(thumbnail))
-                        }
-                        _ => Some(Img::list_icon(Icon::File, None)),
-                    },
-                    self.title.clone(),
-                    None,
-                    vec![],
-                )
-            })
-            .into(),
-            Some((
-                0.66,
-                Box::new({
-                    let id = self.id;
-                    move |cx| StateItem::init(ClipboardPreview::init(id, cx), false, cx)
-                }),
-            )),
-            {
-                let mut actions = vec![
-                    Action::new(
-                        Img::list_icon(Icon::ClipboardPaste, None),
-                        "Paste",
-                        None,
-                        {
-                            let id = self.id;
-                            move |_, cx| {
-                                let detail =
-                                    ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
-                                let _ =
-                                    cx.update_window(cx.window_handle(), |_, cx| {
-                                        match detail.contents.kind.clone() {
-                                            ClipboardKind::Text { text, .. } => {
-                                                close_and_paste(text.as_str(), false, cx);
-                                            }
-                                            ClipboardKind::Image { path, .. } => {
-                                                close_and_paste_file(&path, cx);
-                                            }
-                                        }
-                                    });
-                            }
-                        },
-                        false,
-                    ),
-                    Action::new(
-                        Img::list_icon(Icon::Trash, None),
-                        "Delete",
-                        None,
-                        {
-                            let self_clone = self.clone();
-                            let view = cx.view().clone();
-                            move |actions, cx| {
-                                if let Err(err) = self_clone.delete(view.downgrade(), cx) {
-                                    error!("Failed to delete clipboard entry: {:?}", err);
-                                    actions.toast.error("Failed to delete clipboard entry", cx);
-                                } else {
-                                    actions
-                                        .toast
-                                        .success("Successfully deleted clipboard entry", cx);
-                                }
-                            }
-                        },
-                        false,
-                    ),
-                ];
-                if let ClipboardListItemKind::Image { thumbnail } = self.kind.clone() {
-                    actions.insert(
-                        1,
-                        Action::new(
-                            Img::list_icon(Icon::ScanEye, None),
-                            "Copy Text to Clipboard",
-                            None,
-                            {
-                                let mut path = thumbnail.clone();
-                                path.pop();
-                                path = path.join(format!("{}.png", self.id));
-                                move |actions, cx| {
-                                    get_text_from_image(&path);
-                                    actions.toast.success("Copied Text to Clipboard", cx);
-                                }
-                            },
-                            false,
-                        ),
-                    )
-                }
-                actions
-            },
-            None,
-            Some(Box::new(self.clone())),
-            None,
+            ListItem::new(
+                match self.kind.clone() {
+                    ClipboardListItemKind::Image { thumbnail } => Some(Img::list_file(thumbnail)),
+                    _ => Some(Img::list_icon(Icon::File, None)),
+                },
+                self.title.clone(),
+                None,
+                vec![],
+            ),
         )
+        .keywords(vec![self.title.clone()])
+        .preview(0.66, {
+            let id = self.id;
+            move |cx| StateItem::init(ClipboardPreview::init(id, cx), false, cx)
+        })
+        .actions({
+            let mut actions = vec![
+                Action::new(
+                    Img::list_icon(Icon::ClipboardPaste, None),
+                    "Paste",
+                    None,
+                    {
+                        let id = self.id;
+                        move |_, cx| {
+                            let detail = ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
+                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                match detail.contents.kind.clone() {
+                                    ClipboardKind::Text { text, .. } => {
+                                        close_and_paste(text.as_str(), false, cx);
+                                    }
+                                    ClipboardKind::Image { path, .. } => {
+                                        close_and_paste_file(&path, cx);
+                                    }
+                                }
+                            });
+                        }
+                    },
+                    false,
+                ),
+                Action::new(
+                    Img::list_icon(Icon::Trash, None),
+                    "Delete",
+                    None,
+                    {
+                        let self_clone = self.clone();
+                        let view = cx.view().clone();
+                        move |actions, cx| {
+                            if let Err(err) = self_clone.delete(view.downgrade(), cx) {
+                                error!("Failed to delete clipboard entry: {:?}", err);
+                                actions.toast.error("Failed to delete clipboard entry", cx);
+                            } else {
+                                actions
+                                    .toast
+                                    .success("Successfully deleted clipboard entry", cx);
+                            }
+                        }
+                    },
+                    false,
+                ),
+            ];
+            if let ClipboardListItemKind::Image { thumbnail } = self.kind.clone() {
+                actions.insert(
+                    1,
+                    Action::new(
+                        Img::list_icon(Icon::ScanEye, None),
+                        "Copy Text to Clipboard",
+                        None,
+                        {
+                            let mut path = thumbnail.clone();
+                            path.pop();
+                            path = path.join(format!("{}.png", self.id));
+                            move |actions, cx| {
+                                get_text_from_image(&path);
+                                actions.toast.success("Copied Text to Clipboard", cx);
+                            }
+                        },
+                        false,
+                    ),
+                )
+            }
+            actions
+        })
+        .meta(self.copied_last)
+        .build()
     }
     fn delete(&self, view: WeakView<AsyncListItems>, cx: &mut WindowContext) -> anyhow::Result<()> {
         let _ = view.update(cx, |view, cx| {

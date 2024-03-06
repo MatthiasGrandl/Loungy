@@ -11,12 +11,10 @@ use matrix_sdk::{
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{AsyncListItems, Item, ListBuilder, ListItem},
+        list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask},
     },
-    state::{
-        Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext,
-    },
+    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
 };
 
 use super::{
@@ -69,7 +67,7 @@ impl StateViewBuilder for RoomList {
                         items.get(&account).cloned().unwrap_or_default()
                     };
                     items.sort_unstable_by_key(|item| {
-                        let timestamp = item.meta.value().downcast_ref::<u64>().cloned().unwrap();
+                        let timestamp: u64 = item.get_meta();
                         Reverse(timestamp)
                     });
                     Ok(Some(items))
@@ -152,58 +150,50 @@ async fn sync(
                         preview
                     };
 
-                    Item::new(
+                    ItemBuilder::new(
                         room_id.clone(),
-                        vec![name.clone()],
-                        cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
-                            .unwrap()
-                            .into(),
-                        Some((
-                            0.66,
-                            Box::new(move |cx| StateItem::init(preview.clone(), false, cx)),
-                        )),
-                        vec![
-                            Action::new(
-                                Img::list_icon(Icon::MessageCircle, None),
-                                "Write",
-                                None,
-                                {
-                                    let client = client.clone();
-                                    let room_id = room_id.clone();
-                                    move |_, cx| {
-                                        let item = StateItem::init(
-                                            Compose::new(
-                                                client.clone(),
-                                                room_id.clone(),
-                                                ComposeKind::Message,
-                                            ),
-                                            false,
-                                            cx,
-                                        );
-                                        StateModel::update(|this, cx| this.push_item(item, cx), cx);
-                                    }
-                                },
-                                false,
-                            ),
-                            Action::new(
-                                Img::list_icon(Icon::Search, None),
-                                "Search",
-                                Some(Shortcut::cmd("/")),
-                                |actions, cx| {
-                                    StateModel::update(
-                                        |this, cx| {
-                                            this.push_item(actions.active.clone().unwrap(), cx)
-                                        },
+                        ListItem::new(Some(img), name.clone(), None, vec![]),
+                    )
+                    .keywords(vec![name.clone()])
+                    .actions(vec![
+                        Action::new(
+                            Img::list_icon(Icon::MessageCircle, None),
+                            "Write",
+                            None,
+                            {
+                                let client = client.clone();
+                                let room_id = room_id.clone();
+                                move |_, cx| {
+                                    let item = StateItem::init(
+                                        Compose::new(
+                                            client.clone(),
+                                            room_id.clone(),
+                                            ComposeKind::Message,
+                                        ),
+                                        false,
                                         cx,
                                     );
-                                },
-                                false,
-                            ),
-                        ],
-                        None,
-                        Some(Box::new(timestamp)),
-                        None,
-                    )
+                                    StateModel::update(|this, cx| this.push_item(item, cx), cx);
+                                }
+                            },
+                            false,
+                        ),
+                        Action::new(
+                            Img::list_icon(Icon::Search, None),
+                            "Search",
+                            Some(Shortcut::cmd("/")),
+                            |actions, cx| {
+                                StateModel::update(
+                                    |this, cx| this.push_item(actions.active.clone().unwrap(), cx),
+                                    cx,
+                                );
+                            },
+                            false,
+                        ),
+                    ])
+                    .preview(0.66, move |cx| StateItem::init(preview.clone(), false, cx))
+                    .meta(timestamp)
+                    .build()
                 })
                 .collect();
 

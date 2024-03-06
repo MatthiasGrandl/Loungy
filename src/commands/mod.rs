@@ -6,7 +6,7 @@ use log::error;
 use crate::{
     components::{
         form::{Form, Input, InputKind},
-        list::{Accessory, Item, ListItem},
+        list::{Accessory, Item, ItemBuilder, ListItem},
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
@@ -99,52 +99,47 @@ impl RootCommands {
             .map(|command| {
                 let mut keywords = vec![command.title.clone(), command.subtitle.clone()];
                 keywords.append(&mut command.keywords.clone());
-                Item::new(
+                ItemBuilder::new(
                     command.id.clone(),
-                    keywords,
-                    cx.new_view(|_| {
-                        ListItem::new(
-                            Some(Img::list_icon(command.icon.clone(), None)),
-                            command.title.clone(),
-                            Some(command.subtitle.clone()),
-                            command
-                                .shortcut
-                                .clone()
-                                .map(|shortcut| vec![Accessory::shortcut(shortcut)])
-                                .unwrap_or(vec![Accessory::new("Command", None)]),
-                        )
-                    })
-                    .into(),
-                    None,
-                    vec![
-                        Action::new(
-                            Img::list_icon(command.icon.clone(), None),
-                            command.title.clone(),
-                            None,
-                            command.action.clone(),
-                            false,
-                        ),
-                        Action::new(
-                            Img::list_icon(Icon::Keyboard, None),
-                            "Change Hotkey",
-                            None,
-                            {
-                                let id = command.id.clone();
-                                move |_, cx| {
-                                    let id = id.clone();
-                                    StateModel::update(
-                                        |this, cx| this.push(HotkeyBuilder { id }, cx),
-                                        cx,
-                                    );
-                                }
-                            },
-                            false,
-                        ),
-                    ],
-                    Some(3),
-                    None,
-                    None,
+                    ListItem::new(
+                        Some(Img::list_icon(command.icon.clone(), None)),
+                        command.title.clone(),
+                        Some(command.subtitle.clone()),
+                        command
+                            .shortcut
+                            .clone()
+                            .map(|shortcut| vec![Accessory::shortcut(shortcut)])
+                            .unwrap_or(vec![Accessory::new("Command", None)]),
+                    ),
                 )
+                .keywords(keywords)
+                .actions(vec![
+                    Action::new(
+                        Img::list_icon(command.icon.clone(), None),
+                        command.title.clone(),
+                        None,
+                        command.action.clone(),
+                        false,
+                    ),
+                    Action::new(
+                        Img::list_icon(Icon::Keyboard, None),
+                        "Change Hotkey",
+                        None,
+                        {
+                            let id = command.id.clone();
+                            move |_, cx| {
+                                let id = id.clone();
+                                StateModel::update(
+                                    |this, cx| this.push(HotkeyBuilder { id }, cx),
+                                    cx,
+                                );
+                            }
+                        },
+                        false,
+                    ),
+                ])
+                .weight(3)
+                .build()
             })
             .collect();
         items

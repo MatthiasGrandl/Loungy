@@ -93,8 +93,8 @@ impl ListItem {
     }
 }
 
-impl Render for ListItem {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+impl ItemComponent for ListItem {
+    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let el = if let Some(img) = &self.img {
             div().child(div().mr_4().child(img.clone()))
@@ -128,43 +128,139 @@ impl Render for ListItem {
                 .ml_auto()
                 .children(self.accessories.clone()),
         )
+        .into_any_element()
+    }
+    fn clone_box(&self) -> Box<dyn ItemComponent> {
+        Box::new(self.clone())
     }
 }
 
-#[derive(IntoElement, Clone)]
-#[allow(dead_code)]
-pub struct Item {
-    id: u64,
-    pub keywords: Vec<String>,
-    component: AnyView,
-    pub preview: Option<(f32, Box<dyn Preview>)>,
-    actions: Vec<Action>,
-    pub weight: Option<u16>,
-    selected: bool,
-    pub meta: Box<dyn Meta>,
-    render: Option<fn(&Self, bool, &WindowContext) -> AnyElement>,
+pub trait ItemComponent {
+    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement;
+    fn clone_box(&self) -> Box<dyn ItemComponent>;
+}
+
+impl Clone for Box<dyn ItemComponent> {
+    fn clone(&self) -> Box<dyn ItemComponent> {
+        self.clone_box()
+    }
 }
 
 pub trait Meta: std::any::Any {
-    fn clone_box(&self) -> Box<dyn Meta>;
     fn value(&self) -> &dyn std::any::Any;
+    fn clone_meta(&self) -> Box<dyn Meta>;
 }
 
 impl<F> Meta for F
 where
     F: Clone + std::any::Any,
 {
-    fn clone_box(&self) -> Box<dyn Meta> {
-        Box::new(self.clone())
-    }
     fn value(&self) -> &dyn std::any::Any {
         self
+    }
+    fn clone_meta(&self) -> Box<dyn Meta> {
+        Box::new(self.clone())
     }
 }
 
 impl<'a> Clone for Box<dyn 'a + Meta> {
     fn clone(&self) -> Self {
-        (**self).clone_box()
+        (**self).clone_meta()
+    }
+}
+
+pub struct ItemBuilder {
+    id: u64,
+    preview: Option<(f32, Box<dyn Preview>)>,
+    actions: Vec<Action>,
+    weight: Option<u16>,
+    keywords: Vec<String>,
+    meta: Box<dyn Meta>,
+    component: Box<dyn ItemComponent>,
+    preset: ItemPreset,
+}
+
+impl ItemBuilder {
+    pub fn new(id: impl Hash, component: impl ItemComponent + 'static) -> Self {
+        let mut s = DefaultHasher::new();
+        id.hash(&mut s);
+        let id = s.finish();
+        Self {
+            id,
+            preview: None,
+            actions: vec![],
+            weight: None,
+            keywords: vec![],
+            meta: Box::new(()),
+            preset: ItemPreset::Default,
+            component: Box::new(component),
+        }
+    }
+    pub fn preview(&mut self, width: f32, preview: impl Preview + 'static) -> &mut Self {
+        self.preview = Some((width, Box::new(preview)));
+        self
+    }
+    pub fn meta(&mut self, meta: impl Meta + 'static) -> &mut Self {
+        self.meta = Box::new(meta);
+        self
+    }
+    pub fn keywords(&mut self, keywords: Vec<impl ToString>) -> &mut Self {
+        self.keywords = keywords.into_iter().map(|k| k.to_string()).collect();
+        self
+    }
+    pub fn actions(&mut self, actions: Vec<Action>) -> &mut Self {
+        self.actions = actions;
+        self
+    }
+    pub fn weight(&mut self, weight: u16) -> &mut Self {
+        self.weight = Some(weight);
+        self
+    }
+    pub fn preset(&mut self, preset: ItemPreset) -> &mut Self {
+        self.preset = preset;
+        self
+    }
+    pub fn build(&self) -> Item {
+        Item {
+            id: self.id,
+            preview: self.preview.clone(),
+            actions: self.actions.clone(),
+            weight: self.weight,
+            keywords: self.keywords.clone(),
+            selected: false,
+            component: self.component.clone(),
+            meta: self.meta.clone_meta(),
+            preset: self.preset.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum ItemPreset {
+    Plain,
+    Default,
+}
+
+#[derive(IntoElement, Clone)]
+#[allow(dead_code)]
+pub struct Item {
+    id: u64,
+    preview: Option<(f32, Box<dyn Preview>)>,
+    actions: Vec<Action>,
+    weight: Option<u16>,
+    keywords: Vec<String>,
+    meta: Box<dyn Meta>,
+    component: Box<dyn ItemComponent>,
+    selected: bool,
+    preset: ItemPreset,
+}
+
+impl Item {
+    pub fn get_meta<V: Clone + 'static>(&self) -> V {
+        self.meta.value().downcast_ref::<V>().cloned().unwrap()
+    }
+    pub fn get_keywords(&self) -> &Vec<String> {
+        self.keywords.as_ref()
     }
 }
 
@@ -192,52 +288,25 @@ impl<'a> Clone for Box<dyn 'a + Preview> {
     }
 }
 
-impl Item {
-    pub fn new<T: Hash>(
-        t: T,
-        keywords: Vec<impl ToString>,
-        component: AnyView,
-        preview: Option<(f32, Box<dyn Preview>)>,
-        actions: Vec<Action>,
-        weight: Option<u16>,
-        meta: Option<Box<dyn Meta>>,
-        render: Option<fn(&Self, bool, &WindowContext) -> AnyElement>,
-    ) -> Self {
-        let mut s = DefaultHasher::new();
-        t.hash(&mut s);
-        let id = s.finish();
-        Self {
-            id,
-            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
-            component,
-            preview,
-            actions,
-            weight,
-            selected: false,
-            meta: meta.unwrap_or_else(|| Box::new(())),
-            render,
-        }
-    }
-}
-
 impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        if let Some(render) = &self.render {
-            render(&self, self.selected, cx)
-        } else {
-            let theme = cx.global::<Theme>();
-            let mut bg_hover = theme.mantle;
-            bg_hover.fade_out(0.5);
-            if self.selected {
-                div().border_color(theme.crust).bg(theme.mantle)
-            } else {
-                div().hover(|s| s.bg(bg_hover))
+        match self.preset {
+            ItemPreset::Plain => self.component.render(self.selected, cx),
+            ItemPreset::Default => {
+                let theme = cx.global::<Theme>();
+                let mut bg_hover = theme.mantle;
+                bg_hover.fade_out(0.5);
+                if self.selected {
+                    div().border_color(theme.crust).bg(theme.mantle)
+                } else {
+                    div().hover(|s| s.bg(bg_hover))
+                }
+                .p_2()
+                .border_1()
+                .rounded_xl()
+                .child(self.component.render(self.selected, cx))
+                .into_any_element()
             }
-            .p_2()
-            .border_1()
-            .rounded_xl()
-            .child(self.component)
-            .into_any_element()
         }
     }
 }

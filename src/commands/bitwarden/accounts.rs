@@ -9,7 +9,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         form::{Form, Input, InputKind},
-        list::{Accessory, Item, ListBuilder, ListItem},
+        list::{Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
@@ -227,71 +227,60 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                         .into_iter()
                         .map(|account| {
                             let account = account.contents;
-                            Item::new(
-                                account.id.clone(),
-                                vec![account.id.clone()],
-                                cx.new_view({
-                                    let id = account.id.clone();
-                                    let instance = account.instance.clone();
-                                    move |_| {
-                                        ListItem::new(
-                                            Some(Img::list_icon(Icon::User, None)),
-                                            id,
-                                            None,
-                                            vec![Accessory::new(instance, None)],
-                                        )
-                                    }
-                                })
-                                .into(),
-                                None,
-                                vec![
-                                    Action::new(
-                                        Img::list_icon(Icon::Pen, None),
-                                        "Edit",
-                                        None,
-                                        {
-                                            // TODO:
-                                            move |actions, cx| {
-                                                actions.toast.error("Not implemented", cx);
+                            ItemBuilder::new(account.id.clone(), {
+                                let id = account.id.clone();
+                                let instance = account.instance.clone();
+                                ListItem::new(
+                                    Some(Img::list_icon(Icon::User, None)),
+                                    id,
+                                    None,
+                                    vec![Accessory::new(instance, None)],
+                                )
+                            })
+                            .keywords(vec![account.id.clone()])
+                            .actions(vec![
+                                Action::new(
+                                    Img::list_icon(Icon::Pen, None),
+                                    "Edit",
+                                    None,
+                                    {
+                                        // TODO:
+                                        move |actions, cx| {
+                                            actions.toast.error("Not implemented", cx);
+                                        }
+                                    },
+                                    false,
+                                ),
+                                Action::new(
+                                    Img::list_icon(Icon::Delete, None),
+                                    "Delete",
+                                    None,
+                                    {
+                                        //
+                                        let path = account.path();
+                                        let id = account.id.clone();
+                                        move |actions, cx| {
+                                            if let Err(err) = fs::remove_dir_all(path.clone()) {
+                                                error!("Failed to delete account: {}", err);
+                                                actions.toast.error("Failed to delete account", cx);
                                             }
-                                        },
-                                        false,
-                                    ),
-                                    Action::new(
-                                        Img::list_icon(Icon::Delete, None),
-                                        "Delete",
-                                        None,
-                                        {
-                                            //
-                                            let path = account.path();
-                                            let id = account.id.clone();
-                                            move |actions, cx| {
-                                                if let Err(err) = fs::remove_dir_all(path.clone()) {
+                                            if let Some(account) =
+                                                BitwardenAccount::get(&id, db()).unwrap()
+                                            {
+                                                if let Err(err) = account.delete(db()) {
                                                     error!("Failed to delete account: {}", err);
                                                     actions
                                                         .toast
                                                         .error("Failed to delete account", cx);
                                                 }
-                                                if let Some(account) =
-                                                    BitwardenAccount::get(&id, db()).unwrap()
-                                                {
-                                                    if let Err(err) = account.delete(db()) {
-                                                        error!("Failed to delete account: {}", err);
-                                                        actions
-                                                            .toast
-                                                            .error("Failed to delete account", cx);
-                                                    }
-                                                };
-                                                StateModel::update(|this, cx| this.reset(cx), cx);
-                                            }
-                                        },
-                                        false,
-                                    ),
-                                ],
-                                None,
-                                None,
-                                None,
-                            )
+                                            };
+                                            StateModel::update(|this, cx| this.reset(cx), cx);
+                                        }
+                                    },
+                                    false,
+                                ),
+                            ])
+                            .build()
                         })
                         .collect();
                     Ok(Some(items))

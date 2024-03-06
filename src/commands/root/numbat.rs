@@ -7,7 +7,7 @@ use numbat::{
 };
 
 use crate::{
-    components::shared::Icon,
+    components::{list::ItemComponent, shared::Icon},
     query::{TextEvent, TextInputWeak},
     theme::Theme,
 };
@@ -104,6 +104,20 @@ impl Numbat {
 
             Numbat { result: None }
         })
+    }
+}
+
+#[derive(Clone)]
+pub struct NumbatWrapper {
+    pub inner: View<Numbat>,
+}
+
+impl ItemComponent for NumbatWrapper {
+    fn clone_box(&self) -> Box<dyn ItemComponent> {
+        Box::new(self.clone())
+    }
+    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
+        self.inner.clone().into_any_element()
     }
 }
 
