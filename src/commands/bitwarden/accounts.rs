@@ -41,7 +41,7 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                     InputKind::TextField {
                         placeholder: format!("Enter password for {}", self.account.id),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Password is required")),
+                        validate: Some(|v| v.is_empty().then_some("Password is required")),
                         password: true,
                     },
                     cx,
@@ -64,14 +64,13 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
             move |values, _, cx| {
                 let password = password.clone();
                 cx.spawn(|mut cx| async move {
-                    let remember = match values["remember_password"]
-                        .value::<String>()
-                        .to_lowercase()
-                        .as_str()
-                    {
-                        "y" | "yes" => true,
-                        _ => false,
-                    };
+                    let remember = matches!(
+                        values["remember_password"]
+                            .value::<String>()
+                            .to_lowercase()
+                            .as_str(),
+                        "y" | "yes"
+                    );
                     if password
                         .send((values["password"].value::<String>(), remember))
                         .await
@@ -88,8 +87,8 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                 })
                 .detach();
             },
-            &query,
-            &actions,
+            query,
+            actions,
             cx,
         )
         .into()
@@ -120,7 +119,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                             if v.is_empty() {
                                 return Some("Instance URL is required");
                             };
-                            if url::Url::parse(&v).is_err() {
+                            if url::Url::parse(v).is_err() {
                                 return Some("Invalid URL");
                             }
                             None
@@ -135,7 +134,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     InputKind::TextField {
                         placeholder: "Enter an account identifier...".to_string(),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Identifier is required")),
+                        validate: Some(|v| v.is_empty().then_some("Identifier is required")),
                         password: false,
                     },
                     cx,
@@ -146,7 +145,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     InputKind::TextField {
                         placeholder: "Enter client_id...".to_string(),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Client ID is required")),
+                        validate: Some(|v| v.is_empty().then_some("Client ID is required")),
                         password: false,
                     },
                     cx,
@@ -157,7 +156,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                     InputKind::TextField {
                         placeholder: "Enter client_secret...".to_string(),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Client Secret is required")),
+                        validate: Some(|v| v.is_empty().then_some("Client Secret is required")),
                         password: true,
                     },
                     cx,
@@ -208,8 +207,8 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
                 })
                 .detach();
             },
-            &query,
-            &actions,
+            query,
+            actions,
             cx,
         )
         .into()
@@ -242,7 +241,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |_, _, cx| {
                     let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
 

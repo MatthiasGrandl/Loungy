@@ -4,7 +4,7 @@ use bonsaidb::core::schema::SerializedCollection;
 use futures::StreamExt;
 use gpui::*;
 use matrix_sdk::{
-    ruma::{events::room::message::OriginalSyncRoomMessageEvent, OwnedMxcUri, OwnedRoomId},
+    ruma::{events::room::message::OriginalSyncRoomMessageEvent, OwnedRoomId},
     Client, SlidingSync,
 };
 
@@ -61,12 +61,12 @@ impl StateViewBuilder for RoomList {
             }
         }
 
-        AsyncListItems::loader(&self.view, &actions, cx);
+        AsyncListItems::loader(&self.view, actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 move |list, _, cx| {
                     let account = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
@@ -119,7 +119,7 @@ async fn sync(
                 .get_all_rooms()
                 .await
                 .iter()
-                .filter_map(|room| {
+                .map(|room| {
                     let mut queue = room.timeline_queue().into_iter();
                     let timestamp: u64 = loop {
                         let Some(ev) = queue.next_back() else {
@@ -136,11 +136,7 @@ async fn sync(
                     };
                     let name = room.name().unwrap_or("".to_string());
                     let mut img = match room.avatar_url() {
-                        Some(source) => Img::list_url(mxc_to_http(
-                            server.clone(),
-                            OwnedMxcUri::from(source),
-                            true,
-                        )),
+                        Some(source) => Img::list_url(mxc_to_http(server.clone(), source, true)),
                         None => match room.is_dm() {
                             Some(true) => Img::list_icon(Icon::User, None),
                             _ => Img::list_icon(Icon::Users, None),
@@ -164,7 +160,7 @@ async fn sync(
                         preview
                     };
 
-                    Some(Item::new(
+                    Item::new(
                         room_id.clone(),
                         vec![name.clone()],
                         cx.new_view(|_| ListItem::new(Some(img), name.clone(), None, vec![]))
@@ -215,7 +211,7 @@ async fn sync(
                         None,
                         Some(Box::new(timestamp)),
                         None,
-                    ))
+                    )
                 })
                 .collect();
 

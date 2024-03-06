@@ -235,8 +235,8 @@ impl InputView {
                 TextEvent::KeyDown(_) => {}
                 _ => {}
             },
-            InputKind::Shortcut { value, .. } => match event {
-                TextEvent::KeyDown(e) => {
+            InputKind::Shortcut { value, .. } => {
+                if let TextEvent::KeyDown(e) = event {
                     self.input.set_text("Record hotkey", cx);
 
                     let mut proceed = false;
@@ -269,42 +269,38 @@ impl InputView {
                         });
                     }
                 }
-                _ => {}
-            },
-        }
-        match event {
-            TextEvent::KeyDown(e) => {
-                if (Keystroke {
-                    key: "tab".to_string(),
-                    modifiers: Modifiers {
-                        shift: true,
-                        ..Modifiers::default()
-                    },
-                    ime_key: None,
-                })
-                .eq(&e.keystroke)
-                {
-                    self.focus_model.update(cx, |this, cx| {
-                        if this > &mut 0 {
-                            *this -= 1;
-                            cx.notify();
-                        }
-                    })
-                    //
-                } else if (Keystroke {
-                    key: "tab".to_string(),
-                    modifiers: Modifiers::default(),
-                    ime_key: None,
-                })
-                .eq(&e.keystroke)
-                {
-                    self.focus_model.update(cx, |this, cx| {
-                        *this += 1;
-                        cx.notify();
-                    })
-                }
             }
-            _ => {}
+        }
+        if let TextEvent::KeyDown(e) = event {
+            if (Keystroke {
+                key: "tab".to_string(),
+                modifiers: Modifiers {
+                    shift: true,
+                    ..Modifiers::default()
+                },
+                ime_key: None,
+            })
+            .eq(&e.keystroke)
+            {
+                self.focus_model.update(cx, |this, cx| {
+                    if this > &mut 0 {
+                        *this -= 1;
+                        cx.notify();
+                    }
+                })
+                //
+            } else if (Keystroke {
+                key: "tab".to_string(),
+                modifiers: Modifiers::default(),
+                ime_key: None,
+            })
+            .eq(&e.keystroke)
+            {
+                self.focus_model.update(cx, |this, cx| {
+                    *this += 1;
+                    cx.notify();
+                })
+            }
         }
     }
     pub fn new(

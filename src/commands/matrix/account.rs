@@ -1,12 +1,11 @@
-use std::{sync::mpsc::Receiver};
+use std::sync::mpsc::Receiver;
 
 use gpui::*;
 use log::error;
 
-
 use crate::{
     components::form::{Form, Input, InputKind},
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{ActionsModel, StateViewBuilder},
 };
 
@@ -32,7 +31,7 @@ impl StateViewBuilder for AccountCreationBuilder {
                     InputKind::TextField {
                         placeholder: "@username:matrix.org".to_string(),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Username is required")),
+                        validate: Some(|v| v.is_empty().then_some("Username is required")),
                         password: false,
                     },
                     cx,
@@ -43,7 +42,7 @@ impl StateViewBuilder for AccountCreationBuilder {
                     InputKind::TextField {
                         placeholder: "Enter password...".to_string(),
                         value: "".to_string(),
-                        validate: Some(|v| v.is_empty().then(|| "Password is required")),
+                        validate: Some(|v| v.is_empty().then_some("Password is required")),
                         password: true,
                     },
                     cx,
@@ -66,8 +65,8 @@ impl StateViewBuilder for AccountCreationBuilder {
 
                 //
             },
-            &query,
-            &actions,
+            query,
+            actions,
             cx,
         )
         .into()

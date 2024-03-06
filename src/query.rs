@@ -99,13 +99,12 @@ impl TextView {
             .detach();
             m
         });
-        cx.subscribe(&view, |subscriber, emitter: &TextEvent, cx| match emitter {
-            TextEvent::Input { text: _ } => {
+        cx.subscribe(&view, |subscriber, emitter: &TextEvent, cx| {
+            if let TextEvent::Input { text: _ } = emitter {
                 subscriber.update(cx, |editor, _cx| {
                     editor.word_click = (0, 0);
                 });
             }
-            _ => {}
         })
         .detach();
         view
@@ -334,9 +333,11 @@ impl Render for TextView {
         }
         let mut highlights = vec![(self.char_range_to_text_range(&text), selection_style)];
 
-        let mut style = TextStyle::default();
-        style.color = theme.text;
-        style.font_family = theme.font_sans.clone();
+        let mut style = TextStyle {
+            color: theme.text,
+            font_family: theme.font_sans.clone(),
+            ..TextStyle::default()
+        };
         if text.is_empty() {
             text = self.placeholder.to_string();
             style.color = theme.subtext0;

@@ -10,7 +10,7 @@ use crate::{
         list::{Accessory, Item, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    query::{TextInputWeak},
+    query::TextInputWeak,
     state::{Action, ActionsModel, Shortcut, StateModel, StateViewBuilder},
     theme::Theme,
 };
@@ -62,7 +62,7 @@ impl StateViewBuilder for TailscaleListBuilder {
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 |this, _, cx| {
                     let offline = "offline"
                         .to_string()
@@ -85,10 +85,9 @@ impl StateViewBuilder for TailscaleListBuilder {
                             let name = p.dns_name.split('.').next().unwrap();
                             let (tag, color) = match p.online {
                                 true => ("Connected".to_string(), theme.green),
-                                false => (
-                                    format!("Last seen: {}", p.last_seen.date().to_string()),
-                                    theme.surface0,
-                                ),
+                                false => {
+                                    (format!("Last seen: {}", p.last_seen.date()), theme.surface0)
+                                }
                             };
                             let ip = p.tailscale_ips.first().unwrap();
                             let ipv6 = p.tailscale_ips.last().unwrap();

@@ -12,7 +12,7 @@ pub(super) fn mxc_to_http(server: Url, url: OwnedMxcUri, thumb: bool) -> Url {
     };
     let path = format!(
         "{}_matrix/media/v3/{}/{}/{}{}",
-        server.to_string(),
+        server,
         t,
         server_name,
         media_id,

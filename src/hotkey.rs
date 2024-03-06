@@ -105,10 +105,9 @@ impl HotkeyManager {
         if keystroke.modifiers.control {
             tokens.push("control");
         }
-        if keystroke.modifiers.shift {
-            tokens.push("shift");
-        } else if keystroke.key.len() == 1
-            && keystroke.key.chars().next().unwrap().is_ascii_uppercase()
+        if keystroke.modifiers.shift
+            || (keystroke.key.len() == 1
+                && keystroke.key.chars().next().unwrap().is_ascii_uppercase())
         {
             tokens.push("shift");
         }

@@ -46,12 +46,12 @@ impl Db {
 
         Self { inner, storage }
     }
-    pub fn init_collection<'a, C: Collection + 'static>() -> Database {
+    pub fn init_collection<C: Collection + 'static>() -> Database {
         let storage = &db().storage;
         storage
             .register_schema::<C>()
             .expect("Failed to register schema");
-        
+
         storage
             .create_database::<C>(&C::collection_name().to_string(), true)
             .expect("Failed to open database")

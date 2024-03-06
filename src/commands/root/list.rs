@@ -71,77 +71,73 @@ impl StateViewBuilder for RootListBuilder {
                             if dir.is_err() {
                                 continue;
                             }
-                            for entry in dir.unwrap() {
-                                if let Ok(entry) = entry {
-                                    let path = entry.path();
+                            for entry in dir.unwrap().flatten() {
+                                let path = entry.path();
 
-                                    // search for .icns in Contents/Resources
-                                    let data = get_app_data(&path);
-                                    if data.is_none() {
-                                        continue;
-                                    }
-                                    let data = data.unwrap();
-                                    let app = Item::new(
-                                        data.id.clone(),
-                                        vec![data.name.clone()],
-                                        cx.new_view(|_cx| {
-                                            ListItem::new(
-                                                Some(data.icon.clone()),
-                                                data.name.clone(),
-                                                None,
-                                                vec![Accessory::new(data.tag.clone(), None)],
-                                            )
-                                        })
-                                        .into(),
-                                        None,
-                                        vec![Action::new(
-                                            Img::list_icon(Icon::ArrowUpRightFromSquare, None),
-                                            format!("Open {}", data.tag.clone()),
-                                            None,
-                                            {
-                                                let id = data.id.clone();
-
-                                                #[cfg(target_os = "macos")]
-                                                {
-                                                    let ex = data.tag == "System Setting";
-                                                    move |_, cx| {
-                                                        Window::close(cx);
-                                                        let id = id.clone();
-                                                        let mut command =
-                                                            std::process::Command::new("open");
-                                                        if ex {
-                                                            command.arg(format!(
-                                                                "x-apple.systempreferences:{}",
-                                                                id
-                                                            ));
-                                                        } else {
-                                                            command.arg("-b");
-                                                            command.arg(id);
-                                                        }
-                                                        let _ = command.spawn();
-                                                    }
-                                                }
-                                                #[cfg(target_os = "linux")]
-                                                {
-                                                    move |_, cx| {
-                                                        Window::close(cx);
-                                                        let mut command =
-                                                            std::process::Command::new(
-                                                                "gtk-launch",
-                                                            );
-                                                        command.arg(id.clone());
-                                                        let _ = command.spawn();
-                                                    }
-                                                }
-                                            },
-                                            false,
-                                        )],
-                                        None,
-                                        None,
-                                        None,
-                                    );
-                                    apps.insert(data.id, app);
+                                // search for .icns in Contents/Resources
+                                let data = get_app_data(&path);
+                                if data.is_none() {
+                                    continue;
                                 }
+                                let data = data.unwrap();
+                                let app = Item::new(
+                                    data.id.clone(),
+                                    vec![data.name.clone()],
+                                    cx.new_view(|_cx| {
+                                        ListItem::new(
+                                            Some(data.icon.clone()),
+                                            data.name.clone(),
+                                            None,
+                                            vec![Accessory::new(data.tag.clone(), None)],
+                                        )
+                                    })
+                                    .into(),
+                                    None,
+                                    vec![Action::new(
+                                        Img::list_icon(Icon::ArrowUpRightFromSquare, None),
+                                        format!("Open {}", data.tag.clone()),
+                                        None,
+                                        {
+                                            let id = data.id.clone();
+
+                                            #[cfg(target_os = "macos")]
+                                            {
+                                                let ex = data.tag == "System Setting";
+                                                move |_, cx| {
+                                                    Window::close(cx);
+                                                    let id = id.clone();
+                                                    let mut command =
+                                                        std::process::Command::new("open");
+                                                    if ex {
+                                                        command.arg(format!(
+                                                            "x-apple.systempreferences:{}",
+                                                            id
+                                                        ));
+                                                    } else {
+                                                        command.arg("-b");
+                                                        command.arg(id);
+                                                    }
+                                                    let _ = command.spawn();
+                                                }
+                                            }
+                                            #[cfg(target_os = "linux")]
+                                            {
+                                                move |_, cx| {
+                                                    Window::close(cx);
+                                                    let mut command =
+                                                        std::process::Command::new("gtk-launch");
+                                                    command.arg(id.clone());
+                                                    let _ = command.spawn();
+                                                }
+                                            }
+                                        },
+                                        false,
+                                    )],
+                                    None,
+                                    None,
+                                    None,
+                                );
+                                apps.insert(data.id, app);
                             }
                         }
                         let mut apps: Vec<Item> = apps.values().cloned().collect();

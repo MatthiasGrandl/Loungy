@@ -34,7 +34,7 @@ pub(super) struct Session {
 
 pub fn db() -> &'static Database {
     static DB: OnceLock<Database> = OnceLock::new();
-    DB.get_or_init(|| Db::init_collection::<Session>())
+    DB.get_or_init(Db::init_collection::<Session>)
 }
 
 impl Session {

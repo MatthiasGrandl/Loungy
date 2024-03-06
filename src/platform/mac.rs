@@ -2,8 +2,7 @@ use crate::components::shared::Img;
 use crate::paths::paths;
 use crate::window::Window;
 use gpui::WindowContext;
-use std::fs;
-use std::path::PathBuf;
+use std::{fs, path::Path};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
 use super::AppData;
@@ -17,7 +16,7 @@ struct AppDataMac {
 // Function to fetch application names and icons
 swift!( fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppDataMac>>);
 
-pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
+pub fn get_app_data(path: &Path) -> Option<AppData> {
     let cache_dir = paths().cache.join("apps");
     if !cache_dir.exists() {
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -93,7 +92,7 @@ pub fn close_and_paste(value: &str, formatting: bool, cx: &mut WindowContext) {
     .detach();
 }
 
-pub fn close_and_paste_file(path: &PathBuf, cx: &mut WindowContext) {
+pub fn close_and_paste_file(path: &Path, cx: &mut WindowContext) {
     Window::close(cx);
     let path = path.to_string_lossy().to_string();
     cx.spawn(move |mut cx| async move {
@@ -121,6 +120,6 @@ pub fn auto_fill(value: &str, password: bool, prev: &str) -> Option<String> {
 
 swift!( fn ocr(path: SRString));
 
-pub fn get_text_from_image(path: &PathBuf) {
+pub fn get_text_from_image(path: &Path) {
     unsafe { ocr(SRString::from(path.to_string_lossy().to_string().as_str())) }
 }

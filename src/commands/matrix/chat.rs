@@ -18,6 +18,7 @@ use matrix_sdk::{
                 MediaSource,
             },
             AnySyncMessageLikeEvent, AnySyncTimelineEvent, OriginalSyncMessageLikeEvent,
+            SyncMessageLikeEvent,
         },
         OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt,
     },
@@ -47,7 +48,7 @@ pub(super) struct ChatRoom {
     pub(super) room_id: OwnedRoomId,
 }
 
-pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) -> () {
+pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) {
     fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
     where
         Self: 'a;
@@ -55,7 +56,7 @@ pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) -> () {
 
 impl<F> OnMouseDown for F
 where
-    F: Fn(&MouseDownEvent, &mut WindowContext) -> () + Clone,
+    F: Fn(&MouseDownEvent, &mut WindowContext) + Clone,
 {
     fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
     where
@@ -366,111 +367,101 @@ async fn sync(
 
     let mut prev: Option<OriginalSyncMessageLikeEvent<RoomMessageEventContent>> = None;
     let mut messages: HashMap<OwnedEventId, Message> = HashMap::new();
-    let mut timeline = room.timeline_queue().into_iter();
+    let timeline = room.timeline_queue().into_iter();
     let mut reactions: HashMap<OwnedEventId, (OwnedEventId, String, bool)> = HashMap::new();
 
-    while let Some(ev) = timeline.next() {
+    for ev in timeline {
         let m = ev.event.deserialize_as::<AnySyncTimelineEvent>();
         if m.is_err() {
             continue;
         }
         let m = m.unwrap();
-        match m {
-            AnySyncTimelineEvent::MessageLike(e) => match e {
-                AnySyncMessageLikeEvent::Reaction(e) => match e {
-                    matrix_sdk::ruma::events::SyncMessageLikeEvent::Original(e) => {
-                        let emoji = e.content.relates_to.key;
-                        let id = e.content.relates_to.event_id;
-                        let me = e.sender.to_string().eq(&me.to_string());
-                        reactions.insert(e.event_id, (id, emoji, me));
+        if let AnySyncTimelineEvent::MessageLike(e) = m {
+            match e {
+                AnySyncMessageLikeEvent::Reaction(SyncMessageLikeEvent::Original(e)) => {
+                    let emoji = e.content.relates_to.key;
+                    let id = e.content.relates_to.event_id;
+                    let me = e.sender.to_string().eq(&me.to_string());
+                    reactions.insert(e.event_id, (id, emoji, me));
+                }
+                AnySyncMessageLikeEvent::RoomRedaction(SyncRoomRedactionEvent::Original(e)) => {
+                    if let Some(id) = e.content.redacts {
+                        _ = reactions.remove(&id);
+                        _ = messages.remove(&id);
                     }
-                    _ => {}
-                },
-                AnySyncMessageLikeEvent::RoomRedaction(e) => match e {
-                    SyncRoomRedactionEvent::Original(e) => {
-                        if let Some(id) = e.content.redacts {
-                            _ = reactions.remove(&id);
-                            _ = messages.remove(&id);
+                }
+                AnySyncMessageLikeEvent::RoomMessage(SyncMessageLikeEvent::Original(e)) => {
+                    let in_reply_to = match e.content.clone().relates_to {
+                        Some(Relation::Replacement(r)) => {
+                            if let Some(m) = messages.get_mut(&r.event_id) {
+                                m.edited = true;
+                                m.content = get_content(r.new_content, server.clone());
+                            };
+                            continue;
                         }
-                    }
-                    _ => {}
-                },
-                AnySyncMessageLikeEvent::RoomMessage(e) => match e {
-                    matrix_sdk::ruma::events::SyncMessageLikeEvent::Original(e) => {
-                        let in_reply_to = match e.content.clone().relates_to {
-                            Some(Relation::Replacement(r)) => {
-                                if let Some(m) = messages.get_mut(&r.event_id) {
-                                    m.edited = true;
-                                    m.content = get_content(r.new_content, server.clone());
-                                };
-                                continue;
-                            }
-                            Some(Relation::Reply { in_reply_to }) => {
-                                Some(in_reply_to.event_id.to_string())
-                            }
-                            _ => None,
-                        };
-                        let clone = e.clone();
-                        let sender = e.sender.clone();
-                        let id = e.event_id;
-                        let me = me.to_string().eq(&sender);
-                        let (sender, avatar) = member_map
-                            .clone()
-                            .get(&sender)
-                            .map(|m| {
-                                (
-                                    m.display_name().unwrap_or(&sender.to_string()).to_string(),
-                                    match m.avatar_url() {
-                                        Some(a) => Img::list_url(mxc_to_http(
-                                            server.clone(),
-                                            OwnedMxcUri::from(a),
-                                            true,
-                                        )),
-                                        None => Img::list_icon(Icon::User, None),
-                                    },
-                                )
-                            })
-                            .unwrap_or((sender.to_string(), Img::list_icon(Icon::User, None)));
-                        let content = get_content(e.content.into(), server.clone());
-                        let room_id = room.room_id().to_string();
-
-                        let mut first = true;
-                        if let Some(p) = prev {
-                            if p.sender != e.sender {
-                                if let Some(m) = messages.get_mut(&p.event_id) {
-                                    m.last = true;
-                                }
-                            } else {
-                                first = false;
-                            }
+                        Some(Relation::Reply { in_reply_to }) => {
+                            Some(in_reply_to.event_id.to_string())
                         }
-                        prev = Some(clone);
-
-                        messages.insert(
-                            id.clone(),
-                            Message {
-                                id: id.to_string(),
-                                room_id: room_id.clone(),
-                                timestamp: e.origin_server_ts.as_secs().into(),
-                                content,
-                                sender,
-                                avatar,
-                                me,
-                                edited: false,
-                                reactions: Reactions {
-                                    inner: HashMap::new(),
+                        _ => None,
+                    };
+                    let clone = e.clone();
+                    let sender = e.sender.clone();
+                    let id = e.event_id;
+                    let me = me.to_string().eq(&sender);
+                    let (sender, avatar) = member_map
+                        .clone()
+                        .get(&sender)
+                        .map(|m| {
+                            (
+                                m.display_name().unwrap_or(sender.as_ref()).to_string(),
+                                match m.avatar_url() {
+                                    Some(a) => Img::list_url(mxc_to_http(
+                                        server.clone(),
+                                        OwnedMxcUri::from(a),
+                                        true,
+                                    )),
+                                    None => Img::list_icon(Icon::User, None),
                                 },
-                                first,
-                                last: false,
-                                in_reply_to,
-                            },
-                        );
+                            )
+                        })
+                        .unwrap_or((sender.to_string(), Img::list_icon(Icon::User, None)));
+                    let content = get_content(e.content.into(), server.clone());
+                    let room_id = room.room_id().to_string();
+
+                    let mut first = true;
+                    if let Some(p) = prev {
+                        if p.sender != e.sender {
+                            if let Some(m) = messages.get_mut(&p.event_id) {
+                                m.last = true;
+                            }
+                        } else {
+                            first = false;
+                        }
                     }
-                    _ => {}
-                },
+                    prev = Some(clone);
+
+                    messages.insert(
+                        id.clone(),
+                        Message {
+                            id: id.to_string(),
+                            room_id: room_id.clone(),
+                            timestamp: e.origin_server_ts.as_secs().into(),
+                            content,
+                            sender,
+                            avatar,
+                            me,
+                            edited: false,
+                            reactions: Reactions {
+                                inner: HashMap::new(),
+                            },
+                            first,
+                            last: false,
+                            in_reply_to,
+                        },
+                    );
+                }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
     if let Some(p) = prev {
@@ -538,7 +529,7 @@ async fn sync(
         }
     });
 
-    let mut messages: Vec<Message> = messages.into_iter().map(|(_, v)| v).collect();
+    let mut messages: Vec<Message> = messages.into_values().collect();
     messages.sort_unstable_by_key(|m| m.timestamp);
 
     let items: Vec<Item> = messages
@@ -621,11 +612,11 @@ impl StateViewBuilder for ChatRoom {
             AsyncListItems::new()
         });
 
-        AsyncListItems::loader(&view, &actions, cx);
+        AsyncListItems::loader(&view, actions, cx);
 
         let list = ListBuilder::new().reverse().build(
             query,
-            &actions,
+            actions,
             move |_, _, cx| {
                 Ok(Some(
                     view.read(cx).items.values().flatten().cloned().collect(),
@@ -638,13 +629,10 @@ impl StateViewBuilder for ChatRoom {
                     .filter(|item| {
                         let text = this.query.get_text(cx).to_lowercase();
                         let message: &Message = item.meta.value().downcast_ref().unwrap();
-                        match &message.content {
-                            MessageContent::Text(t) => {
-                                if t.to_lowercase().contains(&text) {
-                                    return true;
-                                }
+                        if let MessageContent::Text(t) = &message.content {
+                            if t.to_lowercase().contains(&text) {
+                                return true;
                             }
-                            _ => {}
                         }
                         message.sender.to_lowercase().contains(&text)
                     })

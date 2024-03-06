@@ -558,14 +558,11 @@ impl List {
                         }
                         let triggered = update_receiver.try_recv().is_ok();
 
-                        if (poll || triggered)
-                            && view
-                                .update(&mut cx, |this: &mut Self, cx| {
-                                    this.update(triggered, cx);
-                                    last = std::time::Instant::now();
-                                })
-                                .is_err()
-                        {
+                        let update = |this: &mut Self, cx: &mut ViewContext<Self>| {
+                            this.update(triggered, cx);
+                            last = std::time::Instant::now();
+                        };
+                        if (poll || triggered) && view.update(&mut cx, update).is_err() {
                             debug!("List view released");
                             break;
                         }

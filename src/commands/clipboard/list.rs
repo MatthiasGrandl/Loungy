@@ -83,12 +83,12 @@ impl StateViewBuilder for ClipboardListBuilder {
             cx,
         );
 
-        AsyncListItems::loader(&self.view, &actions, cx);
+        AsyncListItems::loader(&self.view, actions, cx);
         let view = self.view.clone();
         ListBuilder::new()
             .build(
                 query,
-                &actions,
+                actions,
                 move |list, _, cx| {
                     let t = list.actions.get_dropdown_value(cx);
                     let items = view.read(cx).items.clone();
@@ -107,7 +107,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                                 .copied_last,
                         )
                     });
-                    return Ok(Some(items));
+                    Ok(Some(items))
                 },
                 None,
                 None,
@@ -149,18 +149,18 @@ enum ClipboardListItemKind {
     Image { thumbnail: PathBuf },
 }
 
-impl Into<ClipboardListItemKind> for ClipboardKind {
-    fn into(self) -> ClipboardListItemKind {
-        match self {
+impl From<ClipboardKind> for ClipboardListItemKind {
+    fn from(val: ClipboardKind) -> Self {
+        match val {
             ClipboardKind::Text { .. } => ClipboardListItemKind::Text,
             ClipboardKind::Image { thumbnail, .. } => ClipboardListItemKind::Image { thumbnail },
         }
     }
 }
 
-impl Into<String> for ClipboardListItemKind {
-    fn into(self) -> String {
-        match self {
+impl From<ClipboardListItemKind> for String {
+    fn from(val: ClipboardListItemKind) -> Self {
+        match val {
             ClipboardListItemKind::Text => "Text".to_string(),
             ClipboardListItemKind::Image { .. } => "Image".to_string(),
         }
@@ -188,7 +188,7 @@ impl ClipboardListItem {
             .unwrap_or(("Unknown".to_string(), None));
 
         let item = Self {
-            id: id.clone(),
+            id,
             title: title.to_string(),
             copied_last: OffsetDateTime::now_utc(),
             copied_first: OffsetDateTime::now_utc(),
@@ -197,7 +197,7 @@ impl ClipboardListItem {
         };
         let _ = item.clone().push_into(db_items());
         let detail = ClipboardDetail {
-            id: id,
+            id,
             application,
             application_icon,
             kind,
@@ -227,7 +227,7 @@ impl ClipboardListItem {
             Some((
                 0.66,
                 Box::new({
-                    let id = self.id.clone();
+                    let id = self.id;
                     move |cx| StateItem::init(ClipboardPreview::init(id, cx), false, cx)
                 }),
             )),
@@ -238,7 +238,7 @@ impl ClipboardListItem {
                         "Paste",
                         None,
                         {
-                            let id = self.id.clone();
+                            let id = self.id;
                             move |_, cx| {
                                 let detail =
                                     ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
@@ -278,8 +278,8 @@ impl ClipboardListItem {
                         false,
                     ),
                 ];
-                match self.kind.clone() {
-                    ClipboardListItemKind::Image { thumbnail } => actions.insert(
+                if let ClipboardListItemKind::Image { thumbnail } = self.kind.clone() {
+                    actions.insert(
                         1,
                         Action::new(
                             Img::list_icon(Icon::ScanEye, None),
@@ -296,8 +296,7 @@ impl ClipboardListItem {
                             },
                             false,
                         ),
-                    ),
-                    _ => {}
+                    )
                 }
                 actions
             },
@@ -317,14 +316,11 @@ impl ClipboardListItem {
         if let Some(item) = Self::get(&self.id, db_items())? {
             item.delete(db_items())?;
         };
-        match self.kind.clone() {
-            ClipboardListItemKind::Image { thumbnail } => {
-                let mut path = thumbnail.clone();
-                path.pop();
-                let _ = std::fs::remove_file(thumbnail);
-                let _ = std::fs::remove_file(path.join(format!("{}.png", self.id)));
-            }
-            _ => {}
+        if let ClipboardListItemKind::Image { thumbnail } = self.kind.clone() {
+            let mut path = thumbnail.clone();
+            path.pop();
+            let _ = std::fs::remove_file(thumbnail);
+            let _ = std::fs::remove_file(path.join(format!("{}.png", self.id)));
         }
         Ok(())
     }
@@ -344,6 +340,7 @@ impl ClipboardListItem {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct ClipboardPreview {
     id: u64,
     item: ClipboardListItem,
@@ -531,7 +528,7 @@ impl Render for ClipboardPreview {
                         let s = self.state.clone();
                         move |bounds, cx| {
                             b.update(cx, |this, _| {
-                                *this = bounds.clone();
+                                *this = *bounds;
                             });
                             list(s).size_full().into_any_element().draw(
                                 bounds.origin,
@@ -584,12 +581,12 @@ impl StateViewBuilder for ClipboardPreview {
 
 pub(super) fn db_items() -> &'static Database {
     static DB: OnceLock<Database> = OnceLock::new();
-    DB.get_or_init(|| Db::init_collection::<ClipboardListItem>())
+    DB.get_or_init(Db::init_collection::<ClipboardListItem>)
 }
 
 pub(super) fn db_detail() -> &'static Database {
     static DB: OnceLock<Database> = OnceLock::new();
-    DB.get_or_init(|| Db::init_collection::<ClipboardDetail>())
+    DB.get_or_init(Db::init_collection::<ClipboardDetail>)
 }
 
 pub struct ClipboardCommandBuilder;
@@ -640,9 +637,9 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                 item.contents.clone()
                             } else {
                                 ClipboardListItem::new(
-                                    hash.clone(),
+                                    hash,
                                     {
-                                        let mut text = text.trim().replace("\n", " ");
+                                        let mut text = text.trim().replace('\n', " ");
                                         if text.len() > 25 {
                                             text.truncate(25);
                                             text.push_str("...");
@@ -700,7 +697,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                     });
                                 }
                                 ClipboardListItem::new(
-                                    hash.clone(),
+                                    hash,
                                     format!("Image ({}x{})", width, height),
                                     ClipboardKind::Image {
                                         width,

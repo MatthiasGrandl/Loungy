@@ -341,11 +341,8 @@ impl StateItem {
                     }
                 });
 
-                match ev.keystroke.key.as_str() {
-                    "escape" => {
-                        Window::close(cx);
-                    }
-                    _ => {}
+                if ev.keystroke.key.as_str() == "escape" {
+                    Window::close(cx);
                 }
             }
             TextEvent::Back => {
@@ -984,12 +981,9 @@ impl ActionsModel {
                             (action.action)(this, cx);
                             return;
                         }
-                        match ev.keystroke.key.as_str() {
-                            "escape" => {
-                                this.show = false;
-                                cx.notify();
-                            }
-                            _ => {}
+                        if ev.keystroke.key.as_str() == "escape" {
+                            this.show = false;
+                            cx.notify();
                         }
                     }
                     _ => {}

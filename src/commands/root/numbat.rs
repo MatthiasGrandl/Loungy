@@ -47,65 +47,58 @@ impl Numbat {
 
         cx.new_view(move |cx| {
             if let Some(query) = query.view.upgrade() {
-                cx.subscribe(
-                    &query,
-                    move |subscriber: &mut Numbat, _, event, cx| match event {
-                        TextEvent::Input { text } => {
-                            let result =
-                                ctx.interpret(&rephraser(text), numbat::resolver::CodeSource::Text);
-                            let formatter = PlainTextFormatter {};
-                            subscriber.result = match result {
-                                Ok((statements, result)) => {
-                                    let s: Vec<String> = statements
-                                        .iter()
-                                        .map(|s| {
-                                            
-                                            formatter.format(&s.pretty_print(), false)
-                                        })
-                                        .collect();
-                                    let s = s.join(" ");
-                                    let result = &result.to_markup(
-                                        statements.last(),
-                                        ctx.dimension_registry(),
-                                        true,
-                                    );
-                                    let mut value: Option<String> = None;
-                                    let mut type_id: Option<String> = None;
-                                    let mut unit: Option<String> = None;
-                                    for part in &result.0 {
-                                        match part.1 {
-                                            numbat::markup::FormatType::String => {
-                                                value = Some(part.2.clone())
-                                            }
-                                            numbat::markup::FormatType::Value => {
-                                                value = Some(part.2.clone());
-                                            }
-                                            numbat::markup::FormatType::TypeIdentifier => {
-                                                type_id = Some(part.2.clone());
-                                            }
-                                            numbat::markup::FormatType::Unit => {
-                                                unit = Some(part.2.clone());
-                                            }
-                                            _ => {}
+                cx.subscribe(&query, move |subscriber: &mut Numbat, _, event, cx| {
+                    if let TextEvent::Input { text } = event {
+                        let result =
+                            ctx.interpret(&rephraser(text), numbat::resolver::CodeSource::Text);
+                        let formatter = PlainTextFormatter {};
+                        subscriber.result = match result {
+                            Ok((statements, result)) => {
+                                let s: Vec<String> = statements
+                                    .iter()
+                                    .map(|s| formatter.format(&s.pretty_print(), false))
+                                    .collect();
+                                let s = s.join(" ");
+                                let result = &result.to_markup(
+                                    statements.last(),
+                                    ctx.dimension_registry(),
+                                    true,
+                                );
+                                let mut value: Option<String> = None;
+                                let mut type_id: Option<String> = None;
+                                let mut unit: Option<String> = None;
+                                for part in &result.0 {
+                                    match part.1 {
+                                        numbat::markup::FormatType::String => {
+                                            value = Some(part.2.clone())
                                         }
+                                        numbat::markup::FormatType::Value => {
+                                            value = Some(part.2.clone());
+                                        }
+                                        numbat::markup::FormatType::TypeIdentifier => {
+                                            type_id = Some(part.2.clone());
+                                        }
+                                        numbat::markup::FormatType::Unit => {
+                                            unit = Some(part.2.clone());
+                                        }
+                                        _ => {}
                                     }
-                                    value.map(|value| NumbatResult {
-                                            result: value,
-                                            unit: unit.unwrap_or_default(),
-                                            type_id: type_id.unwrap_or_default(),
-                                            equation: s.replace('➞', "to"),
-                                        })
                                 }
-                                Err(_e) => {
-                                    //eprintln!("{:#?}", e);
-                                    None
-                                }
-                            };
-                            cx.notify();
-                        }
-                        _ => {}
-                    },
-                )
+                                value.map(|value| NumbatResult {
+                                    result: value,
+                                    unit: unit.unwrap_or_default(),
+                                    type_id: type_id.unwrap_or_default(),
+                                    equation: s.replace('➞', "to"),
+                                })
+                            }
+                            Err(_e) => {
+                                //eprintln!("{:#?}", e);
+                                None
+                            }
+                        };
+                        cx.notify();
+                    }
+                })
                 .detach();
             }
 
