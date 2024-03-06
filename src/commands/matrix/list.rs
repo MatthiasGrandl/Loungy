@@ -67,8 +67,7 @@ impl StateViewBuilder for RoomList {
                         items.get(&account).cloned().unwrap_or_default()
                     };
                     items.sort_unstable_by_key(|item| {
-                        let timestamp: u64 = item.get_meta();
-                        Reverse(timestamp)
+                        Reverse(item.get_meta::<u64>(cx).unwrap())
                     });
                     Ok(Some(items))
                 },
@@ -192,7 +191,7 @@ async fn sync(
                         ),
                     ])
                     .preview(0.66, move |cx| StateItem::init(preview.clone(), false, cx))
-                    .meta(timestamp)
+                    .meta(cx.new_model(|_| timestamp).unwrap().into_any())
                     .build()
                 })
                 .collect();

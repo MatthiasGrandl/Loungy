@@ -39,7 +39,7 @@ impl StateViewBuilder for MenuListBuilder {
         ListBuilder::new()
             .interval(Duration::from_secs(10))
             .build(
-                |_, _, cx| {
+                |_, _, _cx| {
                     let data = unsafe { menu_items() };
                     if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {
                         Ok(Some(

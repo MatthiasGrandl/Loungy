@@ -21,7 +21,7 @@ impl StateViewBuilder for ThemeListBuilder {
         ListBuilder::new()
             .interval(Duration::from_secs(10))
             .build(
-                |_, _, cx| {
+                |_, _, _cx| {
                     let themes = Theme::list();
                     Ok(Some(
                         themes

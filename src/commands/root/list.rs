@@ -28,7 +28,7 @@ impl StateViewBuilder for RootListBuilder {
         ListBuilder::new()
             .interval(Duration::from_secs(60))
             .build(
-                |_, _, cx| {
+                |_, _, _cx| {
                     {
                         let user_dir = PathBuf::from("/Users")
                             .join(whoami::username())

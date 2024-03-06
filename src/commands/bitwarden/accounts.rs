@@ -220,7 +220,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
         ListBuilder::new()
             .interval(Duration::from_secs(10))
             .build(
-                |_, _, cx| {
+                |_, _, _| {
                     let accounts = BitwardenAccount::all(db()).descending().query().unwrap();
 
                     let items: Vec<Item> = accounts

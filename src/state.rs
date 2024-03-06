@@ -784,6 +784,7 @@ impl Actions {
         } else {
             count as f32 * el_height + 20.0
         });
+
         div()
             .absolute()
             .bottom_10()
@@ -941,11 +942,12 @@ impl ActionsModel {
                                         item.label.clone(),
                                         ListItem::new(
                                             Some(action.image.clone()),
-                                            item.label,
+                                            item.label.clone(),
                                             None,
                                             accessories,
                                         ),
                                     )
+                                    .keywords(vec![item.label.clone()])
                                     .actions(vec![action])
                                     .build(),
                                 )
@@ -957,7 +959,7 @@ impl ActionsModel {
                 &mut context,
                 cx,
             );
-            let list_clone = list.clone();
+            let list_clone = list.downgrade();
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
@@ -970,7 +972,7 @@ impl ActionsModel {
                         if Shortcut::simple(key).inner.eq(&ev.keystroke) {
                             this.show = false;
                             cx.notify();
-                            list_clone.update(cx, |this2, cx| {
+                            let _ = list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
                                 }

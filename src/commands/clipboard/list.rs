@@ -91,7 +91,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                         items.get(&t).cloned().unwrap_or_default()
                     };
 
-                    items.sort_by_key(|item| Reverse(item.get_meta::<OffsetDateTime>()));
+                    items.sort_by_key(|item| Reverse(item.get_meta::<OffsetDateTime>(cx).unwrap()));
                     Ok(Some(items))
                 },
                 None,
@@ -275,7 +275,7 @@ impl ClipboardListItem {
             }
             actions
         })
-        .meta(self.copied_last)
+        .meta(cx.new_model(|_| self.copied_last).into_any())
         .build()
     }
     fn delete(&self, view: WeakView<AsyncListItems>, cx: &mut WindowContext) -> anyhow::Result<()> {

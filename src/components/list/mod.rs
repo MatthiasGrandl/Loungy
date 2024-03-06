@@ -94,7 +94,7 @@ impl ListItem {
 }
 
 impl ItemComponent for ListItem {
-    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
+    fn render(&self, _selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let el = if let Some(img) = &self.img {
             div().child(div().mr_4().child(img.clone()))
@@ -146,38 +146,15 @@ impl Clone for Box<dyn ItemComponent> {
     }
 }
 
-pub trait Meta: std::any::Any {
-    fn value(&self) -> &dyn std::any::Any;
-    fn clone_meta(&self) -> Box<dyn Meta>;
-}
-
-impl<F> Meta for F
-where
-    F: Clone + std::any::Any,
-{
-    fn value(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn clone_meta(&self) -> Box<dyn Meta> {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + Meta> {
-    fn clone(&self) -> Self {
-        (**self).clone_meta()
-    }
-}
-
 pub struct ItemBuilder {
     id: u64,
     preview: Option<(f32, Box<dyn Preview>)>,
     actions: Vec<Action>,
     weight: Option<u16>,
     keywords: Vec<String>,
-    meta: Box<dyn Meta>,
     component: Box<dyn ItemComponent>,
     preset: ItemPreset,
+    meta: Option<AnyModel>,
 }
 
 impl ItemBuilder {
@@ -191,7 +168,7 @@ impl ItemBuilder {
             actions: vec![],
             weight: None,
             keywords: vec![],
-            meta: Box::new(()),
+            meta: None,
             preset: ItemPreset::Default,
             component: Box::new(component),
         }
@@ -200,8 +177,8 @@ impl ItemBuilder {
         self.preview = Some((width, Box::new(preview)));
         self
     }
-    pub fn meta(&mut self, meta: impl Meta + 'static) -> &mut Self {
-        self.meta = Box::new(meta);
+    pub fn meta(&mut self, meta: AnyModel) -> &mut Self {
+        self.meta = Some(meta);
         self
     }
     pub fn keywords(&mut self, keywords: Vec<impl ToString>) -> &mut Self {
@@ -229,7 +206,7 @@ impl ItemBuilder {
             keywords: self.keywords.clone(),
             selected: false,
             component: self.component.clone(),
-            meta: self.meta.clone_meta(),
+            meta: self.meta.clone(),
             preset: self.preset.clone(),
         }
     }
@@ -249,15 +226,19 @@ pub struct Item {
     actions: Vec<Action>,
     weight: Option<u16>,
     keywords: Vec<String>,
-    meta: Box<dyn Meta>,
     component: Box<dyn ItemComponent>,
     selected: bool,
     preset: ItemPreset,
+    pub meta: Option<AnyModel>,
 }
 
 impl Item {
-    pub fn get_meta<V: Clone + 'static>(&self) -> V {
-        self.meta.value().downcast_ref::<V>().cloned().unwrap()
+    pub fn get_meta<V: Clone + 'static>(&self, cx: &AppContext) -> Option<V> {
+        self.meta
+            .clone()
+            .and_then(|m| m.downcast::<V>().ok())
+            .map(|v| v.read(cx))
+            .cloned()
     }
     pub fn get_keywords(&self) -> &Vec<String> {
         self.keywords.as_ref()

@@ -544,7 +544,7 @@ async fn sync(
             ItemBuilder::new(m.id.clone(), m.clone())
                 .keywords(vec![m.sender.clone()])
                 .actions(m.actions(&client, cx))
-                .meta(m)
+                .meta(cx.new_model(|_| m).unwrap().into_any())
                 .preset(ItemPreset::Plain)
                 .build()
         })
@@ -619,7 +619,7 @@ impl StateViewBuilder for ChatRoom {
                     .into_iter()
                     .filter(|item| {
                         let text = this.query.get_text(cx).to_lowercase();
-                        let message: &Message = item.get_meta();
+                        let message = item.get_meta::<Message>(cx).unwrap();
                         if let MessageContent::Text(t) = &message.content {
                             if t.to_lowercase().contains(&text) {
                                 return true;
