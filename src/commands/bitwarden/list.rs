@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{OnceLock},
-    time::Duration,
-};
+use std::{collections::HashMap, path::PathBuf, sync::OnceLock, time::Duration};
 
 use async_std::{
     channel,

@@ -181,7 +181,7 @@ pub(super) struct Message {
 }
 
 impl Message {
-    fn render(&mut self, selected: bool, cx: &WindowContext) -> Div {
+    fn render(&mut self, selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.first;
         let show_reactions = !self.reactions.inner.is_empty();
@@ -267,6 +267,7 @@ impl Message {
                     .child(self.reactions.clone()),
             ),
         )
+        .into_any_element()
     }
     fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
         let mut actions = vec![Action::new(

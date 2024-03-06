@@ -142,7 +142,7 @@ pub struct Item {
     pub weight: Option<u16>,
     selected: bool,
     pub meta: Box<dyn Meta>,
-    render: Option<fn(Self, bool, &WindowContext) -> Div>,
+    render: Option<fn(&Self, bool, &WindowContext) -> AnyElement>,
 }
 
 pub trait Meta: std::any::Any {
@@ -201,7 +201,7 @@ impl Item {
         actions: Vec<Action>,
         weight: Option<u16>,
         meta: Option<Box<dyn Meta>>,
-        render: Option<fn(Self, bool, &WindowContext) -> Div>,
+        render: Option<fn(&Self, bool, &WindowContext) -> AnyElement>,
     ) -> Self {
         let mut s = DefaultHasher::new();
         t.hash(&mut s);
@@ -223,7 +223,7 @@ impl Item {
 impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         if let Some(render) = &self.render {
-            render(self.clone(), self.selected, cx)
+            render(&self, self.selected, cx)
         } else {
             let theme = cx.global::<Theme>();
             let mut bg_hover = theme.mantle;
@@ -237,6 +237,7 @@ impl RenderOnce for Item {
             .border_1()
             .rounded_xl()
             .child(self.component)
+            .into_any_element()
         }
     }
 }
