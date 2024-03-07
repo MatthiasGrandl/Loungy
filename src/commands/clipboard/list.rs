@@ -20,12 +20,13 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use time::{format_description, OffsetDateTime};
 use tz::TimeZone;
+use url::Url;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
-        shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
+        shared::{Favicon, Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     db::Db,
     paths::paths,
@@ -74,7 +75,12 @@ impl StateViewBuilder for ClipboardListBuilder {
 
         context.actions.set_dropdown(
             "memory",
-            vec![("", "All Types"), ("Text", "Text"), ("Image", "Image")],
+            vec![
+                ("", "All Types"),
+                ("Text", "Text Only"),
+                ("Link", "Links Only"),
+                ("Image", "Images Only"),
+            ],
             cx,
         );
 
@@ -108,6 +114,11 @@ enum ClipboardKind {
         words: u64,
         text: String,
     },
+    Url {
+        url: String,
+        characters: u64,
+        title: String,
+    },
     Image {
         width: u32,
         height: u32,
@@ -129,6 +140,7 @@ struct ClipboardDetail {
 #[derive(Clone, Serialize, Deserialize)]
 enum ClipboardListItemKind {
     Text,
+    Url { url: String },
     Image { thumbnail: PathBuf },
 }
 
@@ -136,6 +148,7 @@ impl From<ClipboardKind> for ClipboardListItemKind {
     fn from(val: ClipboardKind) -> Self {
         match val {
             ClipboardKind::Text { .. } => ClipboardListItemKind::Text,
+            ClipboardKind::Url { url, .. } => ClipboardListItemKind::Url { url },
             ClipboardKind::Image { thumbnail, .. } => ClipboardListItemKind::Image { thumbnail },
         }
     }
@@ -145,6 +158,7 @@ impl From<ClipboardListItemKind> for String {
     fn from(val: ClipboardListItemKind) -> Self {
         match val {
             ClipboardListItemKind::Text => "Text".to_string(),
+            ClipboardListItemKind::Url { .. } => "Link".to_string(),
             ClipboardListItemKind::Image { .. } => "Image".to_string(),
         }
     }
@@ -195,6 +209,13 @@ impl ClipboardListItem {
             ListItem::new(
                 match self.kind.clone() {
                     ClipboardListItemKind::Image { thumbnail } => Some(Img::list_file(thumbnail)),
+                    ClipboardListItemKind::Url { url } => Some({
+                        Img::new(
+                            ImgSource::Favicon(Favicon::init(url, Icon::Link, cx)),
+                            ImgMask::Rounded,
+                            ImgSize::MD,
+                        )
+                    }),
                     _ => Some(Img::list_icon(Icon::File, None)),
                 },
                 self.title.clone(),
@@ -219,7 +240,8 @@ impl ClipboardListItem {
                             let detail = ClipboardDetail::get(&id, db_detail()).unwrap().unwrap();
                             let _ = cx.update_window(cx.window_handle(), |_, cx| {
                                 match detail.contents.kind.clone() {
-                                    ClipboardKind::Text { text, .. } => {
+                                    ClipboardKind::Text { text, .. }
+                                    | ClipboardKind::Url { url: text, .. } => {
                                         close_and_paste(text.as_str(), false, cx);
                                     }
                                     ClipboardKind::Image { path, .. } => {
@@ -351,7 +373,7 @@ impl ClipboardPreview {
                 ListAlignment::Top,
                 Pixels(100.0),
                 move |_, cx| match detail.kind.clone() {
-                    ClipboardKind::Text { text, .. } => {
+                    ClipboardKind::Text { text, .. } | ClipboardKind::Url { url: text, .. } => {
                         div().p_2().w_full().child(text.clone()).into_any_element()
                     }
                     ClipboardKind::Image {
@@ -466,7 +488,7 @@ impl Render for ClipboardPreview {
         } else {
             vec![("Copied".to_string(), ts)]
         });
-        match self.detail.kind {
+        match &self.detail.kind {
             ClipboardKind::Text {
                 characters, words, ..
             } => {
@@ -475,6 +497,17 @@ impl Render for ClipboardPreview {
                     characters.to_string().into_any_element(),
                 ));
                 table.push(("Words".to_string(), words.to_string().into_any_element()));
+            }
+            ClipboardKind::Url {
+                characters, title, ..
+            } => {
+                table.push((
+                    "Characters".to_string(),
+                    characters.to_string().into_any_element(),
+                ));
+                if !title.is_empty() {
+                    table.push(("Title".to_string(), title.clone().into_any_element()));
+                }
             }
             ClipboardKind::Image { width, height, .. } => {
                 table.push((
@@ -601,6 +634,23 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                 item.contents.copy_count += 1;
                                 let _ = item.update(db_items());
                                 item.contents.clone()
+                            } else if let Ok(url) = Url::parse(&text) {
+                                ClipboardListItem::new(
+                                    hash,
+                                    {
+                                        let mut text = text.trim().replace('\n', " ");
+                                        if text.len() > 25 {
+                                            text.truncate(25);
+                                            text.push_str("...");
+                                        }
+                                        text
+                                    },
+                                    ClipboardKind::Url {
+                                        characters: text.chars().count() as u64,
+                                        url: text,
+                                        title: "".to_string(),
+                                    },
+                                )
                             } else {
                                 ClipboardListItem::new(
                                     hash,

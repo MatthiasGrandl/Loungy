@@ -19,7 +19,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
-        shared::{Icon, Img},
+        shared::{Favicon, Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     db::Db,
     paths::paths,
@@ -373,24 +373,35 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     login,
                                 } = item
                                 {
-                                    let domain = login.uris.first().and_then(|uri| {
-                                        Url::parse(&if !uri.uri.starts_with("http") {
-                                            format!("https://{}", uri.uri)
-                                        } else {
-                                            uri.uri.clone()
-                                        })
-                                        .ok()
-                                        .and_then(|url| url.domain().map(|d| d.to_owned()))
-                                    });
+                                    let mut img =
+                                        login
+                                            .uris
+                                            .first()
+                                            .and_then(|uri| {
+                                                Url::parse(&if !uri.uri.starts_with("http") {
+                                                    format!("https://{}", uri.uri)
+                                                } else {
+                                                    uri.uri.clone()
+                                                })
+                                                .ok()
+                                                .and_then(|url| {
+                                                    cx.update_window(cx.window_handle(), |_, cx| {
+                                                        Img::new(
+                                                            ImgSource::Favicon(Favicon::init(
+                                                                url,
+                                                                Icon::Globe,
+                                                                cx,
+                                                            )),
+                                                            ImgMask::Rounded,
+                                                            ImgSize::MD,
+                                                        )
+                                                    })
+                                                    .ok()
+                                                })
+                                            })
+                                            .unwrap_or(Img::list_icon(Icon::Globe, None));
 
-                                    // TODO: ideally replace this with a custom favicon scraper
-                                    let img = match domain {
-                                        Some(domain) => Img::list_url(format!(
-                                            "https://icons.bitwarden.net/{}/icon.png",
-                                            domain
-                                        )),
-                                        None => Img::list_icon(Icon::Globe, None),
-                                    };
+                                    img.mask = ImgMask::Rounded;
 
                                     let mut keywords = vec![name.clone()];
                                     keywords.append(

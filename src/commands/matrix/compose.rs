@@ -1,5 +1,3 @@
-
-
 use gpui::*;
 use matrix_sdk::{
     ruma::{
