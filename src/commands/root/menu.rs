@@ -8,7 +8,7 @@ use swift_rs::{swift, SRData};
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, ListBuilder, ListItem},
+        list::{Accessory, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
@@ -39,7 +39,7 @@ impl StateViewBuilder for MenuListBuilder {
         ListBuilder::new()
             .interval(Duration::from_secs(10))
             .build(
-                |_, _, cx| {
+                |_, _, _cx| {
                     let data = unsafe { menu_items() };
                     if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {
                         Ok(Some(
@@ -73,19 +73,17 @@ impl StateViewBuilder for MenuListBuilder {
                                         vec![]
                                     };
 
-                                    Item::new(
-                                        path.clone(),
-                                        vec![name.clone(), subtitle.clone()],
-                                        cx.new_view(|_| {
-                                            ListItem::new(None, name, Some(subtitle), accessories)
-                                        })
-                                        .into(),
-                                        None,
-                                        actions,
-                                        None,
-                                        None,
-                                        None,
-                                    )
+                                    ItemBuilder::new(path.clone(), {
+                                        ListItem::new(
+                                            None,
+                                            name.clone(),
+                                            Some(subtitle.clone()),
+                                            accessories,
+                                        )
+                                    })
+                                    .keywords(vec![name.clone(), subtitle.clone()])
+                                    .actions(actions)
+                                    .build()
                                 })
                                 .collect(),
                         ))
@@ -93,7 +91,6 @@ impl StateViewBuilder for MenuListBuilder {
                         Err(anyhow::Error::msg("Failed to deserialize menu list"))
                     }
                 },
-                None,
                 context,
                 cx,
             )

@@ -29,8 +29,8 @@ use url::Url;
 
 use crate::{
     components::{
-        list::{AsyncListItems, Item, ListBuilder},
-        shared::{Icon, Img, ImgMask, NoView},
+        list::{AsyncListItems, Item, ItemBuilder, ItemComponent, ItemPreset, ListBuilder},
+        shared::{Icon, Img, ImgMask},
     },
     state::{Action, Shortcut, StateViewBuilder, StateViewContext},
     theme::Theme,
@@ -181,7 +181,48 @@ pub(super) struct Message {
 }
 
 impl Message {
-    fn render(&mut self, selected: bool, cx: &WindowContext) -> Div {
+    fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
+        let mut actions = vec![Action::new(
+            Img::list_icon(Icon::MessageCircleReply, None),
+            "Reply",
+            Some(Shortcut::cmd("r")),
+            move |_, _cx| {
+                info!("Reply to message");
+            },
+            false,
+        )];
+        if self.me {
+            actions.append(&mut vec![
+                Action::new(
+                    Img::list_icon(Icon::MessageCircleMore, None),
+                    "Edit",
+                    Some(Shortcut::cmd("e")),
+                    move |_, _cx| {
+                        info!("Edit message");
+                    },
+                    false,
+                ),
+                Action::new(
+                    Img::list_icon(Icon::MessageCircleDashed, None),
+                    "Delete",
+                    Some(Shortcut::cmd("backspace")),
+                    move |_, _cx| {
+                        info!("Delete message");
+                    },
+                    false,
+                ),
+            ])
+        }
+        //
+        actions
+    }
+}
+
+impl ItemComponent for Message {
+    fn clone_box(&self) -> Box<dyn ItemComponent> {
+        Box::new(self.clone())
+    }
+    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.first;
         let show_reactions = !self.reactions.inner.is_empty();
@@ -267,41 +308,7 @@ impl Message {
                     .child(self.reactions.clone()),
             ),
         )
-    }
-    fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
-        let mut actions = vec![Action::new(
-            Img::list_icon(Icon::MessageCircleReply, None),
-            "Reply",
-            Some(Shortcut::cmd("r")),
-            move |_, _cx| {
-                info!("Reply to message");
-            },
-            false,
-        )];
-        if self.me {
-            actions.append(&mut vec![
-                Action::new(
-                    Img::list_icon(Icon::MessageCircleMore, None),
-                    "Edit",
-                    Some(Shortcut::cmd("e")),
-                    move |_, _cx| {
-                        info!("Edit message");
-                    },
-                    false,
-                ),
-                Action::new(
-                    Img::list_icon(Icon::MessageCircleDashed, None),
-                    "Delete",
-                    Some(Shortcut::cmd("backspace")),
-                    move |_, _cx| {
-                        info!("Delete message");
-                    },
-                    false,
-                ),
-            ])
-        }
-        //
-        actions
+        .into_any_element()
     }
 }
 
@@ -534,19 +541,12 @@ async fn sync(
     let items: Vec<Item> = messages
         .into_iter()
         .map(|m| {
-            Item::new(
-                m.id.clone(),
-                vec![m.sender.clone()],
-                cx.new_view(|_| NoView).unwrap().into(),
-                None,
-                m.actions(&client, cx),
-                None,
-                Some(Box::new(m)),
-                Some(|this, selected, cx| {
-                    let message: &Message = this.meta.value().downcast_ref().unwrap();
-                    message.clone().render(selected, cx)
-                }),
-            )
+            ItemBuilder::new(m.id.clone(), m.clone())
+                .keywords(vec![m.sender.clone()])
+                .actions(m.actions(&client, cx))
+                .meta(cx.new_model(|_| m).unwrap().into_any())
+                .preset(ItemPreset::Plain)
+                .build()
         })
         .collect();
 
@@ -607,19 +607,15 @@ impl StateViewBuilder for ChatRoom {
 
         AsyncListItems::loader(&view, &context.actions, cx);
 
-        let list = ListBuilder::new().reverse().build(
-            move |_, _, cx| {
-                Ok(Some(
-                    view.read(cx).items.values().flatten().cloned().collect(),
-                ))
-            },
-            Some(Box::new(move |this, cx| {
+        let list = ListBuilder::new()
+            .reverse()
+            .filter(move |this, cx| {
                 this.items_all
                     .clone()
                     .into_iter()
                     .filter(|item| {
                         let text = this.query.get_text(cx).to_lowercase();
-                        let message: &Message = item.meta.value().downcast_ref().unwrap();
+                        let message = item.get_meta::<Message>(cx).unwrap();
                         if let MessageContent::Text(t) = &message.content {
                             if t.to_lowercase().contains(&text) {
                                 return true;
@@ -629,10 +625,16 @@ impl StateViewBuilder for ChatRoom {
                     })
                     .collect()
                 //
-            })),
-            context,
-            cx,
-        );
+            })
+            .build(
+                move |_, _, cx| {
+                    Ok(Some(
+                        view.read(cx).items.values().flatten().cloned().collect(),
+                    ))
+                },
+                context,
+                cx,
+            );
 
         list.into()
     }

@@ -93,8 +93,8 @@ impl ListItem {
     }
 }
 
-impl Render for ListItem {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+impl ItemComponent for ListItem {
+    fn render(&self, _selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let el = if let Some(img) = &self.img {
             div().child(div().mr_4().child(img.clone()))
@@ -128,43 +128,120 @@ impl Render for ListItem {
                 .ml_auto()
                 .children(self.accessories.clone()),
         )
+        .into_any_element()
     }
+    fn clone_box(&self) -> Box<dyn ItemComponent> {
+        Box::new(self.clone())
+    }
+}
+
+pub trait ItemComponent {
+    fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement;
+    fn clone_box(&self) -> Box<dyn ItemComponent>;
+}
+
+impl Clone for Box<dyn ItemComponent> {
+    fn clone(&self) -> Box<dyn ItemComponent> {
+        self.clone_box()
+    }
+}
+
+pub struct ItemBuilder {
+    id: u64,
+    preview: Option<(f32, Box<dyn Preview>)>,
+    actions: Vec<Action>,
+    weight: Option<u16>,
+    keywords: Vec<String>,
+    component: Box<dyn ItemComponent>,
+    preset: ItemPreset,
+    meta: Option<AnyModel>,
+}
+
+impl ItemBuilder {
+    pub fn new(id: impl Hash, component: impl ItemComponent + 'static) -> Self {
+        let mut s = DefaultHasher::new();
+        id.hash(&mut s);
+        let id = s.finish();
+        Self {
+            id,
+            preview: None,
+            actions: vec![],
+            weight: None,
+            keywords: vec![],
+            meta: None,
+            preset: ItemPreset::Default,
+            component: Box::new(component),
+        }
+    }
+    pub fn preview(&mut self, width: f32, preview: impl Preview + 'static) -> &mut Self {
+        self.preview = Some((width, Box::new(preview)));
+        self
+    }
+    pub fn meta(&mut self, meta: AnyModel) -> &mut Self {
+        self.meta = Some(meta);
+        self
+    }
+    pub fn keywords(&mut self, keywords: Vec<impl ToString>) -> &mut Self {
+        self.keywords = keywords.into_iter().map(|k| k.to_string()).collect();
+        self
+    }
+    pub fn actions(&mut self, actions: Vec<Action>) -> &mut Self {
+        self.actions = actions;
+        self
+    }
+    pub fn weight(&mut self, weight: u16) -> &mut Self {
+        self.weight = Some(weight);
+        self
+    }
+    pub fn preset(&mut self, preset: ItemPreset) -> &mut Self {
+        self.preset = preset;
+        self
+    }
+    pub fn build(&self) -> Item {
+        Item {
+            id: self.id,
+            preview: self.preview.clone(),
+            actions: self.actions.clone(),
+            weight: self.weight,
+            keywords: self.keywords.clone(),
+            selected: false,
+            component: self.component.clone(),
+            meta: self.meta.clone(),
+            preset: self.preset.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum ItemPreset {
+    Plain,
+    Default,
 }
 
 #[derive(IntoElement, Clone)]
 #[allow(dead_code)]
 pub struct Item {
     id: u64,
-    pub keywords: Vec<String>,
-    component: AnyView,
-    pub preview: Option<(f32, Box<dyn Preview>)>,
+    preview: Option<(f32, Box<dyn Preview>)>,
     actions: Vec<Action>,
-    pub weight: Option<u16>,
+    weight: Option<u16>,
+    keywords: Vec<String>,
+    component: Box<dyn ItemComponent>,
     selected: bool,
-    pub meta: Box<dyn Meta>,
-    render: Option<fn(Self, bool, &WindowContext) -> Div>,
+    preset: ItemPreset,
+    pub meta: Option<AnyModel>,
 }
 
-pub trait Meta: std::any::Any {
-    fn clone_box(&self) -> Box<dyn Meta>;
-    fn value(&self) -> &dyn std::any::Any;
-}
-
-impl<F> Meta for F
-where
-    F: Clone + std::any::Any,
-{
-    fn clone_box(&self) -> Box<dyn Meta> {
-        Box::new(self.clone())
+impl Item {
+    pub fn get_meta<V: Clone + 'static>(&self, cx: &AppContext) -> Option<V> {
+        self.meta
+            .clone()
+            .and_then(|m| m.downcast::<V>().ok())
+            .map(|v| v.read(cx))
+            .cloned()
     }
-    fn value(&self) -> &dyn std::any::Any {
-        self
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + Meta> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
+    pub fn get_keywords(&self) -> &Vec<String> {
+        self.keywords.as_ref()
     }
 }
 
@@ -192,51 +269,25 @@ impl<'a> Clone for Box<dyn 'a + Preview> {
     }
 }
 
-impl Item {
-    pub fn new<T: Hash>(
-        t: T,
-        keywords: Vec<impl ToString>,
-        component: AnyView,
-        preview: Option<(f32, Box<dyn Preview>)>,
-        actions: Vec<Action>,
-        weight: Option<u16>,
-        meta: Option<Box<dyn Meta>>,
-        render: Option<fn(Self, bool, &WindowContext) -> Div>,
-    ) -> Self {
-        let mut s = DefaultHasher::new();
-        t.hash(&mut s);
-        let id = s.finish();
-        Self {
-            id,
-            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
-            component,
-            preview,
-            actions,
-            weight,
-            selected: false,
-            meta: meta.unwrap_or_else(|| Box::new(())),
-            render,
-        }
-    }
-}
-
 impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        if let Some(render) = &self.render {
-            render(self.clone(), self.selected, cx)
-        } else {
-            let theme = cx.global::<Theme>();
-            let mut bg_hover = theme.mantle;
-            bg_hover.fade_out(0.5);
-            if self.selected {
-                div().border_color(theme.crust).bg(theme.mantle)
-            } else {
-                div().hover(|s| s.bg(bg_hover))
+        match self.preset {
+            ItemPreset::Plain => self.component.render(self.selected, cx),
+            ItemPreset::Default => {
+                let theme = cx.global::<Theme>();
+                let mut bg_hover = theme.mantle;
+                bg_hover.fade_out(0.5);
+                if self.selected {
+                    div().border_color(theme.crust).bg(theme.mantle)
+                } else {
+                    div().hover(|s| s.bg(bg_hover))
+                }
+                .p_2()
+                .border_1()
+                .rounded_xl()
+                .child(self.component.render(self.selected, cx))
+                .into_any_element()
             }
-            .p_2()
-            .border_1()
-            .rounded_xl()
-            .child(self.component)
         }
     }
 }
@@ -245,6 +296,7 @@ pub struct ListBuilder {
     reverse: bool,
     update_actions: bool,
     interval: Option<Duration>,
+    filter: Box<dyn FilterList>,
 }
 
 impl ListBuilder {
@@ -253,6 +305,10 @@ impl ListBuilder {
             reverse: false,
             update_actions: true,
             interval: None,
+            filter: Box::new(|this, cx| {
+                let text = this.query.get_text(cx);
+                fuzzy_match(&text, this.items_all.clone(), false)
+            }),
         }
     }
     pub fn disable_action_updates(&mut self) -> &mut Self {
@@ -267,23 +323,57 @@ impl ListBuilder {
         self.interval = Some(interval);
         self
     }
+    pub fn filter(&mut self, filter: impl FilterList + 'static) -> &mut Self {
+        self.filter = Box::new(filter);
+        self
+    }
     pub fn build(
         &self,
-        update: impl Fn(&mut List, bool, &mut ViewContext<List>) -> anyhow::Result<Option<Vec<Item>>>
-            + 'static,
-        filter: Option<Box<dyn Fn(&mut List, &mut ViewContext<List>) -> Vec<Item>>>,
+        update: impl UpdateList + 'static,
         context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<List> {
         List::new(
-            update,
-            filter,
+            Box::new(update),
+            self.filter.clone(),
             self.interval,
             self.update_actions,
             self.reverse,
             context,
             cx,
         )
+    }
+}
+
+pub trait UpdateList:
+    Fn(&mut List, bool, &mut ViewContext<List>) -> anyhow::Result<Option<Vec<Item>>>
+{
+}
+impl<F> UpdateList for F where
+    F: Fn(&mut List, bool, &mut ViewContext<List>) -> anyhow::Result<Option<Vec<Item>>>
+{
+}
+
+pub trait FilterList: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> {
+    fn clone_box<'a>(&self) -> Box<dyn 'a + FilterList>
+    where
+        Self: 'a;
+}
+impl<F> FilterList for F
+where
+    F: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> + Clone,
+{
+    fn clone_box<'a>(&self) -> Box<dyn 'a + FilterList>
+    where
+        Self: 'a,
+    {
+        Box::new(self.clone())
+    }
+}
+
+impl<'a> Clone for Box<dyn 'a + FilterList> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
     }
 }
 
@@ -294,9 +384,8 @@ pub struct List {
     pub items_all: Vec<Item>,
     pub items: Model<Vec<Item>>,
     pub query: TextInputWeak,
-    pub update:
-        Box<dyn Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>>,
-    pub filter: Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>,
+    pub update: Box<dyn UpdateList>,
+    pub filter: Box<dyn FilterList>,
     preview: Option<(u64, f32, StateItem)>,
     reverse: bool,
 }
@@ -437,9 +526,8 @@ impl List {
         });
     }
     fn new(
-        update: impl Fn(&mut Self, bool, &mut ViewContext<Self>) -> anyhow::Result<Option<Vec<Item>>>
-            + 'static,
-        filter: Option<Box<dyn Fn(&mut Self, &mut ViewContext<Self>) -> Vec<Item>>>,
+        update: Box<dyn UpdateList>,
+        filter: Box<dyn FilterList>,
         interval: Option<Duration>,
         update_actions: bool,
         reverse: bool,
@@ -500,11 +588,8 @@ impl List {
             items,
             actions: context.actions.clone(),
             query: context.query.clone(),
-            update: Box::new(update),
-            filter: filter.unwrap_or(Box::new(|this, cx| {
-                let text = this.query.get_text(cx);
-                fuzzy_match(&text, this.items_all.clone(), false)
-            })),
+            update,
+            filter,
             preview: None,
             reverse,
         };

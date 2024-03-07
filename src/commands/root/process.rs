@@ -1,7 +1,6 @@
 use gpui::*;
 use std::{
-    cmp::Reverse, collections::HashMap, fs, path::PathBuf, process::Command,
-    time::Duration,
+    cmp::Reverse, collections::HashMap, fs, path::PathBuf, process::Command, time::Duration,
 };
 
 use regex::Regex;
@@ -9,7 +8,7 @@ use regex::Regex;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, ListBuilder, ListItem},
+        list::{Accessory, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     paths::paths,
@@ -135,65 +134,56 @@ impl StateViewBuilder for ProcessListBuilder {
                                     keywords: vec![],
                                     tag: "".to_string(),
                                 });
-
-                                Item::new(
-                                    p.pid,
-                                    vec![data.name.clone()],
-                                    cx.new_view(|_cx| {
-                                        let (m, c) = if sort_by_cpu {
-                                            (None, Some(lavender))
-                                        } else {
-                                            (Some(lavender), None)
-                                        };
-                                        ListItem::new(
-                                            Some(data.icon),
-                                            data.name.clone(),
-                                            None,
-                                            vec![
-                                                Accessory::new(
-                                                    format!("{: >8}", format_bytes(p.mem * 1024)),
-                                                    Some(Img::accessory_icon(Icon::MemoryStick, m)),
-                                                ),
-                                                Accessory::new(
-                                                    format!("{: >6.2}%", p.cpu),
-                                                    Some(Img::accessory_icon(Icon::Cpu, c)),
-                                                ),
-                                            ],
-                                        )
-                                    })
-                                    .into(),
-                                    None,
-                                    vec![Action::new(
-                                        Img::list_icon(Icon::Skull, None),
-                                        "Kill Process",
+                                ItemBuilder::new(p.pid, {
+                                    let (m, c) = if sort_by_cpu {
+                                        (None, Some(lavender))
+                                    } else {
+                                        (Some(lavender), None)
+                                    };
+                                    ListItem::new(
+                                        Some(data.icon),
+                                        data.name.clone(),
                                         None,
-                                        {
-                                            let pid = p.pid.to_string();
-                                            move |this, cx| {
-                                                if Command::new("kill")
-                                                    .arg("-9")
-                                                    .arg(pid.clone())
-                                                    .output()
-                                                    .is_err()
-                                                {
-                                                    this.toast.error("Failed to kill process", cx);
-                                                } else {
-                                                    this.toast.success("Killed process", cx);
-                                                }
-                                                this.update();
+                                        vec![
+                                            Accessory::new(
+                                                format!("{: >8}", format_bytes(p.mem * 1024)),
+                                                Some(Img::accessory_icon(Icon::MemoryStick, m)),
+                                            ),
+                                            Accessory::new(
+                                                format!("{: >6.2}%", p.cpu),
+                                                Some(Img::accessory_icon(Icon::Cpu, c)),
+                                            ),
+                                        ],
+                                    )
+                                })
+                                .keywords(vec![data.name.clone()])
+                                .actions(vec![Action::new(
+                                    Img::list_icon(Icon::Skull, None),
+                                    "Kill Process",
+                                    None,
+                                    {
+                                        let pid = p.pid.to_string();
+                                        move |this, cx| {
+                                            if Command::new("kill")
+                                                .arg("-9")
+                                                .arg(pid.clone())
+                                                .output()
+                                                .is_err()
+                                            {
+                                                this.toast.error("Failed to kill process", cx);
+                                            } else {
+                                                this.toast.success("Killed process", cx);
                                             }
-                                        },
-                                        false,
-                                    )],
-                                    None,
-                                    None,
-                                    None,
-                                )
+                                            this.update();
+                                        }
+                                    },
+                                    false,
+                                )])
+                                .build()
                             })
                             .collect(),
                     ))
                 },
-                None,
                 context,
                 cx,
             )

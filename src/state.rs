@@ -8,7 +8,7 @@ use std::time::{self, Duration};
 use crate::{
     commands::root::list::RootListBuilder,
     components::{
-        list::{Accessory, Item, List, ListBuilder, ListItem},
+        list::{Accessory, ItemBuilder, List, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
     },
     query::{TextEvent, TextInput, TextInputWeak},
@@ -784,6 +784,7 @@ impl Actions {
         } else {
             count as f32 * el_height + 20.0
         });
+
         div()
             .absolute()
             .bottom_10()
@@ -936,33 +937,28 @@ impl ActionsModel {
                                 } else {
                                     vec![]
                                 };
-                                Some(Item::new(
-                                    item.label.clone(),
-                                    vec![item.label.clone()],
-                                    cx.new_view(|_| {
+                                Some(
+                                    ItemBuilder::new(
+                                        item.label.clone(),
                                         ListItem::new(
                                             Some(action.image.clone()),
-                                            item.label,
+                                            item.label.clone(),
                                             None,
                                             accessories,
-                                        )
-                                    })
-                                    .into(),
-                                    None,
-                                    vec![action],
-                                    None,
-                                    None,
-                                    None,
-                                ))
+                                        ),
+                                    )
+                                    .keywords(vec![item.label.clone()])
+                                    .actions(vec![action])
+                                    .build(),
+                                )
                             })
                             .collect(),
                     ))
                 },
-                None,
                 &mut context,
                 cx,
             );
-            let list_clone = list.clone();
+            let list_clone = list.downgrade();
             this.list = Some(list);
             cx.subscribe(&query.view, move |this, _, event, cx| {
                 match event {
@@ -975,7 +971,7 @@ impl ActionsModel {
                         if Shortcut::simple(key).inner.eq(&ev.keystroke) {
                             this.show = false;
                             cx.notify();
-                            list_clone.update(cx, |this2, cx| {
+                            let _ = list_clone.update(cx, |this2, cx| {
                                 if let Some(action) = this2.default_action(cx) {
                                     (action.action)(this, cx);
                                 }

@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
-        list::{Accessory, Item, ListBuilder, ListItem},
+        list::{Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
@@ -84,20 +84,17 @@ impl StateViewBuilder for TailscaleListBuilder {
                             let ip = p.tailscale_ips.first().unwrap();
                             let ipv6 = p.tailscale_ips.last().unwrap();
                             let url = format!("https://{}", &ip);
-                            Some(Item::new(
-                                p.id.clone(),
-                                vec![name],
-                                cx.new_view(|_| {
+                            Some(
+                                ItemBuilder::new(
+                                    p.id.clone(),
                                     ListItem::new(
                                         Some(Img::list_dot(color)),
                                         name,
                                         Some(p.os.to_string()),
                                         vec![Accessory::Tag { tag, img: None }],
-                                    )
-                                })
-                                .into(),
-                                None,
-                                vec![
+                                    ),
+                                )
+                                .actions(vec![
                                     Action::new(
                                         Img::list_icon(Icon::ArrowUpRightFromSquare, None),
                                         "Open",
@@ -158,17 +155,15 @@ impl StateViewBuilder for TailscaleListBuilder {
                                         },
                                         false,
                                     ),
-                                ],
-                                None,
-                                None,
-                                None,
-                            ))
+                                ])
+                                .keywords(vec![name])
+                                .build(),
+                            )
                         })
                         .collect();
-                    items.sort_unstable_by_key(|i| i.keywords.first().unwrap().clone());
+                    items.sort_unstable_by_key(|i| i.get_keywords().first().unwrap().clone());
                     Ok(Some(items))
                 },
-                None,
                 context,
                 cx,
             )
