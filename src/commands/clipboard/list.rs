@@ -410,7 +410,7 @@ fn format_date(date: &OffsetDateTime, offset: i32) -> String {
     {
         "Yesterday"
     } else {
-        "[year][month][day]"
+        "[day]. [month repr:short] [year]"
     };
     let format = format!("{}, [hour]:[minute]:[second]", prefix);
     let format = format_description::parse(&format).unwrap();
