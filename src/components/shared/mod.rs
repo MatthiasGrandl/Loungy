@@ -161,22 +161,123 @@ pub struct Favicon {
     valid: bool,
 }
 
+struct FaviconExtensions {
+    inner: ImageType,
+}
+
+impl FaviconExtensions {
+    fn extension(&self) -> &'static str {
+        match self.inner {
+            ImageType::Png => "png",
+            ImageType::Ico => "ico",
+            ImageType::Webp => "webp",
+            ImageType::Bmp => "bmp",
+            ImageType::Gif => "gif",
+            ImageType::Jpeg => "jpg",
+            ImageType::Tiff => "tiff",
+            ImageType::Tga => "tga",
+            ImageType::Pnm => "pnm",
+            ImageType::Jxl => "jxl",
+            ImageType::Heif => "heif",
+            ImageType::Avif => "avif",
+            ImageType::Farbfeld => "farbfeld",
+            ImageType::Psd => "psd",
+            ImageType::Vtf => "vtf",
+            ImageType::Aseprite => "aseprite",
+            ImageType::Dds => "dds",
+            ImageType::Qoi => "qoi",
+            ImageType::Hdr => "hdr",
+            ImageType::Exr => "exr",
+            ImageType::Ktx2 => "ktx2",
+        }
+    }
+    fn list() -> Vec<Self> {
+        vec![
+            Self {
+                inner: ImageType::Png,
+            },
+            Self {
+                inner: ImageType::Ico,
+            },
+            Self {
+                inner: ImageType::Webp,
+            },
+            Self {
+                inner: ImageType::Bmp,
+            },
+            Self {
+                inner: ImageType::Gif,
+            },
+            Self {
+                inner: ImageType::Jpeg,
+            },
+            Self {
+                inner: ImageType::Tiff,
+            },
+            Self {
+                inner: ImageType::Tga,
+            },
+            Self {
+                inner: ImageType::Pnm,
+            },
+            Self {
+                inner: ImageType::Jxl,
+            },
+            Self {
+                inner: ImageType::Heif,
+            },
+            Self {
+                inner: ImageType::Avif,
+            },
+            Self {
+                inner: ImageType::Farbfeld,
+            },
+            Self {
+                inner: ImageType::Psd,
+            },
+            Self {
+                inner: ImageType::Vtf,
+            },
+            Self {
+                inner: ImageType::Aseprite,
+            },
+            Self {
+                inner: ImageType::Dds,
+            },
+            Self {
+                inner: ImageType::Qoi,
+            },
+            Self {
+                inner: ImageType::Hdr,
+            },
+            Self {
+                inner: ImageType::Exr,
+            },
+            Self {
+                inner: ImageType::Ktx2,
+            },
+        ]
+    }
+}
 impl Favicon {
-    async fn fetch_favicon(url: Url, path: PathBuf, sender: Sender<bool>) -> anyhow::Result<()> {
+    async fn fetch_favicon(
+        url: Url,
+        path: PathBuf,
+        sender: Sender<Option<PathBuf>>,
+    ) -> anyhow::Result<()> {
         let list =
             ImageLink::from_website(url, "TEST", 5).map_err(|_| anyhow!("no favicon found"))?;
-        let favicon = list
-            .into_iter()
-            .find(|i| {
-                matches!(
-                    i.image_type,
-                    ImageType::Png | ImageType::Ico | ImageType::Webp
-                )
-            })
-            .ok_or(anyhow!("no favicon found"))?;
-        let bytes = reqwest::get(favicon.url).await?.bytes().await?;
-        fs::write(path, &bytes).await?;
-        sender.send(true).await?;
+        let favicon = list.first().ok_or(anyhow!("no favicon found"))?;
+
+        let bytes = reqwest::get(favicon.url.clone()).await?.bytes().await?;
+        let cache = path.with_extension(
+            FaviconExtensions {
+                inner: favicon.image_type,
+            }
+            .extension(),
+        );
+        fs::write(cache.clone(), &bytes).await?;
+        sender.send(Some(cache)).await?;
         Ok(())
     }
     pub fn init(url: impl AsRef<str>, icon: Icon, cx: &mut WindowContext) -> View<Self> {
@@ -196,25 +297,27 @@ impl Favicon {
             let mut hasher = DefaultHasher::new();
             host.hash(&mut hasher);
             let hash = hasher.finish();
-            let cache = paths().cache.join("favicons").join(format!("{}.png", hash));
-            favicon.path = cache.clone();
+            let cache = paths().cache.join("favicons").join(hash.to_string());
 
-            if cache.exists() {
-                favicon.valid = true;
-                return favicon;
-            };
+            for i in FaviconExtensions::list() {
+                let path = cache.with_extension(i.extension());
+                if path.exists() {
+                    favicon.valid = true;
+                    favicon.path = path;
+                    return favicon;
+                }
+            }
 
-            let (sender, receiver) = channel::unbounded::<bool>();
+            let (sender, receiver) = channel::unbounded::<Option<PathBuf>>();
             spawn(Self::fetch_favicon(url, cache.clone(), sender));
 
             cx.spawn(|view, mut cx| async move {
-                if let Ok(result) = receiver.recv().await {
-                    if result {
-                        view.update(&mut cx, |this, cx| {
-                            this.valid = true;
-                            cx.notify();
-                        });
-                    }
+                if let Ok(Some(path)) = receiver.recv().await {
+                    let _ = view.update(&mut cx, |this, cx| {
+                        this.valid = true;
+                        this.path = path;
+                        cx.notify();
+                    });
                 }
             })
             .detach();
