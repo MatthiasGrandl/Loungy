@@ -12,8 +12,7 @@ import CoreGraphics
 import SwiftRs
 
 final class Apps {
-    init() {}
-    
+
     func frontmostApplicationData(for cacheDir: String) -> AppData? {
         guard let currentApp = NSWorkspace.shared.frontmostApplication else {
             return nil
@@ -74,7 +73,6 @@ final class Apps {
         
         return data
     }
-
 }
 
 // MARK: - Private Methods

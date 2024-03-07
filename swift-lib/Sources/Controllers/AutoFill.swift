@@ -13,7 +13,7 @@ import CoreGraphics
 import SwiftRs
 
 final class AutoFill {
-    
+
     func autofill(value: String, password: Bool, prev: String) -> String? {
         guard let currentApp = NSWorkspace.shared.frontmostApplication else {
             return nil

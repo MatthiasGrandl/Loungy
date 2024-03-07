@@ -14,8 +14,7 @@ import SwiftRs
 import Vision
 
 final class OCR {
-    init() {}
-    
+
     func readText(from path: String) {
         let url = URL(fileURLWithPath: path)
 
