@@ -12,7 +12,6 @@
 import ApplicationServices
 import Cocoa
 import Foundation
-import SwiftRs
 
 final class MenuBar {
     enum Error: Swift.Error, CustomStringConvertible {

@@ -9,7 +9,6 @@
 
 import Cocoa
 import CoreGraphics
-import SwiftRs
 
 final class Apps {
 

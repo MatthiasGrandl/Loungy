@@ -10,7 +10,6 @@
 import Carbon.HIToolbox
 import Cocoa
 import CoreGraphics
-import SwiftRs
 import Vision
 
 final class OCR {
