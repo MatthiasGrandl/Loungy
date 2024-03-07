@@ -23,8 +23,8 @@ final class AutoFill {
         _ = AXUIElementSetAttributeValue(axApp, "AXEnhancedUserInterface" as CFString, true as CFTypeRef)
         _ = AXUIElementSetAttributeValue(axApp, "AXManualAccessibility" as CFString, true as CFTypeRef)
 
-        guard let result = getFocused(
-            app: axApp,
+        guard let result = focusedElement(
+            from: axApp,
             password: password,
             prev: prev
         )
@@ -118,8 +118,8 @@ final class AutoFill {
 
 private extension AutoFill {
     
-    func getFocused(
-        app: AXUIElement,
+    func focusedElement(
+        from app: AXUIElement,
         password: Bool,
         prev: String
     ) -> (element: AXUIElement, value: String)? {
