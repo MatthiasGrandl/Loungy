@@ -194,10 +194,10 @@ impl FaviconExtensions {
     fn list() -> Vec<Self> {
         vec![
             Self {
-                inner: ImageType::Png,
+                inner: ImageType::Ico,
             },
             Self {
-                inner: ImageType::Ico,
+                inner: ImageType::Png,
             },
             Self {
                 inner: ImageType::Webp,
@@ -267,7 +267,20 @@ impl Favicon {
     ) -> anyhow::Result<()> {
         let list =
             ImageLink::from_website(url, "TEST", 5).map_err(|_| anyhow!("no favicon found"))?;
-        let favicon = list.first().ok_or(anyhow!("no favicon found"))?;
+        let favicon_ranking = list.iter().filter_map(|i| {
+            let squarish = (i.width).abs_diff(i.height) < i.width / 100;
+            if !squarish || i.width < 16 || i.width > 512 {
+                return None;
+            }
+            let rank = FaviconExtensions::list()
+                .iter()
+                .position(|ext| ext.inner == i.image_type)?;
+            Some((i, rank))
+        });
+        let favicon = favicon_ranking
+            .min_by_key(|(_, rank)| *rank)
+            .map(|(i, _)| i)
+            .ok_or(anyhow!("No favicon found"))?;
 
         let bytes = reqwest::get(favicon.url.clone()).await?.bytes().await?;
         let cache = path.with_extension(

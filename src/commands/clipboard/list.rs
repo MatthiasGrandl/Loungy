@@ -634,40 +634,46 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                 item.contents.copy_count += 1;
                                 let _ = item.update(db_items());
                                 item.contents.clone()
-                            } else if let Ok(url) = Url::parse(&text) {
-                                ClipboardListItem::new(
-                                    hash,
-                                    {
-                                        let mut text = text.trim().replace('\n', " ");
-                                        if text.len() > 25 {
-                                            text.truncate(25);
-                                            text.push_str("...");
-                                        }
-                                        text
-                                    },
-                                    ClipboardKind::Url {
-                                        characters: text.chars().count() as u64,
-                                        url: text,
-                                        title: "".to_string(),
-                                    },
-                                )
                             } else {
-                                ClipboardListItem::new(
-                                    hash,
-                                    {
-                                        let mut text = text.trim().replace('\n', " ");
-                                        if text.len() > 25 {
-                                            text.truncate(25);
-                                            text.push_str("...");
-                                        }
-                                        text
-                                    },
-                                    ClipboardKind::Text {
-                                        characters: text.chars().count() as u64,
-                                        words: text.split_whitespace().count() as u64,
-                                        text: text.clone(),
-                                    },
-                                )
+                                let url = Url::parse(&text);
+                                if url.is_ok() && {
+                                    let url = url.unwrap();
+                                    !url.cannot_be_a_base() && url.scheme().starts_with("http")
+                                } {
+                                    ClipboardListItem::new(
+                                        hash,
+                                        {
+                                            let mut text = text.trim().replace('\n', " ");
+                                            if text.len() > 25 {
+                                                text.truncate(25);
+                                                text.push_str("...");
+                                            }
+                                            text
+                                        },
+                                        ClipboardKind::Url {
+                                            characters: text.chars().count() as u64,
+                                            url: text,
+                                            title: "".to_string(),
+                                        },
+                                    )
+                                } else {
+                                    ClipboardListItem::new(
+                                        hash,
+                                        {
+                                            let mut text = text.trim().replace('\n', " ");
+                                            if text.len() > 25 {
+                                                text.truncate(25);
+                                                text.push_str("...");
+                                            }
+                                            text
+                                        },
+                                        ClipboardKind::Text {
+                                            characters: text.chars().count() as u64,
+                                            words: text.split_whitespace().count() as u64,
+                                            text: text.clone(),
+                                        },
+                                    )
+                                }
                             };
                             let _ = cx.update_window(cx.window_handle(), |_, cx| {
                                 let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
