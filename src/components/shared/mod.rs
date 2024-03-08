@@ -1,8 +1,10 @@
 use std::{
+    borrow::Cow,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     path::PathBuf,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::anyhow;
@@ -12,8 +14,15 @@ use async_std::{
     task::spawn,
 };
 use gpui::*;
+use image::ImageFormat;
+use log::{debug, error};
+use quick_xml::Reader;
+use quick_xml::{
+    events::{BytesStart, Event},
+    name::QName,
+};
+use serde::Deserialize;
 use url::Url;
-use website_icon_extract::{ImageLink, ImageType};
 
 use crate::{paths::paths, theme::Theme};
 
@@ -156,181 +165,137 @@ impl Render for NoView {
 
 #[derive(Clone)]
 pub struct Favicon {
-    path: PathBuf,
     fallback: Icon,
-    valid: bool,
+    path: Option<PathBuf>,
 }
 
-struct FaviconExtensions {
-    inner: ImageType,
-}
-
-impl FaviconExtensions {
-    fn extension(&self) -> &'static str {
-        match self.inner {
-            ImageType::Png => "png",
-            ImageType::Ico => "ico",
-            ImageType::Webp => "webp",
-            ImageType::Bmp => "bmp",
-            ImageType::Gif => "gif",
-            ImageType::Jpeg => "jpg",
-            ImageType::Tiff => "tiff",
-            ImageType::Tga => "tga",
-            ImageType::Pnm => "pnm",
-            ImageType::Jxl => "jxl",
-            ImageType::Heif => "heif",
-            ImageType::Avif => "avif",
-            ImageType::Farbfeld => "farbfeld",
-            ImageType::Psd => "psd",
-            ImageType::Vtf => "vtf",
-            ImageType::Aseprite => "aseprite",
-            ImageType::Dds => "dds",
-            ImageType::Qoi => "qoi",
-            ImageType::Hdr => "hdr",
-            ImageType::Exr => "exr",
-            ImageType::Ktx2 => "ktx2",
-        }
-    }
-    fn list() -> Vec<Self> {
-        vec![
-            Self {
-                inner: ImageType::Ico,
-            },
-            Self {
-                inner: ImageType::Png,
-            },
-            Self {
-                inner: ImageType::Webp,
-            },
-            Self {
-                inner: ImageType::Bmp,
-            },
-            Self {
-                inner: ImageType::Gif,
-            },
-            Self {
-                inner: ImageType::Jpeg,
-            },
-            Self {
-                inner: ImageType::Tiff,
-            },
-            Self {
-                inner: ImageType::Tga,
-            },
-            Self {
-                inner: ImageType::Pnm,
-            },
-            Self {
-                inner: ImageType::Jxl,
-            },
-            Self {
-                inner: ImageType::Heif,
-            },
-            Self {
-                inner: ImageType::Avif,
-            },
-            Self {
-                inner: ImageType::Farbfeld,
-            },
-            Self {
-                inner: ImageType::Psd,
-            },
-            Self {
-                inner: ImageType::Vtf,
-            },
-            Self {
-                inner: ImageType::Aseprite,
-            },
-            Self {
-                inner: ImageType::Dds,
-            },
-            Self {
-                inner: ImageType::Qoi,
-            },
-            Self {
-                inner: ImageType::Hdr,
-            },
-            Self {
-                inner: ImageType::Exr,
-            },
-            Self {
-                inner: ImageType::Ktx2,
-            },
-        ]
-    }
-}
 impl Favicon {
-    async fn fetch_favicon(
-        url: Url,
-        path: PathBuf,
-        sender: Sender<Option<PathBuf>>,
-    ) -> anyhow::Result<()> {
-        let list =
-            ImageLink::from_website(url, "TEST", 5).map_err(|_| anyhow!("no favicon found"))?;
-        let favicon_ranking = list.iter().filter_map(|i| {
-            let squarish = (i.width).abs_diff(i.height) < i.width / 100;
-            if !squarish || i.width < 16 || i.width > 512 {
-                return None;
-            }
-            let rank = FaviconExtensions::list()
-                .iter()
-                .position(|ext| ext.inner == i.image_type)?;
-            Some((i, rank))
-        });
-        let favicon = favicon_ranking
-            .min_by_key(|(_, rank)| *rank)
-            .map(|(i, _)| i)
-            .ok_or(anyhow!("No favicon found"))?;
+    async fn fetch_favicon(url: Url, cache: PathBuf) -> anyhow::Result<PathBuf> {
+        let base_url = Url::parse(&format!("{}://{}", url.scheme(), url.host_str().unwrap()))?;
+        let response = reqwest::get(base_url.clone()).await?;
+        let url = response.url().clone();
+        let html = response.text().await?;
+        let mut reader = Reader::from_str(&html);
+        reader.trim_text(true);
 
-        let bytes = reqwest::get(favicon.url.clone()).await?.bytes().await?;
-        let cache = path.with_extension(
-            FaviconExtensions {
-                inner: favicon.image_type,
+        loop {
+            let mut buf = Vec::new();
+            let event = reader.read_event_into(&mut buf);
+
+            match event {
+                Ok(Event::Start(ref e)) => match e.name() {
+                    QName(b"link") => {
+                        let mut attrs = e.attributes().flatten();
+                        for attribute in attrs.clone() {
+                            if attribute.key == QName(b"href")
+                                && attrs.any(|a| {
+                                    a.key == QName(b"rel")
+                                        && matches!(
+                                            a.value.as_ref(),
+                                            b"icon"
+                                                | b"shortcut icon"
+                                                | b"apple-touch-icon"
+                                                | b"apple-touch-icon-precomposed"
+                                        )
+                                })
+                            {
+                                let path = String::from_utf8_lossy(&attribute.value).to_string();
+                                let absolute =
+                                    Url::parse(&path).unwrap_or(url.join(&path).unwrap());
+                                let bytes = reqwest::get(absolute).await?.bytes().await?;
+
+                                if let Ok(format) = image::guess_format(&bytes) {
+                                    if format == ImageFormat::Png {
+                                        let _ = fs::write(&cache, &bytes).await;
+                                    } else {
+                                        let Ok(img) =
+                                            image::load_from_memory_with_format(&bytes, format)
+                                        else {
+                                            continue;
+                                        };
+                                        let _ = img.save_with_format(&cache, ImageFormat::Png);
+                                    }
+                                    if let Ok(dimensions) = image::image_dimensions(&cache) {
+                                        if dimensions.0 > 50 {
+                                            return Ok(cache);
+                                        }
+                                    }
+                                } else {
+                                    let tree = resvg::usvg::Tree::from_data(
+                                        &bytes,
+                                        &resvg::usvg::Options::default(),
+                                        &resvg::usvg::fontdb::Database::default(),
+                                    )?;
+                                    let size = tree.size();
+                                    let width = 64;
+                                    let height = 64;
+                                    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
+                                        .expect("failed to create pixmap");
+                                    let mut pixmap_mut = pixmap.as_mut();
+                                    resvg::render(
+                                        &tree,
+                                        resvg::usvg::Transform::from_scale(
+                                            width as f32 / size.width(),
+                                            height as f32 / size.height(),
+                                        ),
+                                        &mut pixmap_mut,
+                                    );
+                                    if pixmap.save_png(&cache).is_ok() {
+                                        return Ok(cache);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    QName(b"body") => break,
+                    _ => {}
+                },
+                Ok(Event::Eof) => break, // exits the loop when reaching end of file
+                Ok(_) => {}
+                Err(_) => break,
             }
-            .extension(),
-        );
-        fs::write(cache.clone(), &bytes).await?;
-        sender.send(Some(cache)).await?;
-        Ok(())
+        }
+
+        Err(anyhow!("No favicon found"))
     }
     pub fn init(url: impl AsRef<str>, icon: Icon, cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
             let mut favicon = Self {
-                path: PathBuf::new(),
+                path: None,
                 fallback: icon,
-                valid: false,
             };
             let Ok(url) = Url::parse(url.as_ref()) else {
+                return favicon;
+            };
+            if url.cannot_be_a_base() || !url.scheme().starts_with("http") {
                 return favicon;
             };
             let Some(host) = url.host_str() else {
                 return favicon;
             };
 
-            let mut hasher = DefaultHasher::new();
-            host.hash(&mut hasher);
-            let hash = hasher.finish();
-            let cache = paths().cache.join("favicons").join(hash.to_string());
+            let cache = paths()
+                .cache
+                .join("favicons")
+                .join(format!("{}.png", url.host_str().unwrap()));
 
-            for i in FaviconExtensions::list() {
-                let path = cache.with_extension(i.extension());
-                if path.exists() {
-                    favicon.valid = true;
-                    favicon.path = path;
+            if let Ok(exists) = cache.try_exists() {
+                if exists {
+                    favicon.path = Some(cache);
                     return favicon;
                 }
             }
 
-            let (sender, receiver) = channel::unbounded::<Option<PathBuf>>();
-            spawn(Self::fetch_favicon(url, cache.clone(), sender));
-
             cx.spawn(|view, mut cx| async move {
-                if let Ok(Some(path)) = receiver.recv().await {
+                let result = spawn(Self::fetch_favicon(url, cache)).await;
+                if let Ok(path) = result {
                     let _ = view.update(&mut cx, |this, cx| {
-                        this.valid = true;
-                        this.path = path;
+                        this.path = Some(path);
                         cx.notify();
                     });
+                } else {
+                    debug!("Failed to fetch favicon: {:?}", result.err());
                 }
             })
             .detach();
@@ -341,9 +306,8 @@ impl Favicon {
 
 impl Render for Favicon {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        if self.valid {
-            let mut img = Img::list_file(self.path.clone());
-            img.mask = ImgMask::Rounded;
+        if let Some(path) = self.path.clone() {
+            let mut img = Img::list_file(path);
             img
         } else {
             Img::list_icon(self.fallback.clone(), None)

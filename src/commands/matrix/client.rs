@@ -23,7 +23,7 @@ use crate::{
     state::{Actions, StateModel},
 };
 
-#[derive(Debug, Serialize, Deserialize, Collection)]
+#[derive(Debug, Serialize, Deserialize, Collection, Clone)]
 #[collection(name = "matrix.sessions")]
 pub(super) struct Session {
     #[natural_id]

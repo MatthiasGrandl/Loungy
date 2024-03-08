@@ -1,5 +1,6 @@
 use std::{cmp::Reverse, collections::HashMap};
 
+use async_std::task::spawn;
 use bonsaidb::core::schema::SerializedCollection;
 use futures::StreamExt;
 use gpui::*;
@@ -84,7 +85,10 @@ async fn sync(
     mut cx: AsyncWindowContext,
 ) -> Result<()> {
     loop {
-        let (client, ss) = session.load().await?;
+        let (client, ss) = {
+            let session = session.clone();
+            spawn(async move { session.load().await }).await?
+        };
         let sync = ss.sync();
         let mut sync_stream = Box::pin(sync);
         let server = client.homeserver();
