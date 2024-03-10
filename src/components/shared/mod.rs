@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{cell::OnceCell, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use async_std::{
@@ -152,8 +152,10 @@ impl Render for NoView {
 
 #[derive(Clone)]
 pub struct Favicon {
+    url: String,
     fallback: Icon,
     path: Option<PathBuf>,
+    init: OnceCell<bool>,
 }
 
 impl Favicon {
@@ -243,29 +245,34 @@ impl Favicon {
 
         Err(anyhow!("No favicon found for {}", url))
     }
-    pub fn init(url: impl AsRef<str>, icon: Icon, cx: &mut WindowContext) -> View<Self> {
-        cx.new_view(|cx| {
-            let mut favicon = Self {
-                path: None,
-                fallback: icon,
-            };
-            let Ok(url) = Url::parse(url.as_ref()) else {
-                return favicon;
+    pub fn new(url: impl ToString, fallback: Icon, cx: &mut WindowContext) -> View<Self> {
+        cx.new_view(|_| Self {
+            url: url.to_string(),
+            fallback,
+            path: None,
+            init: OnceCell::new(),
+        })
+    }
+    pub fn init(&mut self, cx: &mut ViewContext<Self>) {
+        self.init.get_or_init(|| {
+            let Ok(url) = Url::parse(&self.url) else {
+                return true;
             };
             if url.cannot_be_a_base() || !url.scheme().starts_with("http") {
-                return favicon;
+                return true;
             };
 
             let Some(host) = url.host_str() else {
-                return favicon;
+                return true;
             };
 
             let cache = paths().cache.join("favicons").join(format!("{}.png", host));
 
             if let Ok(exists) = cache.try_exists() {
                 if exists {
-                    favicon.path = Some(cache);
-                    return favicon;
+                    self.path = Some(cache);
+                    cx.notify();
+                    return true;
                 }
             }
 
@@ -282,13 +289,14 @@ impl Favicon {
                 }
             })
             .detach();
-            favicon
-        })
+            true
+        });
     }
 }
 
 impl Render for Favicon {
-    fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        self.init(cx);
         if let Some(path) = self.path.clone() {
             Img::list_file(path)
         } else {

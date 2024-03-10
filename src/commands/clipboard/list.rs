@@ -211,7 +211,7 @@ impl ClipboardListItem {
                     ClipboardListItemKind::Image { thumbnail } => Some(Img::list_file(thumbnail)),
                     ClipboardListItemKind::Url { url } => Some({
                         Img::new(
-                            ImgSource::Favicon(Favicon::init(url, Icon::Link, cx)),
+                            ImgSource::Favicon(Favicon::new(url, Icon::Link, cx)),
                             ImgMask::Rounded,
                             ImgSize::MD,
                         )

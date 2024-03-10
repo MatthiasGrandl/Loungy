@@ -387,7 +387,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                 .and_then(|url| {
                                                     cx.update_window(cx.window_handle(), |_, cx| {
                                                         Img::new(
-                                                            ImgSource::Favicon(Favicon::init(
+                                                            ImgSource::Favicon(Favicon::new(
                                                                 url,
                                                                 Icon::Globe,
                                                                 cx,
