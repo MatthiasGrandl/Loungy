@@ -68,7 +68,7 @@ impl StateViewBuilder for MenuListBuilder {
                                         vec![]
                                     };
                                     let accessories = if let Some(shortcut) = item.shortcut {
-                                        vec![Accessory::Shortcut(Shortcut::new(shortcut))]
+                                        vec![Accessory::Shortcut(Shortcut::from(&shortcut))]
                                     } else {
                                         vec![]
                                     };
