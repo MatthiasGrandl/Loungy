@@ -13,10 +13,7 @@ struct AppDataMac {
     name: SRString,
 }
 
-// Function to fetch application names and icons
-swift!( fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppDataMac>>);
-
-pub fn get_app_data(path: &Path) -> Option<AppData> {
+pub fn get_application_data(path: &Path) -> Option<AppData> {
     let cache_dir = paths().cache.join("apps");
     if !cache_dir.exists() {
         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -33,6 +30,7 @@ pub fn get_app_data(path: &Path) -> Option<AppData> {
     };
     let path = path.to_string_lossy().to_string();
     unsafe {
+        swift!( fn get_application_data(cache_dir: &SRString, input: &SRString) -> Option<SRObject<AppDataMac>>);
         get_application_data(
             &SRString::from(cache.as_str()),
             &SRString::from(path.as_str()),
@@ -52,15 +50,13 @@ pub fn get_app_data(path: &Path) -> Option<AppData> {
     })
 }
 
-// Function to fetch application names and icons
-swift!( fn get_frontmost_application_data(cache_dir: &SRString) -> Option<SRObject<AppDataMac>>);
-
-pub fn get_focused_app_data() -> Option<AppData> {
+pub fn get_frontmost_application_data() -> Option<AppData> {
     let cache_dir = paths().cache.join("apps");
     if !cache_dir.exists() {
         fs::create_dir_all(cache_dir.clone()).unwrap();
     }
     let cache = cache_dir.to_string_lossy().to_string();
+    swift!( fn get_frontmost_application_data(cache_dir: &SRString) -> Option<SRObject<AppDataMac>>);
     unsafe { get_frontmost_application_data(&SRString::from(cache.as_str())) }.map(|data| {
         let icon_path = cache_dir.join(format!("{}.png", data.id));
         AppData {
@@ -105,10 +101,9 @@ pub fn close_and_paste_file(path: &Path, cx: &mut WindowContext) {
 }
 
 // Function to wait for an input element to be focused and then using AX to fill it
-swift!( fn autofill(value: SRString, password: Bool, prev: SRString) -> Option<SRString>);
-
-pub fn auto_fill(value: &str, password: bool, prev: &str) -> Option<String> {
+pub fn autofill(value: &str, password: bool, prev: &str) -> Option<String> {
     unsafe {
+        swift!( fn autofill(value: SRString, password: Bool, prev: SRString) -> Option<SRString>);
         autofill(
             SRString::from(value),
             Bool::from(password),
@@ -118,8 +113,7 @@ pub fn auto_fill(value: &str, password: bool, prev: &str) -> Option<String> {
     .map(|s| s.to_string())
 }
 
-swift!( fn ocr(path: SRString));
-
-pub fn get_text_from_image(path: &Path) {
+pub fn ocr(path: &Path) {
+    swift!( fn ocr(path: SRString));
     unsafe { ocr(SRString::from(path.to_string_lossy().to_string().as_str())) }
 }

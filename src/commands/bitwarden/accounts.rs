@@ -209,7 +209,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
             vec![Action::new(
                 Img::default().icon(Icon::PlusSquare),
                 "Add Account",
-                Some(Shortcut::cmd("n")),
+                Some(Shortcut::new("n").cmd()),
                 |_, cx| {
                     StateModel::update(|this, cx| this.push(BitwardenAccountFormBuilder, cx), cx);
                 },

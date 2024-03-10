@@ -170,7 +170,7 @@ impl StateViewBuilder for HotkeyBuilder {
             move |values, actions, cx| {
                 let shortcut = values["hotkey"].value::<Option<Shortcut>>();
                 if let Some(shortcut) = shortcut {
-                    if let Err(err) = HotkeyManager::set(&id, shortcut.inner, cx) {
+                    if let Err(err) = HotkeyManager::set(&id, shortcut.get(), cx) {
                         error!("Failed to set hotkey: {}", err);
                         actions.toast.error("Failed to set hotkey", cx);
                     } else {

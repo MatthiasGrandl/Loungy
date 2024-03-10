@@ -112,7 +112,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                     Action::new(
                                         Img::default().icon(Icon::Clipboard),
                                         "Copy IPv4",
-                                        Some(Shortcut::cmd("c")),
+                                        Some(Shortcut::new("c").cmd()),
                                         {
                                             let ip = ip.clone();
                                             move |this, cx| {

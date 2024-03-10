@@ -30,8 +30,8 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    platform::{close_and_paste, close_and_paste_file, get_focused_app_data, get_text_from_image},
-    state::{Action, StateItem, StateModel, StateViewBuilder, StateViewContext},
+    platform::{close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr},
+    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -180,7 +180,7 @@ struct ClipboardListItem {
 
 impl ClipboardListItem {
     fn new(id: u64, title: impl ToString, kind: ClipboardKind) -> Self {
-        let (application, application_icon) = get_focused_app_data()
+        let (application, application_icon) = get_frontmost_application_data()
             .map(|data| (data.name, Some(data.icon_path)))
             .unwrap_or(("Unknown".to_string(), None));
 
@@ -274,25 +274,46 @@ impl ClipboardListItem {
                     false,
                 ),
             ];
-            if let ClipboardListItemKind::Image { thumbnail } = self.kind.clone() {
-                actions.insert(
+            match self.kind.clone() {
+                ClipboardListItemKind::Image { thumbnail } => actions.insert(
                     1,
                     Action::new(
                         Img::default().icon(Icon::ScanEye),
                         "Copy Text to Clipboard",
-                        None,
+                        Some(Shortcut::new("enter").shift()),
                         {
                             let mut path = thumbnail.clone();
                             path.pop();
                             path = path.join(format!("{}.png", self.id));
                             move |actions, cx| {
-                                get_text_from_image(&path);
+                                ocr(&path);
                                 actions.toast.success("Copied Text to Clipboard", cx);
                             }
                         },
                         false,
                     ),
-                )
+                ),
+                ClipboardListItemKind::Url { url } => actions.insert(
+                    1,
+                    Action::new(
+                        Img::default().icon(Icon::ArrowUpRightFromSquare),
+                        "Open",
+                        Some(Shortcut::new("enter").shift()),
+                        {
+                            let url = url.clone();
+                            move |actions, cx| {
+                                cx.open_url(&url.clone());
+                                actions.toast.floating(
+                                    "Opened in browser",
+                                    Some(Icon::ArrowUpRightFromSquare),
+                                    cx,
+                                )
+                            }
+                        },
+                        false,
+                    ),
+                ),
+                _ => {}
             }
             actions
         })

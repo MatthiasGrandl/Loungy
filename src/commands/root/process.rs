@@ -12,7 +12,7 @@ use crate::{
         shared::{Icon, Img, ImgMask, ImgSize},
     },
     paths::paths,
-    platform::{get_app_data, AppData},
+    platform::{get_application_data, AppData},
     state::{Action, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
@@ -126,14 +126,15 @@ impl StateViewBuilder for ProcessListBuilder {
                                     .map(|m| String::from(m.as_str()))
                                     .unwrap_or_default();
 
-                                let data = get_app_data(&PathBuf::from(path)).unwrap_or(AppData {
-                                    id: "".to_string(),
-                                    name: p.name.split('/').last().unwrap().to_string(),
-                                    icon: Img::default().icon(Icon::Cpu),
-                                    icon_path: PathBuf::new(),
-                                    keywords: vec![],
-                                    tag: "".to_string(),
-                                });
+                                let data =
+                                    get_application_data(&PathBuf::from(path)).unwrap_or(AppData {
+                                        id: "".to_string(),
+                                        name: p.name.split('/').last().unwrap().to_string(),
+                                        icon: Img::default().icon(Icon::Cpu),
+                                        icon_path: PathBuf::new(),
+                                        keywords: vec![],
+                                        tag: "".to_string(),
+                                    });
                                 ItemBuilder::new(p.pid, {
                                     let (m, c) = if sort_by_cpu {
                                         (theme.subtext0, theme.lavender)

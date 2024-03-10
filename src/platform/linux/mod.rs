@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use super::AppData;
 
-pub fn get_app_data(path: &PathBuf) -> Option<AppData> {
+pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     let cache_dir = paths().cache.join("apps");
     if !cache_dir.exists() {
         fs::create_dir_all(cache_dir.clone()).unwrap();

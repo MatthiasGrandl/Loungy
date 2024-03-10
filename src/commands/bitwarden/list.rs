@@ -23,7 +23,7 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    platform::{auto_fill, close_and_paste},
+    platform::{autofill, close_and_paste},
     state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     window::Window,
 };
@@ -55,7 +55,7 @@ impl StateViewBuilder for BitwardenListBuilder {
             vec![Action::new(
                 Img::default().icon(Icon::UserSearch),
                 "List Accounts",
-                Some(Shortcut::cmd(",")),
+                Some(Shortcut::new(",").cmd()),
                 |_, cx| {
                     StateModel::update(
                         |this, cx| {
@@ -131,17 +131,17 @@ impl BitwardenLoginItem {
             "username" => (
                 "Username",
                 Img::default().icon(Icon::User),
-                Shortcut::cmd("u"),
+                Shortcut::new("u").cmd(),
             ),
             "password" => (
                 "Password",
                 Img::default().icon(Icon::Lock),
-                Shortcut::cmd("p"),
+                Shortcut::new("p").cmd(),
             ),
             "totp" => (
                 "TOTP 2FA",
                 Img::default().icon(Icon::Clock),
-                Shortcut::cmd("t"),
+                Shortcut::new("t").cmd(),
             ),
             _ => panic!("Unknown field {}", field),
         }
@@ -432,7 +432,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                 )
                                                                 .await
                                                                 .unwrap();
-                                                            match auto_fill(
+                                                            match autofill(
                                                                 value.as_str(),
                                                                 field.eq("password"),
                                                                 &prev,

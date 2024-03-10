@@ -111,7 +111,7 @@ impl Render for InputView {
                                         .items_center()
                                         .justify_center().child(shortcut.clone()).child(
                                                     if Modifiers::default()
-                                                        .eq(&shortcut.inner.modifiers)
+                                                        .eq(&shortcut.get().modifiers)
                                                     {
                                                         div().flex().justify_center()
                                                             .child("At least one modifier should be included...")

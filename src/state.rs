@@ -486,11 +486,11 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
 
 #[derive(Clone, IntoElement, Deserialize)]
 pub struct Shortcut {
-    pub inner: Keystroke,
+    inner: Keystroke,
 }
 
 impl Shortcut {
-    pub fn simple(key: impl ToString) -> Self {
+    pub fn new(key: impl ToString) -> Self {
         Self {
             inner: Keystroke {
                 modifiers: Modifiers::default(),
@@ -499,23 +499,38 @@ impl Shortcut {
             },
         }
     }
-    pub fn cmd(key: impl ToString) -> Self {
-        Self {
-            inner: Keystroke {
-                modifiers: Modifiers {
-                    #[cfg(target_os = "macos")]
-                    command: true,
-                    #[cfg(not(target_os = "macos"))]
-                    control: true,
-                    ..Modifiers::default()
-                },
-                key: key.to_string(),
-                ime_key: None,
-            },
+    pub fn cmd(mut self) -> Self {
+        #[cfg(target_os = "macos")]
+        {
+            self.inner.modifiers.command = true;
         }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.inner.modifiers.control = true;
+        }
+        self
     }
-    pub fn new(keystroke: Keystroke) -> Self {
-        Self { inner: keystroke }
+    pub fn shift(mut self) -> Self {
+        self.inner.modifiers.shift = true;
+        self
+    }
+    pub fn alt(mut self) -> Self {
+        self.inner.modifiers.alt = true;
+        self
+    }
+    pub fn ctrl(mut self) -> Self {
+        #[cfg(target_os = "macos")]
+        {
+            self.inner.modifiers.control = true;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.inner.modifiers.command = true;
+        }
+        self
+    }
+    pub fn get(&self) -> Keystroke {
+        self.inner.clone()
     }
 }
 
@@ -750,11 +765,11 @@ impl Actions {
         combined.append(&mut self.global.read(cx).clone());
         if let Some(action) = combined.get_mut(0) {
             let key = "enter";
-            action.shortcut = Some(Shortcut::simple(key));
+            action.shortcut = Some(Shortcut::new(key));
             combined.push(Action::new(
                 Img::default().icon(Icon::BookOpen),
                 "Actions",
-                Some(Shortcut::cmd("k")),
+                Some(Shortcut::new("k").cmd()),
                 |this, cx| {
                     this.update_list(cx);
                     this.show = !this.show;
@@ -972,7 +987,7 @@ impl ActionsModel {
                     }
                     TextEvent::KeyDown(ev) => {
                         let key = "enter";
-                        if Shortcut::simple(key).inner.eq(&ev.keystroke) {
+                        if Shortcut::new(key).get().eq(&ev.keystroke) {
                             this.show = false;
                             cx.notify();
                             let _ = list_clone.update(cx, |this2, cx| {

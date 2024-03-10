@@ -8,7 +8,7 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    platform::get_app_data,
+    platform::get_application_data,
     state::{Action, StateViewBuilder, StateViewContext},
     window::Window,
 };
@@ -112,7 +112,7 @@ impl StateViewBuilder for RootListBuilder {
                                 let path = entry.path();
 
                                 // search for .icns in Contents/Resources
-                                let data = get_app_data(&path);
+                                let data = get_application_data(&path);
                                 if data.is_none() {
                                     continue;
                                 }

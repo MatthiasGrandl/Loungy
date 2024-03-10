@@ -57,7 +57,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                     Action::new(
                                         Img::default().icon(Icon::Sun),
                                         "Default Light Theme",
-                                        Some(Shortcut::cmd("l")),
+                                        Some(Shortcut::new("l").cmd()),
                                         {
                                             let name = theme.name.clone();
                                             move |this, cx| {
@@ -83,7 +83,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                     Action::new(
                                         Img::default().icon(Icon::Moon),
                                         "Default Dark Theme",
-                                        Some(Shortcut::cmd("d")),
+                                        Some(Shortcut::new("d").cmd()),
                                         {
                                             let name = theme.name.clone();
                                             move |this, cx| {

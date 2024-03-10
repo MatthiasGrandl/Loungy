@@ -183,7 +183,7 @@ async fn sync(
                         Action::new(
                             Img::default().icon(Icon::Search),
                             "Search",
-                            Some(Shortcut::cmd("/")),
+                            Some(Shortcut::new("/").cmd()),
                             |actions, cx| {
                                 StateModel::update(
                                     |this, cx| this.push_item(actions.active.clone().unwrap(), cx),

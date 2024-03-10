@@ -186,7 +186,7 @@ impl Message {
         let mut actions = vec![Action::new(
             Img::default().icon(Icon::MessageCircleReply),
             "Reply",
-            Some(Shortcut::cmd("r")),
+            Some(Shortcut::new("r").cmd()),
             move |_, _cx| {
                 info!("Reply to message");
             },
@@ -197,7 +197,7 @@ impl Message {
                 Action::new(
                     Img::default().icon(Icon::MessageCircleMore),
                     "Edit",
-                    Some(Shortcut::cmd("e")),
+                    Some(Shortcut::new("e").cmd()),
                     move |_, _cx| {
                         info!("Edit message");
                     },
@@ -206,7 +206,7 @@ impl Message {
                 Action::new(
                     Img::default().icon(Icon::MessageCircleDashed),
                     "Delete",
-                    Some(Shortcut::cmd("backspace")),
+                    Some(Shortcut::new("backspace").cmd()),
                     move |_, _cx| {
                         info!("Delete message");
                     },
