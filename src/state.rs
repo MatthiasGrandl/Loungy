@@ -9,7 +9,7 @@ use crate::{
     commands::root::list::RootListBuilder,
     components::{
         list::{Accessory, ItemBuilder, List, ListBuilder, ListItem},
-        shared::{Icon, Img, ImgMask, ImgSize, ImgSource},
+        shared::{Icon, Img, ImgMask, ImgSize},
     },
     query::{TextEvent, TextInput, TextInputWeak},
     theme::{self, Theme},
@@ -169,7 +169,10 @@ impl Render for ToastState {
             }
             ToastState::Error(message) => Some((ToastState::dot(theme.red), theme.red, message)),
             ToastState::Loading(message) => Some((
-                Img::accessory_icon(Icon::Loader2, None).into_any_element(),
+                Img::default()
+                    .icon(Icon::Loader2)
+                    .size(ImgSize::SM)
+                    .into_any_element(),
                 theme.blue,
                 message,
             )),
@@ -519,11 +522,12 @@ impl Shortcut {
 fn key_icon(el: Div, icon: Icon) -> Div {
     el.child(
         div()
-            .child(Img::new(
-                ImgSource::Icon { icon, color: None },
-                ImgMask::Rounded,
-                ImgSize::SM,
-            ))
+            .child(
+                Img::default()
+                    .icon(icon)
+                    .size(ImgSize::SM)
+                    .mask(ImgMask::Rounded),
+            )
             .ml_0p5(),
     )
 }
@@ -748,7 +752,7 @@ impl Actions {
             let key = "enter";
             action.shortcut = Some(Shortcut::simple(key));
             combined.push(Action::new(
-                Img::list_icon(Icon::BookOpen, None),
+                Img::default().icon(Icon::BookOpen),
                 "Actions",
                 Some(Shortcut::cmd("k")),
                 |this, cx| {

@@ -207,7 +207,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
         context.query.set_placeholder("Search your accounts...", cx);
         context.actions.update_global(
             vec![Action::new(
-                Img::list_icon(Icon::PlusSquare, None),
+                Img::default().icon(Icon::PlusSquare),
                 "Add Account",
                 Some(Shortcut::cmd("n")),
                 |_, cx| {
@@ -231,7 +231,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                 let id = account.id.clone();
                                 let instance = account.instance.clone();
                                 ListItem::new(
-                                    Some(Img::list_icon(Icon::User, None)),
+                                    Some(Img::default().icon(Icon::User)),
                                     id,
                                     None,
                                     vec![Accessory::new(instance, None)],
@@ -240,7 +240,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                             .keywords(vec![account.id.clone()])
                             .actions(vec![
                                 Action::new(
-                                    Img::list_icon(Icon::Pen, None),
+                                    Img::default().icon(Icon::Pen),
                                     "Edit",
                                     None,
                                     {
@@ -252,7 +252,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
                                     false,
                                 ),
                                 Action::new(
-                                    Img::list_icon(Icon::Delete, None),
+                                    Img::default().icon(Icon::Delete),
                                     "Delete",
                                     None,
                                     {

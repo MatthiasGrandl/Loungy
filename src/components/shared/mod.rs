@@ -31,6 +31,7 @@ pub enum ImgSource {
     Icon { icon: Icon, color: Option<Hsla> },
     Dot(Hsla),
     Favicon(View<Favicon>),
+    None,
 }
 
 #[derive(Clone)]
@@ -49,44 +50,59 @@ pub struct Img {
     size: ImgSize,
 }
 
+impl Default for Img {
+    fn default() -> Self {
+        Self {
+            src: ImgSource::None,
+            mask: ImgMask::None,
+            size: ImgSize::MD,
+        }
+    }
+}
+
 impl Img {
-    pub fn new(src: ImgSource, mask: ImgMask, size: ImgSize) -> Self {
-        Self { src, mask, size }
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.src = ImgSource::Icon { icon, color: None };
+        self.mask = ImgMask::Rounded;
+        self
     }
-    pub fn list_icon(icon: Icon, color: Option<Hsla>) -> Self {
-        Self {
-            src: ImgSource::Icon { icon, color },
-            mask: ImgMask::Rounded,
-            size: ImgSize::MD,
-        }
+    pub fn icon_color(mut self, color: Hsla) -> Self {
+        let icon = match self.src {
+            ImgSource::Icon { icon, color: _ } => icon,
+            _ => {
+                return self;
+            }
+        };
+        self.src = ImgSource::Icon {
+            icon,
+            color: Some(color),
+        };
+        self
     }
-    pub fn accessory_icon(icon: Icon, color: Option<Hsla>) -> Self {
-        Self {
-            src: ImgSource::Icon { icon, color },
-            mask: ImgMask::None,
-            size: ImgSize::SM,
-        }
+    pub fn dot(mut self, color: Hsla) -> Self {
+        self.src = ImgSource::Dot(color);
+        self
     }
-    pub fn list_file(src: PathBuf) -> Self {
-        Self {
-            src: ImgSource::Base(ImageSource::File(Arc::new(src))),
-            mask: ImgMask::None,
-            size: ImgSize::MD,
-        }
+    pub fn favicon(mut self, url: impl ToString, fallback: Icon, cx: &mut WindowContext) -> Self {
+        let favicon = Favicon::new(&self, url, fallback, cx);
+        self.src = ImgSource::Favicon(favicon);
+        self
     }
-    pub fn list_url(src: impl ToString) -> Self {
-        Self {
-            src: ImgSource::Base(ImageSource::Uri(SharedUri::from(src.to_string()))),
-            mask: ImgMask::Rounded,
-            size: ImgSize::MD,
-        }
+    pub fn file(mut self, src: PathBuf) -> Self {
+        self.src = ImgSource::Base(ImageSource::File(Arc::new(src)));
+        self
     }
-    pub fn list_dot(color: Hsla) -> Self {
-        Self {
-            src: ImgSource::Dot(color),
-            mask: ImgMask::None,
-            size: ImgSize::MD,
-        }
+    pub fn url(mut self, src: impl ToString) -> Self {
+        self.src = ImgSource::Base(ImageSource::Uri(SharedUri::from(src.to_string())));
+        self
+    }
+    pub fn mask(mut self, mask: ImgMask) -> Self {
+        self.mask = mask;
+        self
+    }
+    pub fn size(mut self, size: ImgSize) -> Self {
+        self.size = size;
+        self
     }
 }
 
@@ -129,14 +145,21 @@ impl RenderOnce for Img {
             ImgSource::Base(src) => {
                 let img = img(src).size_full();
                 let img = match self.mask {
-                    ImgMask::Circle => img.rounded_full().overflow_hidden().bg(theme.surface0),
-                    ImgMask::Rounded => img.rounded_md().overflow_hidden().bg(theme.surface0),
+                    ImgMask::Circle => {
+                        el = el.p_0p5();
+                        img.rounded_full().overflow_hidden().bg(theme.surface0)
+                    }
+                    ImgMask::Rounded => {
+                        el = el.p_0p5();
+                        img.rounded_md().overflow_hidden().bg(theme.surface0)
+                    }
                     ImgMask::None => img,
                 };
                 img.into_any_element()
             }
             ImgSource::Dot(color) => div().rounded_full().bg(color).size_1_2().into_any_element(),
             ImgSource::Favicon(_) => unreachable!(),
+            ImgSource::None => div().into_any_element(),
         };
 
         el.child(img).into_any_element()
@@ -152,6 +175,7 @@ impl Render for NoView {
 
 #[derive(Clone)]
 pub struct Favicon {
+    img: Img,
     url: String,
     fallback: Icon,
     path: Option<PathBuf>,
@@ -245,8 +269,14 @@ impl Favicon {
 
         Err(anyhow!("No favicon found for {}", url))
     }
-    pub fn new(url: impl ToString, fallback: Icon, cx: &mut WindowContext) -> View<Self> {
+    pub fn new(
+        img: &Img,
+        url: impl ToString,
+        fallback: Icon,
+        cx: &mut WindowContext,
+    ) -> View<Self> {
         cx.new_view(|_| Self {
+            img: img.clone(),
             url: url.to_string(),
             fallback,
             path: None,
@@ -298,9 +328,9 @@ impl Render for Favicon {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         self.init(cx);
         if let Some(path) = self.path.clone() {
-            Img::list_file(path)
+            self.img.clone().file(path)
         } else {
-            Img::list_icon(self.fallback.clone(), None)
+            self.img.clone().icon(self.fallback.clone())
         }
     }
 }

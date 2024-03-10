@@ -10,7 +10,6 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
-        
         cx.new_view(|cx| {
             let state = StateModel::init(cx);
             Workspace { state }
@@ -32,7 +31,7 @@ impl Render for Workspace {
                 .on_mouse_down(MouseButton::Left, move |_, cx| {
                     StateModel::update(|this, cx| this.pop(cx), cx);
                 })
-                .child(Img::list_icon(Icon::ArrowLeft, None));
+                .child(Img::default().icon(Icon::ArrowLeft));
         }
         let a = item.actions.read(cx).clone();
         div()

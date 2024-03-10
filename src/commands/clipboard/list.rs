@@ -26,7 +26,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
-        shared::{Favicon, Icon, Img, ImgMask, ImgSize, ImgSource},
+        shared::{Icon, Img, ImgMask, ImgSize},
     },
     db::Db,
     paths::paths,
@@ -48,7 +48,7 @@ impl StateViewBuilder for ClipboardListBuilder {
 
         context.actions.update_global(
             vec![Action::new(
-                Img::list_icon(Icon::Trash, None),
+                Img::default().icon(Icon::Trash),
                 "Delete All",
                 None,
                 {
@@ -208,15 +208,15 @@ impl ClipboardListItem {
             self.id,
             ListItem::new(
                 match self.kind.clone() {
-                    ClipboardListItemKind::Image { thumbnail } => Some(Img::list_file(thumbnail)),
-                    ClipboardListItemKind::Url { url } => Some({
-                        Img::new(
-                            ImgSource::Favicon(Favicon::new(url, Icon::Link, cx)),
-                            ImgMask::Rounded,
-                            ImgSize::MD,
-                        )
-                    }),
-                    _ => Some(Img::list_icon(Icon::File, None)),
+                    ClipboardListItemKind::Image { thumbnail } => {
+                        Some(Img::default().file(thumbnail))
+                    }
+                    ClipboardListItemKind::Url { url } => Some(
+                        Img::default()
+                            .mask(ImgMask::Rounded)
+                            .favicon(url, Icon::Link, cx),
+                    ),
+                    _ => Some(Img::default().icon(Icon::File)),
                 },
                 self.title.clone(),
                 None,
@@ -231,7 +231,7 @@ impl ClipboardListItem {
         .actions({
             let mut actions = vec![
                 Action::new(
-                    Img::list_icon(Icon::ClipboardPaste, None),
+                    Img::default().icon(Icon::ClipboardPaste),
                     "Paste",
                     None,
                     {
@@ -254,7 +254,7 @@ impl ClipboardListItem {
                     false,
                 ),
                 Action::new(
-                    Img::list_icon(Icon::Trash, None),
+                    Img::default().icon(Icon::Trash),
                     "Delete",
                     None,
                     {
@@ -278,7 +278,7 @@ impl ClipboardListItem {
                 actions.insert(
                     1,
                     Action::new(
-                        Img::list_icon(Icon::ScanEye, None),
+                        Img::default().icon(Icon::ScanEye),
                         "Copy Text to Clipboard",
                         None,
                         {
@@ -455,11 +455,7 @@ impl Render for ClipboardPreview {
                     .items_center()
                     .child(if let Some(icon) = self.detail.application_icon.clone() {
                         div()
-                            .child(Img::new(
-                                ImgSource::Base(ImageSource::File(Arc::new(icon))),
-                                ImgMask::None,
-                                ImgSize::XS,
-                            ))
+                            .child(Img::default().file(icon).size(ImgSize::XS))
                             .mr_1()
                     } else {
                         div()

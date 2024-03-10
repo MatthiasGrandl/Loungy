@@ -88,7 +88,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                 ItemBuilder::new(
                                     p.id.clone(),
                                     ListItem::new(
-                                        Some(Img::list_dot(color)),
+                                        Some(Img::default().dot(color)),
                                         name,
                                         Some(p.os.to_string()),
                                         vec![Accessory::Tag { tag, img: None }],
@@ -96,7 +96,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                 )
                                 .actions(vec![
                                     Action::new(
-                                        Img::list_icon(Icon::ArrowUpRightFromSquare, None),
+                                        Img::default().icon(Icon::ArrowUpRightFromSquare),
                                         "Open",
                                         None,
                                         move |this, cx| {
@@ -110,7 +110,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                         false,
                                     ),
                                     Action::new(
-                                        Img::list_icon(Icon::Clipboard, None),
+                                        Img::default().icon(Icon::Clipboard),
                                         "Copy IPv4",
                                         Some(Shortcut::cmd("c")),
                                         {
@@ -129,7 +129,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                         false,
                                     ),
                                     Action::new(
-                                        Img::list_icon(Icon::Clipboard, None),
+                                        Img::default().icon(Icon::Clipboard),
                                         "Copy IPv6",
                                         Some(Shortcut::new(Keystroke {
                                             modifiers: Modifiers {

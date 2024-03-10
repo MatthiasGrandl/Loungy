@@ -9,7 +9,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, ItemBuilder, ListBuilder, ListItem},
-        shared::{Icon, Img},
+        shared::{Icon, Img, ImgMask, ImgSize},
     },
     paths::paths,
     platform::{get_app_data, AppData},
@@ -75,7 +75,7 @@ impl StateViewBuilder for ProcessListBuilder {
             .interval(Duration::from_secs(5))
             .build(
                 |this, _, cx| {
-                    let lavender = cx.global::<Theme>().lavender;
+                    let theme = cx.global::<Theme>().clone();
                     let cache_dir = paths().cache.join("apps");
                     if !cache_dir.exists() {
                         fs::create_dir_all(cache_dir.clone()).unwrap();
@@ -129,16 +129,16 @@ impl StateViewBuilder for ProcessListBuilder {
                                 let data = get_app_data(&PathBuf::from(path)).unwrap_or(AppData {
                                     id: "".to_string(),
                                     name: p.name.split('/').last().unwrap().to_string(),
-                                    icon: Img::list_icon(Icon::Cpu, None),
+                                    icon: Img::default().icon(Icon::Cpu),
                                     icon_path: PathBuf::new(),
                                     keywords: vec![],
                                     tag: "".to_string(),
                                 });
                                 ItemBuilder::new(p.pid, {
                                     let (m, c) = if sort_by_cpu {
-                                        (None, Some(lavender))
+                                        (theme.subtext0, theme.lavender)
                                     } else {
-                                        (Some(lavender), None)
+                                        (theme.lavender, theme.subtext0)
                                     };
                                     ListItem::new(
                                         Some(data.icon),
@@ -147,18 +147,30 @@ impl StateViewBuilder for ProcessListBuilder {
                                         vec![
                                             Accessory::new(
                                                 format!("{: >8}", format_bytes(p.mem * 1024)),
-                                                Some(Img::accessory_icon(Icon::MemoryStick, m)),
+                                                Some(
+                                                    Img::default()
+                                                        .icon(Icon::MemoryStick)
+                                                        .icon_color(m)
+                                                        .mask(ImgMask::None)
+                                                        .size(ImgSize::SM),
+                                                ),
                                             ),
                                             Accessory::new(
                                                 format!("{: >6.2}%", p.cpu),
-                                                Some(Img::accessory_icon(Icon::Cpu, c)),
+                                                Some(
+                                                    Img::default()
+                                                        .icon(Icon::Cpu)
+                                                        .icon_color(c)
+                                                        .mask(ImgMask::None)
+                                                        .size(ImgSize::SM),
+                                                ),
                                             ),
                                         ],
                                     )
                                 })
                                 .keywords(vec![data.name.clone()])
                                 .actions(vec![Action::new(
-                                    Img::list_icon(Icon::Skull, None),
+                                    Img::default().icon(Icon::Skull),
                                     "Kill Process",
                                     None,
                                     {

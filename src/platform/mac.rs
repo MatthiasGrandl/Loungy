@@ -44,7 +44,7 @@ pub fn get_app_data(path: &Path) -> Option<AppData> {
         AppData {
             id: data.id.to_string(),
             name: data.name.to_string(),
-            icon: Img::list_file(icon_path.clone()),
+            icon: Img::default().file(icon_path.clone()),
             icon_path,
             keywords: vec![],
             tag: tag.to_string(),
@@ -66,7 +66,7 @@ pub fn get_focused_app_data() -> Option<AppData> {
         AppData {
             id: data.id.to_string(),
             name: data.name.to_string(),
-            icon: Img::list_file(icon_path.clone()),
+            icon: Img::default().file(icon_path.clone()),
             icon_path,
             keywords: vec![],
             tag: "".to_string(),

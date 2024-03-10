@@ -184,7 +184,7 @@ pub(super) struct Message {
 impl Message {
     fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
         let mut actions = vec![Action::new(
-            Img::list_icon(Icon::MessageCircleReply, None),
+            Img::default().icon(Icon::MessageCircleReply),
             "Reply",
             Some(Shortcut::cmd("r")),
             move |_, _cx| {
@@ -195,7 +195,7 @@ impl Message {
         if self.me {
             actions.append(&mut vec![
                 Action::new(
-                    Img::list_icon(Icon::MessageCircleMore, None),
+                    Img::default().icon(Icon::MessageCircleMore),
                     "Edit",
                     Some(Shortcut::cmd("e")),
                     move |_, _cx| {
@@ -204,7 +204,7 @@ impl Message {
                     false,
                 ),
                 Action::new(
-                    Img::list_icon(Icon::MessageCircleDashed, None),
+                    Img::default().icon(Icon::MessageCircleDashed),
                     "Delete",
                     Some(Shortcut::cmd("backspace")),
                     move |_, _cx| {
@@ -425,16 +425,16 @@ async fn sync(
                             (
                                 m.display_name().unwrap_or(sender.as_ref()).to_string(),
                                 match m.avatar_url() {
-                                    Some(a) => Img::list_url(mxc_to_http(
+                                    Some(a) => Img::default().url(mxc_to_http(
                                         server.clone(),
                                         OwnedMxcUri::from(a),
                                         true,
                                     )),
-                                    None => Img::list_icon(Icon::User, None),
+                                    None => Img::default().icon(Icon::User),
                                 },
                             )
                         })
-                        .unwrap_or((sender.to_string(), Img::list_icon(Icon::User, None)));
+                        .unwrap_or((sender.to_string(), Img::default().icon(Icon::User)));
                     let content = get_content(e.content.into(), server.clone());
                     let room_id = room.room_id().to_string();
 

@@ -30,7 +30,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                 ItemBuilder::new(
                                     theme.name.clone(),
                                     ListItem::new(
-                                        Some(Img::list_dot(theme.base)),
+                                        Some(Img::default().dot(theme.base)),
                                         theme.name.clone(),
                                         None,
                                         vec![],
@@ -39,7 +39,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                 .keywords(vec![theme.name.clone()])
                                 .actions(vec![
                                     Action::new(
-                                        Img::list_icon(Icon::Palette, None),
+                                        Img::default().icon(Icon::Palette),
                                         "Select Theme",
                                         None,
                                         {
@@ -55,7 +55,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                         false,
                                     ),
                                     Action::new(
-                                        Img::list_icon(Icon::Sun, None),
+                                        Img::default().icon(Icon::Sun),
                                         "Default Light Theme",
                                         Some(Shortcut::cmd("l")),
                                         {
@@ -81,7 +81,7 @@ impl StateViewBuilder for ThemeListBuilder {
                                         false,
                                     ),
                                     Action::new(
-                                        Img::list_icon(Icon::Moon, None),
+                                        Img::default().icon(Icon::Moon),
                                         "Default Dark Theme",
                                         Some(Shortcut::cmd("d")),
                                         {

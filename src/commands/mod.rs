@@ -102,7 +102,7 @@ impl RootCommands {
                 ItemBuilder::new(
                     command.id.clone(),
                     ListItem::new(
-                        Some(Img::list_icon(command.icon.clone(), None)),
+                        Some(Img::default().icon(command.icon.clone())),
                         command.title.clone(),
                         Some(command.subtitle.clone()),
                         command
@@ -115,14 +115,14 @@ impl RootCommands {
                 .keywords(keywords)
                 .actions(vec![
                     Action::new(
-                        Img::list_icon(command.icon.clone(), None),
+                        Img::default().icon(command.icon.clone()),
                         command.title.clone(),
                         None,
                         command.action.clone(),
                         false,
                     ),
                     Action::new(
-                        Img::list_icon(Icon::Keyboard, None),
+                        Img::default().icon(Icon::Keyboard),
                         "Change Hotkey",
                         None,
                         {

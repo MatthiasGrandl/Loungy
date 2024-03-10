@@ -19,7 +19,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
-        shared::{Favicon, Icon, Img, ImgMask, ImgSize, ImgSource},
+        shared::{Icon, Img, ImgMask},
     },
     db::Db,
     paths::paths,
@@ -53,7 +53,7 @@ impl StateViewBuilder for BitwardenListBuilder {
 
         context.actions.update_global(
             vec![Action::new(
-                Img::list_icon(Icon::UserSearch, None),
+                Img::default().icon(Icon::UserSearch),
                 "List Accounts",
                 Some(Shortcut::cmd(",")),
                 |_, cx| {
@@ -130,17 +130,17 @@ impl BitwardenLoginItem {
         match field {
             "username" => (
                 "Username",
-                Img::list_icon(Icon::User, None),
+                Img::default().icon(Icon::User),
                 Shortcut::cmd("u"),
             ),
             "password" => (
                 "Password",
-                Img::list_icon(Icon::Lock, None),
+                Img::default().icon(Icon::Lock),
                 Shortcut::cmd("p"),
             ),
             "totp" => (
                 "TOTP 2FA",
-                Img::list_icon(Icon::Clock, None),
+                Img::default().icon(Icon::Clock),
                 Shortcut::cmd("t"),
             ),
             _ => panic!("Unknown field {}", field),
@@ -386,20 +386,14 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                 .ok()
                                                 .and_then(|url| {
                                                     cx.update_window(cx.window_handle(), |_, cx| {
-                                                        Img::new(
-                                                            ImgSource::Favicon(Favicon::new(
-                                                                url,
-                                                                Icon::Globe,
-                                                                cx,
-                                                            )),
-                                                            ImgMask::Rounded,
-                                                            ImgSize::MD,
-                                                        )
+                                                        Img::default()
+                                                            .mask(ImgMask::Rounded)
+                                                            .favicon(url, Icon::Globe, cx)
                                                     })
                                                     .ok()
                                                 })
                                             })
-                                            .unwrap_or(Img::list_icon(Icon::Globe, None));
+                                            .unwrap_or(Img::default().icon(Icon::Globe));
 
                                     img.mask = ImgMask::Rounded;
 
@@ -408,7 +402,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         &mut login.uris.iter().map(|uri| uri.uri.clone()).collect(),
                                     );
                                     let mut actions = vec![Action::new(
-                                        Img::list_icon(Icon::PaintBucket, None),
+                                        Img::default().icon(Icon::PaintBucket),
                                         "Autofill",
                                         None,
                                         {

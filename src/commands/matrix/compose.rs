@@ -60,7 +60,7 @@ impl StateViewBuilder for Compose {
 
         context.actions.update_global(
             vec![Action::new(
-                Img::list_icon(Icon::Send, None),
+                Img::default().icon(Icon::Send),
                 "Send Message",
                 None,
                 move |this, cx| {

@@ -46,7 +46,7 @@ impl StateViewBuilder for RootListBuilder {
                                 },
                             )
                             .actions(vec![Action::new(
-                                Img::list_icon(Icon::Copy, None),
+                                Img::default().icon(Icon::Copy),
                                 "Copy",
                                 None,
                                 {
@@ -128,7 +128,7 @@ impl StateViewBuilder for RootListBuilder {
                                 )
                                 .keywords(vec![data.name.clone()])
                                 .actions(vec![Action::new(
-                                    Img::list_icon(Icon::ArrowUpRightFromSquare, None),
+                                    Img::default().icon(Icon::ArrowUpRightFromSquare),
                                     format!("Open {}", data.tag.clone()),
                                     None,
                                     {

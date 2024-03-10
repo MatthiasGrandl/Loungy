@@ -126,10 +126,12 @@ async fn sync(
                     };
                     let name = room.name().unwrap_or("".to_string());
                     let mut img = match room.avatar_url() {
-                        Some(source) => Img::list_url(mxc_to_http(server.clone(), source, true)),
+                        Some(source) => {
+                            Img::default().url(mxc_to_http(server.clone(), source, true))
+                        }
                         None => match room.is_dm() {
-                            Some(true) => Img::list_icon(Icon::User, None),
-                            _ => Img::list_icon(Icon::Users, None),
+                            Some(true) => Img::default().icon(Icon::User),
+                            _ => Img::default().icon(Icon::Users),
                         },
                     };
 
@@ -157,7 +159,7 @@ async fn sync(
                     .keywords(vec![name.clone()])
                     .actions(vec![
                         Action::new(
-                            Img::list_icon(Icon::MessageCircle, None),
+                            Img::default().icon(Icon::MessageCircle),
                             "Write",
                             None,
                             {
@@ -179,7 +181,7 @@ async fn sync(
                             false,
                         ),
                         Action::new(
-                            Img::list_icon(Icon::Search, None),
+                            Img::default().icon(Icon::Search),
                             "Search",
                             Some(Shortcut::cmd("/")),
                             |actions, cx| {

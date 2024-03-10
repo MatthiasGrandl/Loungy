@@ -413,7 +413,7 @@ impl Form {
         if let Some(inner) = context.actions.inner.upgrade() {
             context.actions.update_local(
                 vec![Action::new(
-                    Img::list_icon(Icon::PlusSquare, None),
+                    Img::default().icon(Icon::PlusSquare),
                     "Submit",
                     None,
                     {

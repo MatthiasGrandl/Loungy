@@ -52,7 +52,7 @@ impl StateViewBuilder for MenuListBuilder {
                                     let actions = if let Some(indices) = item.path_indices {
                                         let indices = indices.clone();
                                         vec![Action::new(
-                                            Img::list_icon(Icon::BookOpen, None),
+                                            Img::default().icon(Icon::BookOpen),
                                             "Select Menu Item",
                                             None,
                                             move |this, cx| {
