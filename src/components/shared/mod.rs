@@ -171,18 +171,17 @@ impl Favicon {
                 ))?);
             }
         };
+        let client = reqwest::ClientBuilder::new()
+            .user_agent("favicon_crawler (loungy.app)")
+            .build()?;
         for target in targets {
-            let response = reqwest::Client::new()
-                .get(target.clone())
-                .header("User-Agent", "favicon_crawler (loungy.app)")
-                .send()
-                .await?;
+            let response = client.get(target.clone()).send().await?;
             let url = response.url().clone();
             let html = response.text().await?;
 
-            let hrefs: Vec<String> = spawn_blocking(move || {
+            let mut hrefs: Vec<String> = spawn_blocking(move || {
                 let document = Html::parse_document(&html);
-                let selector = Selector::parse("link[rel=\"icon\"], link[rel=\"shortcut icon\"], link[rel=\"alternate icon\"], link[rel=\"apple-touch-icon\"], link[rel=\"apple-touch-icon-precomposed\"]").unwrap();
+                let selector = Selector::parse("link[rel~='icon'], link[rel~='shortcut icon'], link[rel~='alternate icon'], link[rel~='apple-touch-icon'], link[rel~='apple-touch-icon-precomposed']").unwrap();
 
                 document
                     .select(&selector)
@@ -190,15 +189,16 @@ impl Favicon {
                     .collect()
             }).await;
 
+            hrefs.append(&mut vec![format!("/favicon.svg"), format!("/favicon.ico")]);
+
             for href in hrefs {
                 let absolute = Url::parse(&href).unwrap_or(url.join(&href).unwrap());
-                let bytes = reqwest::Client::new()
-                    .get(absolute)
-                    .header("User-Agent", "favicon_crawler (loungy.app)")
-                    .send()
-                    .await?
-                    .bytes()
-                    .await?;
+                let Ok(response) = client.get(absolute).send().await else {
+                    continue;
+                };
+                let Ok(bytes) = response.bytes().await else {
+                    continue;
+                };
 
                 if let Ok(format) = image::guess_format(&bytes) {
                     if format == ImageFormat::Png {
