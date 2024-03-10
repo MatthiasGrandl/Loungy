@@ -489,6 +489,14 @@ pub struct Shortcut {
     inner: Keystroke,
 }
 
+impl From<&Keystroke> for Shortcut {
+    fn from(keystroke: &Keystroke) -> Self {
+        Self {
+            inner: keystroke.clone(),
+        }
+    }
+}
+
 impl Shortcut {
     pub fn new(key: impl ToString) -> Self {
         Self {

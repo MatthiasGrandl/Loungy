@@ -250,13 +250,13 @@ impl InputView {
                         let mods = e.keystroke.modifiers;
                         if mods.shift || mods.control || mods.alt || mods.command {
                             self.inner.kind = InputKind::Shortcut {
-                                tmp: Some(Shortcut::new(e.keystroke.clone())),
-                                value: Some(Shortcut::new(e.keystroke.clone())),
+                                tmp: Some(Shortcut::from(&e.keystroke)),
+                                value: Some(Shortcut::from(&e.keystroke)),
                             };
                             proceed = true;
                         } else {
                             self.inner.kind = InputKind::Shortcut {
-                                tmp: Some(Shortcut::new(e.keystroke.clone())),
+                                tmp: Some(Shortcut::from(&e.keystroke)),
                                 value,
                             }
                         }
@@ -272,16 +272,7 @@ impl InputView {
             }
         }
         if let TextEvent::KeyDown(e) = event {
-            if (Keystroke {
-                key: "tab".to_string(),
-                modifiers: Modifiers {
-                    shift: true,
-                    ..Modifiers::default()
-                },
-                ime_key: None,
-            })
-            .eq(&e.keystroke)
-            {
+            if (Shortcut::new("tab").shift().get()).eq(&e.keystroke) {
                 self.focus_model.update(cx, |this, cx| {
                     if this > &mut 0 {
                         *this -= 1;
@@ -289,13 +280,7 @@ impl InputView {
                     }
                 })
                 //
-            } else if (Keystroke {
-                key: "tab".to_string(),
-                modifiers: Modifiers::default(),
-                ime_key: None,
-            })
-            .eq(&e.keystroke)
-            {
+            } else if (Shortcut::new("tab").get()).eq(&e.keystroke) {
                 self.focus_model.update(cx, |this, cx| {
                     *this += 1;
                     cx.notify();
