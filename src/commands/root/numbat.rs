@@ -63,6 +63,7 @@ impl Numbat {
                                     statements.last(),
                                     ctx.dimension_registry(),
                                     true,
+                                    true,
                                 );
                                 let mut value: Option<String> = None;
                                 let mut type_id: Option<String> = None;

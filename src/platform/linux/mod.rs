@@ -27,12 +27,12 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     let icon_img = if let Some(icon) = icon_url.clone() {
         if (icon.extension().unwrap_or_default().eq("svg")) {
             // TODO: Add support for SVG icons
-            Img::list_icon(Icon::AppWindow, None)
+            Img::default().icon(Icon::AppWindow)
         } else {
-            Img::list_file(icon)
+            Img::default().file(icon)
         }
     } else {
-        Img::list_icon(Icon::AppWindow, None)
+        Img::default().icon(Icon::AppWindow)
     };
 
     Some(AppData {
