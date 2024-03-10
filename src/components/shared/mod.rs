@@ -1,30 +1,17 @@
-use std::{
-    borrow::Cow,
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    path::PathBuf,
-    sync::Arc,
-    time::Duration,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use async_std::{
-    channel::{self, Sender},
     fs,
-    task::spawn,
+    task::{spawn, spawn_blocking},
 };
 use gpui::*;
 use image::ImageFormat;
-use log::{debug, error};
-use quick_xml::Reader;
-use quick_xml::{
-    events::{BytesStart, Event},
-    name::QName,
-};
-use serde::Deserialize;
+use log::debug;
 use url::Url;
 
 use crate::{paths::paths, theme::Theme};
+use scraper::{Html, Selector};
 
 mod icon;
 
@@ -172,92 +159,89 @@ pub struct Favicon {
 impl Favicon {
     async fn fetch_favicon(url: Url, cache: PathBuf) -> anyhow::Result<PathBuf> {
         let base_url = Url::parse(&format!("{}://{}", url.scheme(), url.host_str().unwrap()))?;
-        let response = reqwest::get(base_url.clone()).await?;
-        let url = response.url().clone();
-        let html = response.text().await?;
-        let mut reader = Reader::from_str(&html);
-        reader.trim_text(true);
+        let mut targets = vec![url.clone(), base_url.clone()];
+        // if subdomain
+        if let Some(domain) = base_url.domain() {
+            let split: Vec<&str> = domain.split('.').collect();
+            if split.len() > 2 {
+                targets.push(Url::parse(&format!(
+                    "{}://{}",
+                    url.scheme(),
+                    split[split.len() - 2..split.len()].join(".")
+                ))?);
+            }
+        };
+        for target in targets {
+            let response = reqwest::Client::new()
+                .get(target.clone())
+                .header("User-Agent", "favicon_crawler (loungy.app)")
+                .send()
+                .await?;
+            let url = response.url().clone();
+            let html = response.text().await?;
 
-        loop {
-            let mut buf = Vec::new();
-            let event = reader.read_event_into(&mut buf);
+            let hrefs: Vec<String> = spawn_blocking(move || {
+                let document = Html::parse_document(&html);
+                let selector = Selector::parse("link[rel=\"icon\"], link[rel=\"shortcut icon\"], link[rel=\"alternate icon\"], link[rel=\"apple-touch-icon\"], link[rel=\"apple-touch-icon-precomposed\"]").unwrap();
 
-            match event {
-                Ok(Event::Start(ref e)) => match e.name() {
-                    QName(b"link") => {
-                        let mut attrs = e.attributes().flatten();
-                        for attribute in attrs.clone() {
-                            if attribute.key == QName(b"href")
-                                && attrs.any(|a| {
-                                    a.key == QName(b"rel")
-                                        && matches!(
-                                            a.value.as_ref(),
-                                            b"icon"
-                                                | b"shortcut icon"
-                                                | b"apple-touch-icon"
-                                                | b"apple-touch-icon-precomposed"
-                                        )
-                                })
-                            {
-                                let path = String::from_utf8_lossy(&attribute.value).to_string();
-                                let absolute =
-                                    Url::parse(&path).unwrap_or(url.join(&path).unwrap());
-                                let bytes = reqwest::get(absolute).await?.bytes().await?;
+                document
+                    .select(&selector)
+                    .filter_map(|element| element.value().attr("href").map(|href| href.to_string()))
+                    .collect()
+            }).await;
 
-                                if let Ok(format) = image::guess_format(&bytes) {
-                                    if format == ImageFormat::Png {
-                                        let _ = fs::write(&cache, &bytes).await;
-                                    } else {
-                                        let Ok(img) =
-                                            image::load_from_memory_with_format(&bytes, format)
-                                        else {
-                                            continue;
-                                        };
-                                        let _ = img.save_with_format(&cache, ImageFormat::Png);
-                                    }
-                                    if let Ok(dimensions) = image::image_dimensions(&cache) {
-                                        if dimensions.0 > 50 {
-                                            return Ok(cache);
-                                        }
-                                    }
-                                } else {
-                                    let tree = resvg::usvg::Tree::from_data(
-                                        &bytes,
-                                        &resvg::usvg::Options::default(),
-                                        &resvg::usvg::fontdb::Database::default(),
-                                    )?;
-                                    let size = tree.size();
-                                    let width = 64;
-                                    let height = 64;
-                                    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
-                                        .expect("failed to create pixmap");
-                                    let mut pixmap_mut = pixmap.as_mut();
-                                    resvg::render(
-                                        &tree,
-                                        resvg::usvg::Transform::from_scale(
-                                            width as f32 / size.width(),
-                                            height as f32 / size.height(),
-                                        ),
-                                        &mut pixmap_mut,
-                                    );
-                                    if pixmap.save_png(&cache).is_ok() {
-                                        return Ok(cache);
-                                    }
-                                }
-                                break;
-                            }
+            for href in hrefs {
+                let absolute = Url::parse(&href).unwrap_or(url.join(&href).unwrap());
+                let bytes = reqwest::Client::new()
+                    .get(absolute)
+                    .header("User-Agent", "favicon_crawler (loungy.app)")
+                    .send()
+                    .await?
+                    .bytes()
+                    .await?;
+
+                if let Ok(format) = image::guess_format(&bytes) {
+                    if format == ImageFormat::Png {
+                        let _ = fs::write(&cache, &bytes).await;
+                    } else {
+                        let Ok(img) = image::load_from_memory_with_format(&bytes, format) else {
+                            continue;
+                        };
+                        let _ = img.save_with_format(&cache, ImageFormat::Png);
+                    }
+                    if let Ok(dimensions) = image::image_dimensions(&cache) {
+                        if dimensions.0 > 50 {
+                            return Ok(cache);
                         }
                     }
-                    QName(b"body") => break,
-                    _ => {}
-                },
-                Ok(Event::Eof) => break, // exits the loop when reaching end of file
-                Ok(_) => {}
-                Err(_) => break,
+                } else {
+                    let tree = resvg::usvg::Tree::from_data(
+                        &bytes,
+                        &resvg::usvg::Options::default(),
+                        &resvg::usvg::fontdb::Database::default(),
+                    )?;
+                    let size = tree.size();
+                    let width = 64;
+                    let height = 64;
+                    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height)
+                        .expect("failed to create pixmap");
+                    let mut pixmap_mut = pixmap.as_mut();
+                    resvg::render(
+                        &tree,
+                        resvg::usvg::Transform::from_scale(
+                            width as f32 / size.width(),
+                            height as f32 / size.height(),
+                        ),
+                        &mut pixmap_mut,
+                    );
+                    if pixmap.save_png(&cache).is_ok() {
+                        return Ok(cache);
+                    }
+                }
             }
         }
 
-        Err(anyhow!("No favicon found"))
+        Err(anyhow!("No favicon found for {}", url))
     }
     pub fn init(url: impl AsRef<str>, icon: Icon, cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
@@ -271,14 +255,12 @@ impl Favicon {
             if url.cannot_be_a_base() || !url.scheme().starts_with("http") {
                 return favicon;
             };
+
             let Some(host) = url.host_str() else {
                 return favicon;
             };
 
-            let cache = paths()
-                .cache
-                .join("favicons")
-                .join(format!("{}.png", url.host_str().unwrap()));
+            let cache = paths().cache.join("favicons").join(format!("{}.png", host));
 
             if let Ok(exists) = cache.try_exists() {
                 if exists {
@@ -288,6 +270,7 @@ impl Favicon {
             }
 
             cx.spawn(|view, mut cx| async move {
+                // TODO: For some reason, if lots of favicons are requested at once, only the first x will be fetched.
                 let result = spawn(Self::fetch_favicon(url, cache)).await;
                 if let Ok(path) = result {
                     let _ = view.update(&mut cx, |this, cx| {
@@ -307,8 +290,7 @@ impl Favicon {
 impl Render for Favicon {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
         if let Some(path) = self.path.clone() {
-            let mut img = Img::list_file(path);
-            img
+            Img::list_file(path)
         } else {
             Img::list_icon(self.fallback.clone(), None)
         }

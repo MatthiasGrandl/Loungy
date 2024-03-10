@@ -1,5 +1,6 @@
 use std::{collections::HashMap, future::IntoFuture};
 
+use async_std::task::spawn;
 use gpui::*;
 use log::{debug, error, info};
 use matrix_sdk::{
@@ -363,7 +364,10 @@ async fn sync(
         .get_room(&room_id)
         .ok_or(anyhow::Error::msg("Room not found"))?;
 
-    let members = r.members_no_sync(RoomMemberships::all()).await?;
+    let members = {
+        let r = r.clone();
+        spawn(async move { r.members_no_sync(RoomMemberships::all()).await }).await?
+    };
 
     let me = client.user_id().unwrap();
     let mut member_map: HashMap<OwnedUserId, RoomMember> = HashMap::new();
@@ -589,7 +593,6 @@ impl StateViewBuilder for ChatRoom {
                 subscription.timeline_limit = Some(UInt::new(300).unwrap());
                 {
                     let sliding_sync = sliding_sync.clone();
-
                     sliding_sync.subscribe_to_room(id.clone(), Some(subscription));
                 }
                 {
