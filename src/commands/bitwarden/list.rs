@@ -235,7 +235,7 @@ impl BitwardenAccount {
         let mut env: HashMap<String, String> = HashMap::new();
         env.insert(
             "PATH".to_string(),
-            "/opt/homebrew/bin:/usr/local/bin/bw".to_string(),
+            "/opt/homebrew/bin:/usr/local/bin".to_string(),
         );
         env.insert(
             "BITWARDENCLI_APPDATA_DIR".to_string(),

@@ -442,10 +442,12 @@ impl StateModel {
         self.push(view, cx);
     }
     pub fn reset(&self, cx: &mut WindowContext) {
-        self.inner.update(cx, |model, _| {
-            model.stack.truncate(1);
-            //model.stack[0].query.set_text("", cx);
-        });
+        self.inner
+            .update(cx, |model, _| {
+                model.stack.truncate(1);
+                model.stack[0].query.downgrade()
+            })
+            .set_text("", cx);
     }
     pub fn update_loader(&self, loader: Option<WeakModel<Loading>>, cx: &mut WindowContext) {
         self.loader.update(cx, |this, _cx| {
