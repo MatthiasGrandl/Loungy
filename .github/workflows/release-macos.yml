@@ -31,26 +31,8 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AUTH_TOKEN }}
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            TODO: Populate release notes
-          draft: false
-          prerelease: false
-
-      - name: Upload dmg
-        id: upload-dmg
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AUTH_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/release/Loungy.dmg
-          asset_name: Loungy.dmg
-          asset_content_type: application/x-apple-diskimage
+          files: |
+            target/release/*.dmg
