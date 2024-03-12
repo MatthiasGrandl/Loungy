@@ -60,7 +60,13 @@ impl StateViewBuilder for TailscaleListBuilder {
                         .to_string()
                         .eq(&this.actions.get_dropdown_value(cx));
                     let theme = cx.global::<Theme>().clone();
+                    let mut env: HashMap<String, String> = HashMap::new();
+                    env.insert(
+                        "PATH".to_string(),
+                        "/opt/homebrew/bin:/usr/local/bin".to_string(),
+                    );
                     let status = Command::new("tailscale")
+                        .envs(env)
                         .arg("status")
                         .arg("--json")
                         .output()?

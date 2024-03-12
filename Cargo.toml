@@ -3,6 +3,17 @@ name = "loungy"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.75.0"
+description = "Loungy is a WIP launcher in the vein of Raycast and Alfred."
+
+[package.metadata.packager]
+product_name = "Loungy"
+identifier = "app.loungy"
+copyright = "Copyright (c) Matthias Grandl 2024. All rights reserved."
+category = "Productivity"
+
+[package.metadata.packager.macos]
+signing_identity = "Developer ID Application: Matthias Grandl (LJ9UB62BK7)"
+entitlements = "macos/entitlements.plist"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
