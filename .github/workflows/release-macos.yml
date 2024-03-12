@@ -17,7 +17,9 @@ jobs:
       - name: Clippy
         run: cargo clippy --all-features
       - name: Build
-        run: cargo build --verbose --all-features --release
+        run: cargo build --verbose -F clipboard --release
+      - name: Install Packer
+        run: cargo install cargo-packager --locked
       - name: Package
         run: cargo packager --release
         env:
@@ -31,23 +33,22 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: |
-            Changes in this Release
-              - First Change
-              - Second Change
+            TODO: Populate release notes
           draft: false
           prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset
+
+      - name: Upload dmg
+        id: upload-dmg
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./my-artifact.zip
-          asset_name: my-artifact.zip
-          asset_content_type: application/zip
+          asset_path: ./target/release/Loungy.dmg
+          asset_name: Loungy.dmg
+          asset_content_type: application/x-apple-diskimage
