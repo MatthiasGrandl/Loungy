@@ -24,6 +24,8 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           save-always: true
+      - name: Rustup
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - name: Build x86_64
         run: cargo build --target=x86_64-apple-darwin -F ${{ vars.CARGO_FEATURES }} --release
       - name: Build aarch64
