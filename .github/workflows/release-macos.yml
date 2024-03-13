@@ -7,7 +7,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_FEATURES: ${{ env.CARGO_FEATURES }}
 
 jobs:
   build:
@@ -25,14 +24,10 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           save-always: true
-        # - name: Clippy
-        #   env:
-        #     CARGO_FEATURES: $CARGO_FEATURES
-        # run: cargo clippy -F $CARGO_FEATURES
       - name: Build x86_64
-        run: cargo build --target=x86_64-apple-darwin -F $CARGO_FEATURES --release
+        run: cargo build --target=x86_64-apple-darwin -F ${{ vars.CARGO_FEATURES }} --release
       - name: Build aarch64
-        run: cargo build --target=aarch64-apple-darwin -F $CARGO_FEATURES --release
+        run: cargo build --target=aarch64-apple-darwin -F ${{ vars.CARGO_FEATURES }} --release
       - name: Lipo
         run: mkdir -p target/release ; lipo -create -output target/release/loungy target/x86_64-apple-darwin/release/loungy target/aarch64-apple-darwin/release/loungy
       - name: Install Packer
