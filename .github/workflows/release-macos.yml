@@ -14,12 +14,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - run: rustup toolchain install stable --profile minimal
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          save-always: true
       - name: Clippy
-        run: cargo clippy --all-features
-      - name: Build
-        run: cargo build --verbose -F clipboard --release
+        run: cargo clippy -F ${{ env.CARGO_FEATURES }}
+      - name: Build x86_64
+        run: cargo build --target=x86_64-apple-darwin -F ${{ env.CARGO_FEATURES }} --release
+      - name: Build aarch64
+        run: cargo build --target=aarch64-apple-darwin -F ${{ env.CARGO_FEATURES }} --release
+      - name: Lipo
+        run: mkdir -p target/release ; lipo -create -output target/release/loungy target/x86_64-apple-darwin/release/loungy target/aarch64-apple-darwin/release/loungy
       - name: Install Packer
         run: cargo install cargo-packager --locked
       - name: Package
