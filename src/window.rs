@@ -50,12 +50,16 @@ pub struct Window {
     hidden: bool,
 }
 
+#[allow(dead_code)]
 impl Window {
     pub fn init(cx: &mut AppContext) {
         cx.set_global::<Self>(Self {
             //inner: view.clone(),
             hidden: false,
         });
+    }
+    pub fn is_open(cx: &AsyncAppContext) -> bool {
+        cx.read_global::<Self, _>(|w, _| !w.hidden).unwrap_or(false)
     }
     pub fn open(cx: &mut WindowContext) {
         cx.update_global::<Self, _>(|this, cx| {

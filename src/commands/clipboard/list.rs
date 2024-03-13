@@ -30,7 +30,10 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    platform::{close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr},
+    platform::{
+        close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr,
+        ClipboardWatcher,
+    },
     state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
@@ -618,6 +621,8 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                 let item = item.clone().contents;
                 list_items.push(item.kind.clone().into(), item.get_item(cx), cx);
             }
+            ClipboardWatcher::init(cx);
+
             cx.spawn(|view, mut cx| async move {
                 let mut clipboard = Clipboard::new().unwrap();
                 let mut hash: u64 = 0;
@@ -644,6 +649,12 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                         let new_hash = hasher.finish();
                         if new_hash != hash {
                             hash = new_hash;
+                            // Skip if active window is Loungy (TODO: add configurable blocklist)
+                            if !ClipboardWatcher::is_enabled(&cx) {
+                                ClipboardWatcher::enabled(&mut cx);
+                                sleep(Duration::from_secs(1)).await;
+                                continue;
+                            }
                             let entry = if let Ok(Some(mut item)) =
                                 ClipboardListItem::get(&hash, db_items())
                             {
@@ -705,6 +716,12 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                         let new_hash = hasher.finish();
                         if new_hash != hash {
                             hash = new_hash;
+                            // Skip if active window is Loungy (TODO: add configurable blocklist)
+                            if !ClipboardWatcher::is_enabled(&cx) {
+                                ClipboardWatcher::enabled(&mut cx);
+                                sleep(Duration::from_secs(1)).await;
+                                continue;
+                            }
                             let entry = if let Ok(Some(mut item)) =
                                 ClipboardListItem::get(&hash, db_items())
                             {

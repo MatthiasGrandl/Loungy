@@ -5,7 +5,7 @@ use gpui::WindowContext;
 use std::{fs, path::Path};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
-use super::AppData;
+use super::{AppData, ClipboardWatcher};
 
 #[repr(C)]
 struct AppDataMac {
@@ -81,6 +81,7 @@ pub fn close_and_paste(value: &str, formatting: bool, cx: &mut WindowContext) {
     let value = value.to_string();
     cx.spawn(move |mut cx| async move {
         Window::wait_for_close(&mut cx).await;
+        ClipboardWatcher::disabled(&mut cx);
         unsafe {
             paste(SRString::from(value.as_str()), Bool::from(formatting));
         }
@@ -93,6 +94,7 @@ pub fn close_and_paste_file(path: &Path, cx: &mut WindowContext) {
     let path = path.to_string_lossy().to_string();
     cx.spawn(move |mut cx| async move {
         Window::wait_for_close(&mut cx).await;
+        ClipboardWatcher::disabled(&mut cx);
         unsafe {
             paste_file(SRString::from(path.as_str()));
         }
