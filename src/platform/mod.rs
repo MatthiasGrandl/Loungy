@@ -11,6 +11,7 @@ mod mac;
 #[cfg(target_os = "macos")]
 pub use mac::*;
 
+#[derive(Clone)]
 pub struct AppData {
     pub id: String,
     pub name: String,

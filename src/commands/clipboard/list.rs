@@ -30,12 +30,10 @@ use crate::{
     },
     db::Db,
     paths::paths,
-    platform::{
-        close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr,
-        ClipboardWatcher,
-    },
+    platform::{close_and_paste, close_and_paste_file, ocr, AppData, ClipboardWatcher},
     state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
+    window::Frontmost,
 };
 
 #[derive(Clone)]
@@ -182,9 +180,10 @@ struct ClipboardListItem {
 }
 
 impl ClipboardListItem {
-    fn new(id: u64, title: impl ToString, kind: ClipboardKind) -> Self {
-        let (application, application_icon) = get_frontmost_application_data()
-            .map(|data| (data.name, Some(data.icon_path)))
+    fn new(id: u64, title: impl ToString, kind: ClipboardKind, app: &Option<AppData>) -> Self {
+        let (application, application_icon) = app
+            .as_ref()
+            .map(|data| (data.name.clone(), Some(data.icon_path.clone())))
             .unwrap_or(("Unknown".to_string(), None));
 
         let item = Self {
@@ -643,15 +642,31 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                             );
                         });
                     }
+                    let app = Frontmost::get_async(&cx);
+                    let condition = |app: &Option<AppData>, cx: &mut AsyncAppContext| {
+                        if !ClipboardWatcher::is_enabled(cx) {
+                            ClipboardWatcher::enabled(cx);
+                            return false;
+                        }
+                        // TODO: make this configurable and platform independent
+                        if let Some(app) = app {
+                            if matches!(
+                                app.id.as_str(),
+                                "com.apple.systempreferences" | "com.apple.keychainaccess"
+                            ) {
+                                return false;
+                            }
+                        }
+
+                        true
+                    };
                     if let Ok(text) = clipboard.get_text() {
                         let mut hasher = DefaultHasher::new();
                         text.hash(&mut hasher);
                         let new_hash = hasher.finish();
                         if new_hash != hash {
                             hash = new_hash;
-                            // Skip if active window is Loungy (TODO: add configurable blocklist)
-                            if !ClipboardWatcher::is_enabled(&cx) {
-                                ClipboardWatcher::enabled(&mut cx);
+                            if !condition(&app, &mut cx) {
                                 sleep(Duration::from_secs(1)).await;
                                 continue;
                             }
@@ -683,6 +698,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                             url: text,
                                             title: "".to_string(),
                                         },
+                                        &app,
                                     )
                                 } else {
                                     ClipboardListItem::new(
@@ -700,6 +716,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                             words: text.split_whitespace().count() as u64,
                                             text: text.clone(),
                                         },
+                                        &app,
                                     )
                                 }
                             };
@@ -716,9 +733,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                         let new_hash = hasher.finish();
                         if new_hash != hash {
                             hash = new_hash;
-                            // Skip if active window is Loungy (TODO: add configurable blocklist)
-                            if !ClipboardWatcher::is_enabled(&cx) {
-                                ClipboardWatcher::enabled(&mut cx);
+                            if !condition(&app, &mut cx) {
                                 sleep(Duration::from_secs(1)).await;
                                 continue;
                             }
@@ -761,6 +776,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                         path,
                                         thumbnail,
                                     },
+                                    &app,
                                 )
                             };
                             let _ = cx.update_window(cx.window_handle(), |_, cx| {

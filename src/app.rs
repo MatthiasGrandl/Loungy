@@ -5,7 +5,7 @@ use crate::{
     commands::RootCommands,
     hotkey::HotkeyManager,
     theme::Theme,
-    window::{Window, WindowStyle},
+    window::{Frontmost, Window, WindowStyle},
     workspace::Workspace,
 };
 
@@ -21,6 +21,7 @@ pub fn run_app(app: gpui::App) {
             },
         });
         cx.open_window(WindowStyle::Main.options(bounds), |cx| {
+            Frontmost::init(cx);
             RootCommands::init(cx);
             HotkeyManager::init(cx);
             let view = Workspace::build(cx);

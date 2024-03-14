@@ -173,41 +173,41 @@ impl ItemBuilder {
             component: Box::new(component),
         }
     }
-    pub fn preview(&mut self, width: f32, preview: impl Preview + 'static) -> &mut Self {
+    pub fn preview(mut self, width: f32, preview: impl Preview + 'static) -> Self {
         self.preview = Some((width, Box::new(preview)));
         self
     }
-    pub fn meta(&mut self, meta: AnyModel) -> &mut Self {
+    pub fn meta(mut self, meta: AnyModel) -> Self {
         self.meta = Some(meta);
         self
     }
-    pub fn keywords(&mut self, keywords: Vec<impl ToString>) -> &mut Self {
+    pub fn keywords(mut self, keywords: Vec<impl ToString>) -> Self {
         self.keywords = keywords.into_iter().map(|k| k.to_string()).collect();
         self
     }
-    pub fn actions(&mut self, actions: Vec<Action>) -> &mut Self {
+    pub fn actions(mut self, actions: Vec<Action>) -> Self {
         self.actions = actions;
         self
     }
-    pub fn weight(&mut self, weight: u16) -> &mut Self {
+    pub fn weight(mut self, weight: u16) -> Self {
         self.weight = Some(weight);
         self
     }
-    pub fn preset(&mut self, preset: ItemPreset) -> &mut Self {
+    pub fn preset(mut self, preset: ItemPreset) -> Self {
         self.preset = preset;
         self
     }
-    pub fn build(&self) -> Item {
+    pub fn build(self) -> Item {
         Item {
             id: self.id,
-            preview: self.preview.clone(),
-            actions: self.actions.clone(),
+            preview: self.preview,
+            actions: self.actions,
             weight: self.weight,
-            keywords: self.keywords.clone(),
+            keywords: self.keywords,
             selected: false,
-            component: self.component.clone(),
-            meta: self.meta.clone(),
-            preset: self.preset.clone(),
+            component: self.component,
+            meta: self.meta,
+            preset: self.preset,
         }
     }
 }
@@ -311,31 +311,31 @@ impl ListBuilder {
             }),
         }
     }
-    pub fn disable_action_updates(&mut self) -> &mut Self {
+    pub fn disable_action_updates(mut self) -> Self {
         self.update_actions = false;
         self
     }
-    pub fn reverse(&mut self) -> &mut Self {
+    pub fn reverse(mut self) -> Self {
         self.reverse = true;
         self
     }
-    pub fn interval(&mut self, interval: Duration) -> &mut Self {
+    pub fn interval(mut self, interval: Duration) -> Self {
         self.interval = Some(interval);
         self
     }
-    pub fn filter(&mut self, filter: impl FilterList + 'static) -> &mut Self {
+    pub fn filter(mut self, filter: impl FilterList + 'static) -> Self {
         self.filter = Box::new(filter);
         self
     }
     pub fn build(
-        &self,
+        self,
         update: impl UpdateList + 'static,
         context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<List> {
         List::new(
             Box::new(update),
-            self.filter.clone(),
+            self.filter,
             self.interval,
             self.update_actions,
             self.reverse,
@@ -354,28 +354,8 @@ impl<F> UpdateList for F where
 {
 }
 
-pub trait FilterList: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + FilterList>
-    where
-        Self: 'a;
-}
-impl<F> FilterList for F
-where
-    F: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> + Clone,
-{
-    fn clone_box<'a>(&self) -> Box<dyn 'a + FilterList>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + FilterList> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
-}
+pub trait FilterList: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> {}
+impl<F> FilterList for F where F: Fn(&mut List, &mut ViewContext<List>) -> Vec<Item> {}
 
 pub struct List {
     state: ListState,

@@ -3,7 +3,10 @@ use std::time::Duration;
 use async_std::task::sleep;
 use gpui::*;
 
-use crate::state::StateModel;
+use crate::{
+    platform::{get_frontmost_application_data, AppData},
+    state::StateModel,
+};
 
 pub static WIDTH: f64 = 800.0;
 pub static HEIGHT: f64 = 450.0;
@@ -101,3 +104,52 @@ impl Window {
 }
 
 impl Global for Window {}
+
+pub struct Frontmost {
+    inner: Model<Option<AppData>>,
+}
+
+#[allow(dead_code)]
+impl Frontmost {
+    pub fn init(cx: &mut AppContext) {
+        let model = cx.new_model(|cx| {
+            cx.spawn(|this, mut cx| async move {
+                loop {
+                    let result = this.update(&mut cx, |this: &mut Option<AppData>, cx| {
+                        if let Some(app) = get_frontmost_application_data() {
+                            if !app
+                                .id
+                                .eq(this.as_ref().map(|a| &a.id).unwrap_or(&"".to_string()))
+                            {
+                                *this = Some(app);
+                                cx.notify();
+                            }
+                        };
+                    });
+                    if result.is_err() {
+                        break;
+                    }
+                    sleep(Duration::from_millis(100)).await;
+                }
+            })
+            .detach();
+            get_frontmost_application_data()
+        });
+        cx.set_global::<Self>(Self { inner: model });
+    }
+    pub fn get_async(cx: &AsyncAppContext) -> Option<AppData> {
+        cx.read_global::<Self, Option<AppData>>(|this, cx| {
+            cx.read_model(&this.inner, |this, _| this.clone())
+        })
+        .unwrap_or(None)
+    }
+    pub fn get(cx: &AppContext) -> Option<AppData> {
+        let model = cx.global::<Self>();
+        cx.read_model(&model.inner, |this, _| this.clone())
+    }
+    pub fn inner(cx: &AppContext) -> Model<Option<AppData>> {
+        cx.global::<Self>().inner.clone()
+    }
+}
+
+impl Global for Frontmost {}
