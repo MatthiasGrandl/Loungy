@@ -25,9 +25,15 @@ impl ActiveLoaders {
                 let w = 1.0;
                 let w_start = 0.4;
                 let w_stop = 0.5;
+                let mut show = false;
+                let mut show_ts = time::Instant::now();
                 loop {
                     if view.upgrade().is_none() {
                         break;
+                    }
+                    if show != Self::show(&view, &cx) {
+                        show = !show;
+                        show_ts = time::Instant::now();
                     }
                     let i = (ts.elapsed().as_millis() as f32 % 1000.0) / 1000.0;
                     let (left, width) = if i > 0.4 {
@@ -40,10 +46,20 @@ impl ActiveLoaders {
                         let i = i / 0.4;
                         (0.0, easing(i) * w_start)
                     };
+                    let opacity = {
+                        let i = show_ts.elapsed().as_millis() as f32 / 1000.0;
+                        let i = if i > 1.0 { 1.0 } else { i };
+                        if show {
+                            1.0 - i
+                        } else {
+                            i
+                        }
+                    };
                     let _ = cx.update(|cx| {
                         view.update(cx, |this: &mut ActiveLoaders, cx| {
                             this.left = left;
                             this.width = width;
+                            this.opacity = opacity;
                             cx.notify();
                         })
                     });
@@ -59,6 +75,7 @@ impl ActiveLoaders {
                 inner: vec![],
                 left: 0.0,
                 width: 0.0,
+                opacity: 0.0,
             }
         })
     }
@@ -66,12 +83,24 @@ impl ActiveLoaders {
         self.inner
             .retain(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
     }
+    fn show(view: &WeakView<Self>, cx: &AsyncWindowContext) -> bool {
+        let Some(view) = view.upgrade() else {
+            return false;
+        };
+        cx.read_model(&view.model, |this, cx| {
+            this.inner
+                .iter()
+                .any(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false))
+        })
+        .unwrap_or(true)
+    }
 }
 
 pub struct ActiveLoaders {
     pub inner: Vec<WeakModel<Loading>>,
     width: f32,
     left: f32,
+    opacity: f32,
 }
 
 pub struct Loading {
@@ -107,25 +136,21 @@ impl Loading {
 impl Render for ActiveLoaders {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         self.retain(cx);
+
         let theme = cx.global::<theme::Theme>();
         let mut bg = theme.lavender;
 
-        bg.fade_out(0.2);
-        let el = div().w_full().h_px().bg(theme.mantle).relative();
-        if !self.inner.is_empty() {
-            el.child(
-                div()
-                    .absolute()
-                    .h_full()
-                    .top_0()
-                    .bottom_0()
-                    .bg(bg)
-                    .left(relative(self.left))
-                    .w(relative(self.width)),
-            )
-        } else {
-            el
-        }
+        bg.fade_out(self.opacity);
+        div().w_full().h_px().bg(theme.mantle).relative().child(
+            div()
+                .absolute()
+                .h_full()
+                .top_0()
+                .bottom_0()
+                .bg(bg)
+                .left(relative(self.left))
+                .w(relative(self.width)),
+        )
     }
 }
 
