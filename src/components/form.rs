@@ -92,7 +92,6 @@ impl Render for InputView {
                                 .child(
                                     div()
                                         .absolute()
-                                        .z_index(100)
                                         .top_full()
                                         .mt_3()
                                         .neg_left_2()

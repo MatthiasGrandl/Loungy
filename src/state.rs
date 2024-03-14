@@ -845,7 +845,6 @@ impl Actions {
             .absolute()
             .bottom_10()
             .right_0()
-            .z_index(1000)
             .w_80()
             .bg(theme.base)
             .rounded_xl()

@@ -285,7 +285,6 @@ impl ItemComponent for Message {
                 avatar.mask = ImgMask::Circle;
                 div()
                     .absolute()
-                    .z_index(100)
                     .neg_left_6()
                     .neg_top_6()
                     .flex()

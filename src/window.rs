@@ -14,6 +14,7 @@ pub static HEIGHT: f64 = 450.0;
 pub enum WindowStyle {
     Main,
     Toast { width: f64, height: f64 },
+    Settings,
 }
 
 impl WindowStyle {
@@ -38,9 +39,11 @@ impl WindowStyle {
                 let y: GlobalPixels = bounds.bottom() - height - GlobalPixels::from(200.0);
                 (width, height, x, y)
             }
+            WindowStyle::Settings => {
+                return options;
+            }
         };
-        let bounds: Bounds<GlobalPixels> = Bounds::new(Point { x, y }, Size { width, height });
-        options.bounds = WindowBounds::Fixed(bounds);
+        options.bounds = Some(Bounds::new(Point { x, y }, Size { width, height }));
         options.titlebar = None;
         options.is_movable = false;
         options.kind = WindowKind::PopUp;

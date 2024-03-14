@@ -547,20 +547,25 @@ impl Render for ClipboardPreview {
             .text_xs()
             .child(
                 div().flex_1().font(theme.font_mono.clone()).child(
-                    canvas({
-                        let b = self.bounds.clone();
-                        let s = self.state.clone();
-                        move |bounds, cx| {
-                            b.update(cx, |this, _| {
-                                *this = *bounds;
-                            });
-                            list(s).size_full().into_any_element().draw(
-                                bounds.origin,
-                                bounds.size.map(AvailableSpace::Definite),
-                                cx,
-                            );
-                        }
-                    })
+                    canvas(
+                        {
+                            let b = self.bounds.clone();
+                            let s = self.state.clone();
+                            move |bounds, cx| {
+                                b.update(cx, |this, _| {
+                                    *this = bounds;
+                                });
+                                let mut list = list(s).size_full().into_any_element();
+                                list.layout(
+                                    bounds.origin,
+                                    bounds.size.map(AvailableSpace::Definite),
+                                    cx,
+                                );
+                                list
+                            }
+                        },
+                        |_bounds, mut list, cx| list.paint(cx),
+                    )
                     .size_full(),
                 ),
             )
