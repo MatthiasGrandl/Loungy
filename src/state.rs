@@ -47,7 +47,7 @@ impl ActiveLoaders {
                         (0.0, easing(i) * w_start)
                     };
                     let opacity = {
-                        let i = show_ts.elapsed().as_millis() as f32 / 1000.0;
+                        let i = show_ts.elapsed().as_millis() as f32 / 500.0;
                         let i = if i > 1.0 { 1.0 } else { i };
                         if show {
                             1.0 - i
@@ -764,6 +764,7 @@ pub struct Actions {
     global: Model<Vec<Action>>,
     local: Model<Vec<Action>>,
     pub active: Option<StateItem>,
+    meta: Option<AnyModel>,
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
@@ -779,6 +780,7 @@ impl Actions {
             global: cx.new_model(|_| Vec::new()),
             local: cx.new_model(|_| Vec::new()),
             active: None,
+            meta: None,
             show: false,
             query: None,
             list: None,
@@ -921,6 +923,12 @@ impl Actions {
     }
     pub fn has_focus(&self, cx: &WindowContext) -> bool {
         self.query.as_ref().unwrap().downgrade().has_focus(cx)
+    }
+    pub fn get_meta_model<V: Clone + 'static>(&self) -> Option<Model<V>> {
+        self.meta.clone().and_then(|m| m.downcast::<V>().ok())
+    }
+    pub fn get_meta<V: Clone + 'static>(&self, cx: &AppContext) -> Option<V> {
+        self.get_meta_model().map(|v| v.read(cx)).cloned()
     }
 }
 
@@ -1069,10 +1077,12 @@ impl ActionsModel {
         &self,
         actions: Vec<Action>,
         item: Option<StateItem>,
+        meta: Option<AnyModel>,
         cx: &mut WindowContext,
     ) {
         let _ = self.inner.update(cx, |model, cx| {
             model.active = item;
+            model.meta = meta;
             model.local.update(cx, |this, cx| {
                 *this = actions;
                 cx.notify();

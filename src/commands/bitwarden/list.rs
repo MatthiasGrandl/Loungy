@@ -109,23 +109,6 @@ impl BitwardenLoginItem {
         }
         fields
     }
-    pub async fn get_field(
-        &self,
-        field: &str,
-        id: &str,
-        account: &mut BitwardenAccount,
-        cx: &mut AsyncWindowContext,
-    ) -> anyhow::Result<String> {
-        match field {
-            "username" => Ok(self.username.clone()),
-            "password" => Ok(self.password.clone()),
-            "totp" => {
-                let output = account.auth_command(vec!["get", "totp", id], cx).await?;
-                Ok(String::from_utf8(output.stdout)?)
-            }
-            _ => Err(anyhow::anyhow!("Invalid field")),
-        }
-    }
     pub fn get_label(&self, field: &str) -> (&str, Img, Shortcut) {
         match field {
             "username" => (
@@ -146,42 +129,27 @@ impl BitwardenLoginItem {
             _ => panic!("Unknown field {}", field),
         }
     }
-    pub fn get_action(&self, field: &str, id: &str, account: &BitwardenAccount) -> Action {
+    pub fn get_action(&self, field: &str) -> Action {
         let (label, img, shortcut) = self.get_label(field);
-        let id = id.to_string();
         let field = field.to_string();
-        let account = account.clone();
-        let login = self.clone();
         Action::new(
             img,
             label,
             Some(shortcut),
-            move |actions, cx| {
-                let id = id.clone();
-                let field = field.clone();
-                let mut account = account.clone();
-                let login = login.clone();
-                let mut actions = actions.clone();
-                cx.spawn(move |mut cx| async move {
-                    if let Ok(value) = login.get_field(&field, &id, &mut account, &mut cx).await {
-                        let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                            close_and_paste(value.as_str(), true, cx);
-                        });
-                    } else {
-                        actions
-                            .toast
-                            .error(format!("Failed to get {}", field), &mut cx);
-                    }
-                })
-                .detach();
+            move |this, cx| {
+                let Some(meta) = this.get_meta::<(Vec<String>, HashMap<String, String>)>(cx) else {
+                    return;
+                };
+                let value = meta.1.get(&field).cloned().unwrap_or("".to_string());
+                close_and_paste(value.as_str(), true, cx);
             },
             false,
         )
     }
-    pub fn get_actions(&self, id: &str, account: &BitwardenAccount) -> Vec<Action> {
+    pub fn get_actions(&self) -> Vec<Action> {
         self.fields()
             .iter()
-            .map(|field| self.get_action(field, id, account))
+            .map(|field| self.get_action(field))
             .collect()
     }
 }
@@ -322,21 +290,80 @@ impl BitwardenAccount {
     }
 }
 
-pub struct Markdown {
-    pub text: String,
-}
-
-impl Render for Markdown {
-    fn render(&mut self, _: &mut ViewContext<Self>) -> impl IntoElement {
-        div().child(self.text.clone())
-    }
-}
-
 pub struct BitwardenCommandBuilder;
 
 pub(super) fn db() -> &'static Database {
     static DB: OnceLock<Database> = OnceLock::new();
     DB.get_or_init(Db::init_collection::<BitwardenAccount>)
+}
+
+struct EntryModel {
+    inner: Model<(Vec<String>, HashMap<String, String>)>,
+}
+
+impl EntryModel {
+    pub fn new(
+        account: &BitwardenAccount,
+        item: &BitwardenItem,
+        cx: &mut AsyncWindowContext,
+    ) -> Self {
+        let window = cx.window_handle();
+        Self {
+            inner: cx
+                .new_model(|cx| match item {
+                    BitwardenItem::Login { id, login, .. } => {
+                        let mut map = HashMap::new();
+                        map.insert("username".to_string(), login.username.clone());
+                        map.insert("password".to_string(), login.password.clone());
+
+                        if login.totp.is_some() {
+                            let account = account.clone();
+                            let id = id.clone();
+                            cx.spawn(|model, mut cx| async move {
+                                while let Some(model) = model.upgrade() {
+                                    let Ok(output) = cx
+                                        .update_window(window, |_, cx| {
+                                            let mut cx = cx.to_async();
+                                            let account = account.clone();
+                                            let id = id.clone();
+                                            async move {
+                                                account
+                                                    .clone()
+                                                    .auth_command(vec!["get", "totp", &id], &mut cx)
+                                                    .await
+                                            }
+                                        })
+                                        .unwrap()
+                                        .await
+                                    else {
+                                        eprintln!("failed to update window");
+                                        continue;
+                                    };
+                                    let totp = String::from_utf8_lossy(&output.stdout);
+                                    let _ = model.update(
+                                        &mut cx,
+                                        |map: &mut (Vec<String>, HashMap<String, String>), cx| {
+                                            map.0 = vec![
+                                                "username".to_string(),
+                                                "password".to_string(),
+                                                "totp".to_string(),
+                                            ];
+                                            map.1.insert("totp".to_string(), totp.to_string());
+                                            cx.notify();
+                                        },
+                                    );
+                                    sleep(Duration::from_secs(2)).await
+                                }
+                            })
+                            .detach();
+                        }
+                        (vec!["username".to_string(), "password".to_string()], map)
+                    }
+                    BitwardenItem::Other { .. } => (vec![], HashMap::new()),
+                })
+                .unwrap(),
+        }
+    }
 }
 
 impl RootCommandBuilder for BitwardenCommandBuilder {
@@ -366,6 +393,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                 .unwrap_or_default();
 
                             for item in parsed {
+                                let item_clone = item.clone();
                                 if let BitwardenItem::Login {
                                     id,
                                     name,
@@ -401,37 +429,46 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     keywords.append(
                                         &mut login.uris.iter().map(|uri| uri.uri.clone()).collect(),
                                     );
+                                    let meta = EntryModel::new(&account, &item_clone, &mut cx);
                                     let mut actions = vec![Action::new(
                                         Img::default().icon(Icon::PaintBucket),
                                         "Autofill",
                                         None,
                                         {
-                                            //
-                                            let id = id.clone();
-                                            let login = login.clone();
-                                            let account = account.clone();
-                                            move |_, cx| {
+                                            |this, cx| {
                                                 Window::close(cx);
-                                                let id = id.clone();
-                                                let login = login.clone();
-                                                let mut account = account.clone();
+                                                let Some(meta) = this.get_meta_model::<(
+                                                    Vec<String>,
+                                                    HashMap<String, String>,
+                                                )>(
+                                                ) else {
+                                                    return;
+                                                };
                                                 cx.spawn(move |mut cx| async move {
                                                     Window::wait_for_close(&mut cx).await;
                                                     let mut prev = "".to_string();
-                                                    // Timeout after 2 minutes, could probably be lower, but TOTP takes a while sometimes
-                                                    let max_tries = 1200;
+                                                    let max_tries = 900;
                                                     let mut tries = 0;
-                                                    for field in login.fields() {
+                                                    let Ok(keys) = cx
+                                                        .read_model(&meta, |(keys, _), _| {
+                                                            keys.clone()
+                                                        })
+                                                    else {
+                                                        return;
+                                                    };
+                                                    for field in keys {
                                                         loop {
-                                                            let value = login
-                                                                .get_field(
-                                                                    field,
-                                                                    &id,
-                                                                    &mut account,
-                                                                    &mut cx,
-                                                                )
-                                                                .await
-                                                                .unwrap();
+                                                            let value = cx
+                                                                .read_model(&meta, |(_, map), _| {
+                                                                    map.clone()
+                                                                })
+                                                                .map(|map| {
+                                                                    map.get(&field)
+                                                                        .map(|s| s.to_string())
+                                                                })
+                                                                .ok()
+                                                                .flatten()
+                                                                .unwrap_or("".to_string());
                                                             match autofill(
                                                                 value.as_str(),
                                                                 field.eq("password"),
@@ -467,7 +504,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
                                     //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                     // }).ok();
-                                    actions.append(&mut login.get_actions(&id, &account));
+                                    actions.append(&mut login.get_actions());
                                     items.push(
                                         ItemBuilder::new(
                                             id.clone(),
@@ -480,6 +517,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                         )
                                         .keywords(keywords)
                                         .actions(actions)
+                                        .meta(meta.inner.into_any())
                                         .build(),
                                     );
                                 }

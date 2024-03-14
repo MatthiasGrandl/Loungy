@@ -594,6 +594,7 @@ impl List {
                         this.actions.update_local(
                             selected.actions.clone(),
                             preview.clone().map(|p| p.2),
+                            selected.meta.clone(),
                             cx,
                         );
                     }
