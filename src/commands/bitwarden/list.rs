@@ -22,8 +22,10 @@ use bonsaidb::{
 };
 use gpui::*;
 use log::*;
+use log::kv::Source;
 use serde::{Deserialize, Serialize};
-
+use serde_json::Value;
+use serde_json::value::RawValue;
 use url::Url;
 
 use crate::{
@@ -99,19 +101,6 @@ impl StateViewBuilder for BitwardenListBuilder {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub(super) struct BitwardenUri {
-    uri: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub(super) struct BitwardenLoginItem {
-    username: String,
-    password: String,
-    totp: Option<String>,
-    uris: Vec<BitwardenUri>,
-}
-
 impl BitwardenLoginItem {
     pub fn fields(&self) -> Vec<&str> {
         let mut fields = vec!["username", "password"];
@@ -165,7 +154,20 @@ impl BitwardenLoginItem {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub(super) struct BitwardenUri {
+    uri: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub(super) struct BitwardenLoginItem {
+    username: String,
+    password: String,
+    totp: Option<String>,
+    uris: Vec<BitwardenUri>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub(super) enum BitwardenItem {
     Login {
@@ -174,9 +176,7 @@ pub(super) enum BitwardenItem {
         notes: Option<String>,
         login: BitwardenLoginItem,
     },
-    Other {
-        id: String,
-    },
+    Other(Value),
 }
 
 #[derive(Serialize, Deserialize, Clone, Collection)]
@@ -191,7 +191,7 @@ pub(super) struct BitwardenAccount {
     pub session: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(super) enum BitwardenVaultStatus {
     Unauthenticated,
@@ -199,10 +199,10 @@ pub(super) enum BitwardenVaultStatus {
     Unlocked,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct BitwardenStatus {
-    server_url: String,
+    server_url: Option<String>,
     status: BitwardenVaultStatus,
 }
 
@@ -241,7 +241,6 @@ impl BitwardenAccount {
         let status = self
             .command(vec!["status", "--raw", "--nointeraction"])
             .await?;
-        debug!("Status: {}", String::from_utf8(status.stdout.clone())?);
         let status: BitwardenStatus = serde_json::from_slice(&status.stdout)?;
 
         match status.status {
@@ -249,6 +248,9 @@ impl BitwardenAccount {
                 return Ok(());
             }
             BitwardenVaultStatus::Unauthenticated => {
+                self
+                    .command(vec!["config", "server", &self.instance])
+                    .await?;
                 if !self
                     .command(vec!["login", "--apikey", "--nointeraction"])
                     .await?
@@ -293,7 +295,7 @@ impl BitwardenAccount {
         };
         let session = String::from_utf8(output.stdout)?;
         self.session = Some(session);
-        let result = self.clone().push_into(db());
+        let result = self.clone().overwrite_into(&self.id, db());
         if let Err(result) = result {
             error!("Failed to save account: {:?}", result.error);
         }
@@ -346,10 +348,9 @@ impl EntryModel {
                                         })
                                         .unwrap()
                                         .await
-                                    else {
-                                        eprintln!("failed to update window");
-                                        continue;
-                                    };
+                                        else {
+                                            continue;
+                                        };
                                     let totp = String::from_utf8_lossy(&output.stdout);
                                     let _ = model.update(
                                         &mut cx,
@@ -366,7 +367,7 @@ impl EntryModel {
                                     sleep(Duration::from_secs(2)).await
                                 }
                             })
-                            .detach();
+                                .detach();
                         }
                         (vec!["username".to_string(), "password".to_string()], map)
                     }
@@ -387,41 +388,47 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     let mut first = true;
                     loop {
                         if !first {
-                            let _ = account.auth_command(vec!["sync"], &mut cx).await;
+                            if let Err(sync) = account.auth_command(vec!["sync"], &mut cx).await {
+                                error!("Failed to sync: {}", sync);
+                            }
                         }
-                        first = false;
 
                         let mut items: Vec<Item> = vec![];
-                        if let Ok(output) = account
+                        let response = account
                             .auth_command(vec!["list", "items", "--nointeraction"], &mut cx)
-                            .await
-                        {
-                            let parsed: Vec<BitwardenItem> = serde_json::from_slice(&output.stdout)
-                                .map_err(|e| {
-                                    error!("Failed to parse items: {}", e);
-                                    e
-                                })
-                                .unwrap_or_default();
+                            .await;
+                        let Ok(output) = response else {
+                            error!("Failed to list items: {}", response.err().unwrap());
+                            return;
+                        };
 
-                            for item in parsed {
-                                let item_clone = item.clone();
-                                if let BitwardenItem::Login {
-                                    id,
-                                    name,
-                                    notes: _,
-                                    login,
-                                } = item
-                                {
-                                    let mut img =
-                                        login
-                                            .uris
-                                            .first()
-                                            .and_then(|uri| {
-                                                Url::parse(&if !uri.uri.starts_with("http") {
-                                                    format!("https://{}", uri.uri)
-                                                } else {
-                                                    uri.uri.clone()
-                                                })
+                        let parsed: Vec<BitwardenItem> = serde_json::from_slice(&output.stdout)
+                            .map_err(|e| {
+                                error!("Failed to parse items: {}", e);
+                                e
+                            })
+                            .unwrap_or_default();
+
+                        for item in parsed {
+                            let item_clone = item.clone();
+
+                            if let BitwardenItem::Login {
+                                id,
+                                name,
+                                notes: _,
+                                login,
+                            } = item
+                            {
+                                let mut img =
+                                    login
+                                        .uris
+                                        .first()
+                                        .and_then(|uri| {
+                                            Url::parse(&if !uri.uri.starts_with("http") {
+                                                format!("https://{}", uri.uri)
+                                            } else {
+                                                uri.uri.clone()
+                                            })
                                                 .ok()
                                                 .and_then(|url| {
                                                     cx.update_window(cx.window_handle(), |_, cx| {
@@ -429,112 +436,108 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                             .mask(ImgMask::Rounded)
                                                             .favicon(url, Icon::Globe, cx)
                                                     })
-                                                    .ok()
+                                                        .ok()
                                                 })
-                                            })
-                                            .unwrap_or(Img::default().icon(Icon::Globe));
+                                        })
+                                        .unwrap_or(Img::default().icon(Icon::Globe));
 
-                                    img.mask = ImgMask::Rounded;
+                                img.mask = ImgMask::Rounded;
 
-                                    let mut keywords = vec![name.clone()];
-                                    keywords.append(
-                                        &mut login.uris.iter().map(|uri| uri.uri.clone()).collect(),
-                                    );
-                                    let meta = EntryModel::new(&account, &item_clone, &mut cx);
-                                    let mut actions = vec![Action::new(
-                                        Img::default().icon(Icon::PaintBucket),
-                                        "Autofill",
-                                        None,
-                                        {
-                                            |this, cx| {
-                                                Window::close(cx);
-                                                let Some(meta) = this.get_meta_model::<(
-                                                    Vec<String>,
-                                                    HashMap<String, String>,
-                                                )>(
-                                                ) else {
-                                                    return;
-                                                };
-                                                cx.spawn(move |mut cx| async move {
-                                                    Window::wait_for_close(&mut cx).await;
-                                                    let mut prev = "".to_string();
-                                                    let max_tries = 900;
-                                                    let mut tries = 0;
-                                                    let Ok(keys) = cx
-                                                        .read_model(&meta, |(keys, _), _| {
-                                                            keys.clone()
-                                                        })
+                                let mut keywords = vec![name.clone()];
+                                keywords.append(
+                                    &mut login.uris.iter().map(|uri| uri.uri.clone()).collect(),
+                                );
+                                let meta = EntryModel::new(&account, &item_clone, &mut cx);
+                                let mut actions = vec![Action::new(
+                                    Img::default().icon(Icon::PaintBucket),
+                                    "Autofill",
+                                    None,
+                                    {
+                                        |this, cx| {
+                                            Window::close(cx);
+                                            let Some(meta) = this.get_meta_model::<(
+                                                Vec<String>,
+                                                HashMap<String, String>,
+                                            )>() else {
+                                                return;
+                                            };
+                                            cx.spawn(move |mut cx| async move {
+                                                Window::wait_for_close(&mut cx).await;
+                                                let mut prev = "".to_string();
+                                                let max_tries = 900;
+                                                let mut tries = 0;
+                                                let Ok(keys) = cx
+                                                    .read_model(&meta, |(keys, _), _| {
+                                                        keys.clone()
+                                                    })
                                                     else {
                                                         return;
                                                     };
-                                                    for field in keys {
-                                                        loop {
-                                                            let value = cx
-                                                                .read_model(&meta, |(_, map), _| {
-                                                                    map.clone()
-                                                                })
-                                                                .map(|map| {
-                                                                    map.get(&field)
-                                                                        .map(|s| s.to_string())
-                                                                })
-                                                                .ok()
-                                                                .flatten()
-                                                                .unwrap_or("".to_string());
-                                                            match autofill(
-                                                                value.as_str(),
-                                                                field.eq("password"),
-                                                                &prev,
-                                                            ) {
-                                                                Some(p) => {
-                                                                    prev = p;
-                                                                    break;
-                                                                }
-                                                                None => {
-                                                                    tries += 1;
-                                                                    if tries > max_tries {
-                                                                        error!(
+                                                for field in keys {
+                                                    loop {
+                                                        let value = cx
+                                                            .read_model(&meta, |(_, map), _| {
+                                                                map.clone()
+                                                            })
+                                                            .map(|map| {
+                                                                map.get(&field)
+                                                                    .map(|s| s.to_string())
+                                                            })
+                                                            .ok()
+                                                            .flatten()
+                                                            .unwrap_or("".to_string());
+                                                        match autofill(
+                                                            value.as_str(),
+                                                            field.eq("password"),
+                                                            &prev,
+                                                        ) {
+                                                            Some(p) => {
+                                                                prev = p;
+                                                                break;
+                                                            }
+                                                            None => {
+                                                                tries += 1;
+                                                                if tries > max_tries {
+                                                                    error!(
                                                                             "Autofill timed out"
                                                                         );
-                                                                        return;
-                                                                    }
-                                                                    sleep(Duration::from_millis(
-                                                                        100,
-                                                                    ))
-                                                                    .await;
-                                                                    //cx.background_executor().timer(Duration::from_millis(100)).await;
+                                                                    return;
                                                                 }
+                                                                sleep(Duration::from_millis(
+                                                                    100,
+                                                                ))
+                                                                    .await;
+                                                                //cx.background_executor().timer(Duration::from_millis(100)).await;
                                                             }
                                                         }
                                                     }
-                                                })
+                                                }
+                                            })
                                                 .detach();
-                                            }
-                                        },
-                                        false,
-                                    )];
-                                    // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
-                                    //     StateItem::init(BitwardenAccountListBuilder, false, cx)
-                                    // }).ok();
-                                    actions.append(&mut login.get_actions());
-                                    items.push(
-                                        ItemBuilder::new(
-                                            id.clone(),
-                                            ListItem::new(
-                                                Some(img),
-                                                name.clone(),
-                                                None,
-                                                vec![Accessory::new(login.username.clone(), None)],
-                                            ),
-                                        )
+                                        }
+                                    },
+                                    false,
+                                )];
+                                // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
+                                //     StateItem::init(BitwardenAccountListBuilder, false, cx)
+                                // }).ok();
+                                actions.append(&mut login.get_actions());
+                                items.push(
+                                    ItemBuilder::new(
+                                        id.clone(),
+                                        ListItem::new(
+                                            Some(img),
+                                            name.clone(),
+                                            None,
+                                            vec![Accessory::new(login.username.clone(), None)],
+                                        ),
+                                    )
                                         .keywords(keywords)
                                         .actions(actions)
                                         .meta(meta.inner.into_any())
                                         .build(),
-                                    );
-                                }
+                                );
                             }
-                        } else {
-                            error!("Failed to list items");
                         }
                         let id = account.id.clone();
                         if let Some(view) = view.upgrade() {
@@ -547,7 +550,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                         }
                     }
                 })
-                .detach();
+                    .detach();
             }
 
             AsyncListItems::new()

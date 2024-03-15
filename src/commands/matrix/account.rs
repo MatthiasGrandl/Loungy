@@ -9,8 +9,6 @@
  *
  */
 
-
-
 use gpui::*;
 use log::error;
 
