@@ -22,10 +22,8 @@ use bonsaidb::{
 };
 use gpui::*;
 use log::*;
-use log::kv::Source;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use serde_json::value::RawValue;
 use url::Url;
 
 use crate::{
@@ -392,6 +390,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                 error!("Failed to sync: {}", sync);
                             }
                         }
+                        first = false;
 
                         let mut items: Vec<Item> = vec![];
                         let response = account
