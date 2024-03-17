@@ -36,12 +36,7 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     let icon_url: Option<PathBuf> = file.resolve_icon();
 
     let icon_img = if let Some(icon) = icon_url.clone() {
-        if (icon.extension().unwrap_or_default().eq("svg")) {
-            // TODO: Add support for SVG icons
-            Img::default().icon(Icon::AppWindow)
-        } else {
-            Img::default().file(icon)
-        }
+        Img::default().file(icon)
     } else {
         Img::default().icon(Icon::AppWindow)
     };
@@ -54,4 +49,8 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
         keywords: file.keywords,
         tag: "Application".to_string(),
     })
+}
+
+pub fn get_frontmost_application_data() -> Option<AppData> {
+    None
 }
