@@ -23,6 +23,7 @@ use futures::FutureExt;
 use gpui::*;
 use log::{debug, error};
 use parking_lot::Mutex;
+use reqwest::StatusCode;
 use scraper::{Html, Selector};
 use url::Url;
 
@@ -198,12 +199,8 @@ pub struct Favicon {
 }
 
 impl Favicon {
-    async fn find_favicon(url: impl ToString) -> Result<SharedUri, anyhow::Error> {
-        let url = Url::parse(&url.to_string())?;
-        if url.cannot_be_a_base() || !url.scheme().starts_with("http") {
-            return Err(anyhow!("Invalid URL"));
-        };
-        let base_url = Url::parse(&format!("{}://{}", url.scheme(), url.host_str().unwrap()))?;
+    async fn find_favicon(url: String) -> Result<SharedUri, anyhow::Error> {
+        let base_url = Url::parse(&url).unwrap();
         let mut targets = vec![base_url.clone()];
         // if subdomain
         if let Some(domain) = base_url.domain() {
@@ -211,7 +208,7 @@ impl Favicon {
             if split.len() > 2 {
                 targets.push(Url::parse(&format!(
                     "{}://{}",
-                    url.scheme(),
+                    base_url.scheme(),
                     split[split.len() - 2..split.len()].join(".")
                 ))?);
             }
@@ -245,7 +242,15 @@ impl Favicon {
                 let Ok(response) = client.get(absolute.to_string()).send().await else {
                     continue;
                 };
-                if response.status().is_success() {
+                let Some(t) = response.headers().get("content-type") else {
+                    continue;
+                };
+                if response.status() == StatusCode::OK
+                    && matches!(
+                        t.to_str().unwrap_or_default(),
+                        "image/svg+xml" | "image/x-icon" | "image/png"
+                    )
+                {
                     return Ok(absolute.to_string().into());
                 };
             }
@@ -259,11 +264,27 @@ impl Favicon {
         fallback: Icon,
         cx: &mut WindowContext,
     ) -> View<Self> {
-        let url = url.to_string();
+        let url = 'url: {
+            let Ok(url) = Url::parse(&url.to_string()) else {
+                break 'url "";
+            };
+            if url.cannot_be_a_base() || !url.scheme().starts_with("http") {
+                break 'url "";
+            }
+            let Some(host) = url.host_str() else {
+                break 'url "";
+            };
+            let Ok(url) = Url::parse(&format!("{}://{}", url.scheme(), host)) else {
+                break 'url "";
+            };
+            url.to_string().as_str()
+        }
+        .to_string();
+
         cx.new_view(|_cx| Self {
             img: img.clone(),
             fallback,
-            url: url.to_string(),
+            url,
             task: OnceCell::new(),
         })
     }
@@ -275,7 +296,15 @@ impl Render for Favicon {
             .task
             .get_or_init(|| {
                 FAVICONS
-                    .get_or_init(Default::default)
+                    .get_or_init(|| {
+                        let mut map: HashMap<String, FetchFaviconTask> = HashMap::new();
+                        map.insert(
+                            "".to_string(),
+                            spawn(async move { Err(Arc::new(anyhow!("Not a valid URL"))) })
+                                .shared(),
+                        );
+                        Arc::new(Mutex::new(map))
+                    })
                     .lock()
                     .entry(self.url.clone())
                     .or_insert_with(|| {
