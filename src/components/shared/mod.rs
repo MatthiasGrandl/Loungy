@@ -242,15 +242,21 @@ impl Favicon {
                 let Ok(response) = client.get(absolute.to_string()).send().await else {
                     continue;
                 };
+                if response.status() != StatusCode::OK {
+                    continue;
+                }
                 let Some(t) = response.headers().get("content-type") else {
                     continue;
                 };
-                if response.status() == StatusCode::OK
-                    && matches!(
-                        t.to_str().unwrap_or_default(),
-                        "image/svg+xml" | "image/x-icon" | "image/png"
-                    )
+                let t = t.to_str().unwrap_or_default();
+                // Filter low quality favicons
+                if (response.content_length().map(|l| l < 2048).unwrap_or(false))
+                    && t != "image/svg+xml"
                 {
+                    eprintln!("{:?}, {:?}", response.content_length(), t);
+                    continue;
+                }
+                if matches!(t, "image/svg+xml" | "image/x-icon" | "image/png") {
                     return Ok(absolute.to_string().into());
                 };
             }

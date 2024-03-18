@@ -58,7 +58,7 @@ impl StateViewBuilder for BitwardenListBuilder {
                     let id = account.contents.id.clone();
                     options.push((id.clone(), id));
                 }
-                context.actions.clone().set_dropdown("", options, cx);
+                context.actions.set_dropdown("", options, cx);
             }
         }
 
@@ -239,6 +239,7 @@ impl BitwardenAccount {
         let status = self
             .command(vec!["status", "--raw", "--nointeraction"])
             .await?;
+
         let status: BitwardenStatus = serde_json::from_slice(&status.stdout)?;
 
         match status.status {
@@ -246,8 +247,7 @@ impl BitwardenAccount {
                 return Ok(());
             }
             BitwardenVaultStatus::Unauthenticated => {
-                self
-                    .command(vec!["config", "server", &self.instance])
+                self.command(vec!["config", "server", &self.instance])
                     .await?;
                 if !self
                     .command(vec!["login", "--apikey", "--nointeraction"])
@@ -346,9 +346,9 @@ impl EntryModel {
                                         })
                                         .unwrap()
                                         .await
-                                        else {
-                                            continue;
-                                        };
+                                    else {
+                                        continue;
+                                    };
                                     let totp = String::from_utf8_lossy(&output.stdout);
                                     let _ = model.update(
                                         &mut cx,
@@ -365,7 +365,7 @@ impl EntryModel {
                                     sleep(Duration::from_secs(2)).await
                                 }
                             })
-                                .detach();
+                            .detach();
                         }
                         (vec!["username".to_string(), "password".to_string()], map)
                     }
@@ -418,27 +418,28 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                 login,
                             } = item
                             {
-                                let mut img =
-                                    login
-                                        .uris
-                                        .first()
-                                        .and_then(|uri| {
-                                            Url::parse(&if !uri.uri.starts_with("http") {
-                                                format!("https://{}", uri.uri)
-                                            } else {
-                                                uri.uri.clone()
-                                            })
-                                                .ok()
-                                                .and_then(|url| {
-                                                    cx.update_window(cx.window_handle(), |_, cx| {
-                                                        Img::default()
-                                                            .mask(ImgMask::Rounded)
-                                                            .favicon(url, Icon::Globe, cx)
-                                                    })
-                                                        .ok()
-                                                })
+                                let mut img = login
+                                    .uris
+                                    .first()
+                                    .and_then(|uri| {
+                                        Url::parse(&if !uri.uri.starts_with("http") {
+                                            format!("https://{}", uri.uri)
+                                        } else {
+                                            uri.uri.clone()
                                         })
-                                        .unwrap_or(Img::default().icon(Icon::Globe));
+                                        .ok()
+                                        .and_then(|url| {
+                                            cx.update_window(cx.window_handle(), |_, cx| {
+                                                Img::default().mask(ImgMask::Rounded).favicon(
+                                                    url,
+                                                    Icon::Globe,
+                                                    cx,
+                                                )
+                                            })
+                                            .ok()
+                                        })
+                                    })
+                                    .unwrap_or(Img::default().icon(Icon::Globe));
 
                                 img.mask = ImgMask::Rounded;
 
@@ -457,7 +458,8 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                             let Some(meta) = this.get_meta_model::<(
                                                 Vec<String>,
                                                 HashMap<String, String>,
-                                            )>() else {
+                                            )>(
+                                            ) else {
                                                 return;
                                             };
                                             cx.spawn(move |mut cx| async move {
@@ -466,12 +468,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                 let max_tries = 900;
                                                 let mut tries = 0;
                                                 let Ok(keys) = cx
-                                                    .read_model(&meta, |(keys, _), _| {
-                                                        keys.clone()
-                                                    })
-                                                    else {
-                                                        return;
-                                                    };
+                                                    .read_model(&meta, |(keys, _), _| keys.clone())
+                                                else {
+                                                    return;
+                                                };
                                                 for field in keys {
                                                     loop {
                                                         let value = cx
@@ -497,14 +497,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                             None => {
                                                                 tries += 1;
                                                                 if tries > max_tries {
-                                                                    error!(
-                                                                            "Autofill timed out"
-                                                                        );
+                                                                    error!("Autofill timed out");
                                                                     return;
                                                                 }
-                                                                sleep(Duration::from_millis(
-                                                                    100,
-                                                                ))
+                                                                sleep(Duration::from_millis(100))
                                                                     .await;
                                                                 //cx.background_executor().timer(Duration::from_millis(100)).await;
                                                             }
@@ -512,7 +508,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                     }
                                                 }
                                             })
-                                                .detach();
+                                            .detach();
                                         }
                                     },
                                     false,
@@ -531,10 +527,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                             vec![Accessory::new(login.username.clone(), None)],
                                         ),
                                     )
-                                        .keywords(keywords)
-                                        .actions(actions)
-                                        .meta(meta.inner.into_any())
-                                        .build(),
+                                    .keywords(keywords)
+                                    .actions(actions)
+                                    .meta(meta.inner.into_any())
+                                    .build(),
                                 );
                             }
                         }
@@ -549,7 +545,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                         }
                     }
                 })
-                    .detach();
+                .detach();
             }
 
             AsyncListItems::new()
