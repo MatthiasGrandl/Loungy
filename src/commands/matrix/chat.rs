@@ -9,8 +9,12 @@
  *
  */
 
-use async_std::{stream::StreamExt, task::spawn};
-use std::sync::Arc;
+use async_std::{
+    stream::StreamExt,
+    task::{sleep, spawn, JoinHandle},
+};
+use futures::{future::Shared, FutureExt};
+use std::{sync::Arc, time::Duration};
 use url::Url;
 
 use gpui::*;
@@ -24,7 +28,7 @@ use matrix_sdk::ruma::{
 };
 use matrix_sdk_ui::{
     sync_service::SyncService,
-    timeline::{TimelineDetails, TimelineItemContent},
+    timeline::{PaginationOptions, TimelineDetails, TimelineItemContent},
     Timeline,
 };
 use time::OffsetDateTime;
@@ -464,6 +468,28 @@ impl StateViewBuilder for ChatRoom {
                             message.sender.to_lowercase().contains(&text)
                         })
                         .collect()
+                }
+            })
+            .scroll_handler({
+                let timeline = self.timeline.clone();
+                let mut future: Option<Shared<JoinHandle<()>>> = None;
+                move |ev, _| {
+                    if ev.visible_range.start < 5
+                        && (future.is_none()
+                            || future.as_mut().is_some_and(|f| f.now_or_never().is_some()))
+                    {
+                        let timeline = timeline.clone();
+                        future = Some(
+                            spawn(async move {
+                                let timeline = timeline.clone();
+                                let _ = timeline
+                                    .paginate_backwards(PaginationOptions::simple_request(10))
+                                    .await;
+                                sleep(Duration::from_millis(250)).await;
+                            })
+                            .shared(),
+                        );
+                    }
                 }
             })
             .build(

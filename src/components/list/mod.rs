@@ -303,11 +303,14 @@ impl RenderOnce for Item {
     }
 }
 
+type ScrollHandler = Option<Box<dyn FnMut(&ListScrollEvent, &mut WindowContext)>>;
+
 pub struct ListBuilder {
     reverse: bool,
     update_actions: bool,
     interval: Option<Duration>,
     filter: Box<dyn FilterList>,
+    scroll_handler: ScrollHandler,
 }
 
 impl ListBuilder {
@@ -316,6 +319,7 @@ impl ListBuilder {
             reverse: false,
             update_actions: true,
             interval: None,
+            scroll_handler: None,
             filter: Box::new(|this, cx| {
                 let text = this.query.get_text(cx);
                 fuzzy_match(&text, this.items_all.clone(), false)
@@ -338,6 +342,13 @@ impl ListBuilder {
         self.filter = Box::new(filter);
         self
     }
+    pub fn scroll_handler(
+        mut self,
+        handler: impl FnMut(&ListScrollEvent, &mut WindowContext) + 'static,
+    ) -> Self {
+        self.scroll_handler = Some(Box::new(handler));
+        self
+    }
     pub fn build(
         self,
         update: impl UpdateList + 'static,
@@ -350,6 +361,7 @@ impl ListBuilder {
             self.interval,
             self.update_actions,
             self.reverse,
+            self.scroll_handler,
             context,
             cx,
         )
@@ -484,15 +496,26 @@ impl List {
         let items = filter_fn(self, cx);
         self.filter = filter_fn;
 
-        let scroll = self.state.logical_scroll_top();
+        let mut scroll = self.state.logical_scroll_top();
+
         self.state.reset(items.len());
         self.items.update(cx, |this, cx| {
+            // Determine the ideal scroll position if new elements are added
+            if let Some(new_index) = this
+                .get(scroll.item_ix)
+                .and_then(|scroll_item| items.iter().position(|item| item.id.eq(&scroll_item.id)))
+            {
+                scroll.item_ix = new_index;
+            }
+
             *this = items;
             cx.notify();
         });
-        self.state.scroll_to(scroll);
 
         cx.notify();
+
+        self.state.scroll_to(scroll);
+
         if self.selected(cx).is_none() {
             self.reset_selection(cx);
         }
@@ -516,12 +539,14 @@ impl List {
             })
         });
     }
+    #[allow(clippy::too_many_arguments)]
     fn new(
         update: Box<dyn UpdateList>,
         filter: Box<dyn FilterList>,
         interval: Option<Duration>,
         update_actions: bool,
         reverse: bool,
+        scroll_handler: ScrollHandler,
         context: &mut StateViewContext,
         cx: &mut WindowContext,
     ) -> View<Self> {
@@ -583,6 +608,9 @@ impl List {
             filter,
             preview: None,
             reverse,
+        };
+        if let Some(scroll_handler) = scroll_handler {
+            list.state.set_scroll_handler(scroll_handler);
         };
 
         let update_receiver = context.update_receiver.clone();

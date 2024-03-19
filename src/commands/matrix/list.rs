@@ -120,13 +120,28 @@ async fn sync(
                     .unwrap_or(0);
 
                 let name = room.name().unwrap_or("".to_string());
-                let mut img = match room
-                    .avatar_url()
+                let dm = room.is_direct().await?;
+
+                // why is this necessary???
+                let avatar = if dm {
+                    if let Some(m) = room.direct_targets().into_iter().next() {
+                        room.get_member_no_sync(&m)
+                            .await
+                            .ok()
+                            .flatten()
+                            .and_then(|m| m.avatar_url().map(|m| m.to_owned()))
+                    } else {
+                        None
+                    }
+                } else {
+                    room.avatar_url()
+                };
+                let mut img = match avatar
                     .and_then(|source| mxc_to_http(server.clone(), source, true).ok())
                 {
                     Some(source) => Img::default().url(source),
                     None => {
-                        if room.is_direct().await? {
+                        if dm {
                             Img::default().icon(Icon::User)
                         } else {
                             Img::default().icon(Icon::Users)

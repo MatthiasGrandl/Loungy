@@ -21,7 +21,7 @@ pub(super) fn mxc_to_http(
 ) -> Result<Url, anyhow::Error> {
     let (server_name, media_id) = url.parts()?;
     let (t, q) = if thumb {
-        ("thumbnail", "?width=50&height=50&method=scale")
+        ("thumbnail", "?width=50&height=50&method=crop")
     } else {
         ("download", "")
     };
