@@ -21,6 +21,7 @@ use crate::{
         list::{Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
+    date::format_date,
     state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
@@ -94,9 +95,10 @@ impl StateViewBuilder for TailscaleListBuilder {
                             let name = p.dns_name.split('.').next().unwrap();
                             let (tag, color) = match p.online {
                                 true => ("Connected".to_string(), theme.green),
-                                false => {
-                                    (format!("Last seen: {}", p.last_seen.date()), theme.surface0)
-                                }
+                                false => (
+                                    format!("Last seen: {}", format_date(&p.last_seen)),
+                                    theme.surface0,
+                                ),
                             };
                             let ip = p.tailscale_ips.first().unwrap();
                             let ipv6 = p.tailscale_ips.last().unwrap();

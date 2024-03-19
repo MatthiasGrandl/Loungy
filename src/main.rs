@@ -25,6 +25,7 @@ mod state;
 mod theme;
 mod window;
 mod workspace;
+mod date;
 
 #[async_std::main]
 async fn main() {

@@ -9,22 +9,18 @@
  *
  */
 
-use std::{str::FromStr, sync::OnceLock};
+use std::{
+    str::FromStr,
+    sync::{Arc, OnceLock},
+};
 
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
 };
 use gpui::*;
-use matrix_sdk::{
-    matrix_auth::MatrixSession,
-    ruma::{
-        api::client::sync::sync_events::v4::SyncRequestListFilters,
-        events::{StateEventType, TimelineEventType},
-        OwnedUserId,
-    },
-    Client, SlidingSync, SlidingSyncList, SlidingSyncMode,
-};
+use matrix_sdk::{matrix_auth::MatrixSession, ruma::OwnedUserId, Client};
+use matrix_sdk_ui::sync_service::SyncService;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +54,7 @@ impl Session {
 
         Ok(builder.build().await?)
     }
-    pub(super) async fn load(&self) -> anyhow::Result<(Client, SlidingSync)> {
+    pub(super) async fn load(&self) -> anyhow::Result<(Client, Arc<SyncService>)> {
         let client = Self::client(&self.inner.meta.user_id, &self.passphrase).await?;
         client
             .matrix_auth()
@@ -69,33 +65,9 @@ impl Session {
             todo!("Prompt for login");
         }
 
-        let mut filter = SyncRequestListFilters::default();
-        filter.not_room_types = vec![String::from("m.space")];
+        let sync = Arc::new(SyncService::builder(client.clone()).build().await?);
 
-        let list = SlidingSyncList::builder("list")
-            .sync_mode(SlidingSyncMode::Growing {
-                batch_size: (20),
-                maximum_number_of_rooms_to_fetch: Some(200),
-            })
-            .bump_event_types(&[TimelineEventType::RoomMessage])
-            .filters(Some(filter))
-            .timeline_limit(10)
-            .sort(vec![String::from("by_recency")])
-            .required_state(vec![
-                (StateEventType::RoomAvatar, String::from("")),
-                (StateEventType::RoomTopic, String::from("")),
-            ]);
-
-        let sliding_sync = client
-            .sliding_sync("sync")
-            .unwrap()
-            .add_cached_list(list)
-            .await?
-            .with_all_extensions()
-            .build()
-            .await?;
-
-        Ok((client, sliding_sync))
+        Ok((client, sync))
     }
     pub(super) async fn login(
         username: String,

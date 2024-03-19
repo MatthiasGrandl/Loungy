@@ -21,7 +21,7 @@ use async_std::task::{spawn, spawn_blocking, JoinHandle};
 use futures::future::Shared;
 use futures::FutureExt;
 use gpui::*;
-use log::{debug, error};
+use log::debug;
 use parking_lot::Mutex;
 use reqwest::StatusCode;
 use scraper::{Html, Selector};
@@ -253,7 +253,6 @@ impl Favicon {
                 if (response.content_length().map(|l| l < 2048).unwrap_or(false))
                     && t != "image/svg+xml"
                 {
-                    eprintln!("{:?}, {:?}", response.content_length(), t);
                     continue;
                 }
                 if matches!(t, "image/svg+xml" | "image/x-icon" | "image/png") {

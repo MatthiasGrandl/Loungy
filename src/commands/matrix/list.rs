@@ -9,16 +9,13 @@
  *
  */
 
-use std::{cmp::Reverse, collections::HashMap};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
-use async_std::task::spawn;
+use async_std::{stream::StreamExt, task::spawn};
 use bonsaidb::core::schema::SerializedCollection;
-use futures::StreamExt;
 use gpui::*;
-use matrix_sdk::{
-    ruma::{events::room::message::OriginalSyncRoomMessageEvent, OwnedRoomId},
-    Client, SlidingSync,
-};
+use matrix_sdk::ruma::OwnedRoomId;
+use matrix_sdk_ui::timeline::RoomExt;
 
 use crate::{
     commands::{RootCommand, RootCommandBuilder},
@@ -36,16 +33,6 @@ use super::{
     compose::{Compose, ComposeKind},
     mxc::mxc_to_http,
 };
-
-#[derive(Clone)]
-pub(super) struct RoomUpdate {
-    pub client: Client,
-    pub sliding_sync: SlidingSync,
-}
-pub(super) enum RoomUpdateEvent {
-    Update(OwnedRoomId),
-}
-impl EventEmitter<RoomUpdateEvent> for RoomUpdate {}
 
 #[derive(Clone)]
 struct RoomList {
@@ -100,120 +87,114 @@ async fn sync(
             let session = session.clone();
             spawn(async move { session.load().await }).await?
         };
-        let sync = ss.sync();
-        let mut sync_stream = Box::pin(sync);
+
+        ss.start().await;
+
         let server = client.homeserver();
-        let model = cx
-            .new_model(|_| RoomUpdate {
-                client: client.clone(),
-                sliding_sync: ss.clone(),
-            })
-            .unwrap();
 
         let mut previews = HashMap::<OwnedRoomId, ChatRoom>::new();
-        while let Some(Ok(response)) = sync_stream.next().await {
-            if response.rooms.is_empty() {
-                continue;
+        let (mut rooms, mut stream) = ss.room_list_service().all_rooms().await?.entries();
+
+        while let Some(diff) = stream.next().await {
+            for d in diff {
+                d.apply(&mut rooms);
             }
+            if rooms.clone().is_empty() {
+                continue;
+            };
 
-            let list: Vec<Item> = ss
-                .get_all_rooms()
-                .await
-                .iter()
-                .map(|room| {
-                    let mut queue = room.timeline_queue().into_iter();
-                    let timestamp: u64 = loop {
-                        let Some(ev) = queue.next_back() else {
-                            break 0;
-                        };
-                        match ev.event.deserialize_as::<OriginalSyncRoomMessageEvent>() {
-                            Ok(m) => {
-                                break m.origin_server_ts.as_secs().into();
-                            }
-                            Err(_) => {
-                                continue;
-                            }
+            let mut items: Vec<Item> = vec![];
+
+            for room in rooms.clone() {
+                let Some(id) = room.as_room_id() else {
+                    continue;
+                };
+                let room = client.get_room(id).unwrap();
+
+                let timeline = Arc::new(room.timeline_builder().build().await);
+
+                let timestamp: u64 = timeline
+                    .latest_event()
+                    .await
+                    .map(|ev| ev.timestamp().as_secs().into())
+                    .unwrap_or(0);
+
+                let name = room.name().unwrap_or("".to_string());
+                let mut img = match room
+                    .avatar_url()
+                    .and_then(|source| mxc_to_http(server.clone(), source, true).ok())
+                {
+                    Some(source) => Img::default().url(source),
+                    None => {
+                        if room.is_direct().await? {
+                            Img::default().icon(Icon::User)
+                        } else {
+                            Img::default().icon(Icon::Users)
                         }
-                    };
-                    let name = room.name().unwrap_or("".to_string());
-                    let mut img = match room.avatar_url() {
-                        Some(source) => {
-                            Img::default().url(mxc_to_http(server.clone(), source, true))
-                        }
-                        None => match room.is_dm() {
-                            Some(true) => Img::default().icon(Icon::User),
-                            _ => Img::default().icon(Icon::Users),
-                        },
-                    };
+                    }
+                };
 
-                    img.mask = ImgMask::Circle;
+                img.mask = ImgMask::Circle;
 
-                    let room_id = room.room_id().to_owned();
-                    let _ = model.update(&mut cx, |_, cx| {
-                        cx.emit(RoomUpdateEvent::Update(room_id.clone()));
-                    });
-                    let preview = if let Some(preview) = previews.get(&room_id) {
-                        preview.clone()
-                    } else {
-                        let preview = ChatRoom {
-                            room_id: room_id.clone(),
-                            updates: model.clone(),
-                        };
-                        previews.insert(room_id.clone(), preview.clone());
-                        preview
+                let room_id = room.room_id().to_owned();
+                let preview = if let Some(preview) = previews.get(&room_id) {
+                    preview.clone()
+                } else {
+                    let preview = ChatRoom {
+                        timeline: timeline.clone(),
+                        sync_service: ss.clone(),
                     };
+                    previews.insert(room_id.clone(), preview.clone());
+                    preview
+                };
 
-                    ItemBuilder::new(
-                        room_id.clone(),
-                        ListItem::new(Some(img), name.clone(), None, vec![]),
-                    )
-                    .keywords(vec![name.clone()])
-                    .actions(vec![
-                        Action::new(
-                            Img::default().icon(Icon::MessageCircle),
-                            "Write",
-                            None,
-                            {
-                                let client = client.clone();
-                                let room_id = room_id.clone();
-                                move |_, cx| {
-                                    let item = StateItem::init(
-                                        Compose::new(
-                                            client.clone(),
-                                            room_id.clone(),
-                                            ComposeKind::Message,
-                                        ),
-                                        false,
-                                        cx,
-                                    );
-                                    StateModel::update(|this, cx| this.push_item(item, cx), cx);
-                                }
-                            },
-                            false,
-                        ),
-                        Action::new(
-                            Img::default().icon(Icon::Search),
-                            "Search",
-                            Some(Shortcut::new("/").cmd()),
-                            |actions, cx| {
-                                StateModel::update(
-                                    |this, cx| this.push_item(actions.active.clone().unwrap(), cx),
+                let item = ItemBuilder::new(
+                    room_id.clone(),
+                    ListItem::new(Some(img), name.clone(), None, vec![]),
+                )
+                .keywords(vec![name.clone()])
+                .actions(vec![
+                    Action::new(
+                        Img::default().icon(Icon::MessageCircle),
+                        "Write",
+                        None,
+                        {
+                            let timeline = timeline.clone();
+                            move |_this, cx| {
+                                let item = StateItem::init(
+                                    Compose::new(timeline.clone(), ComposeKind::Message),
+                                    false,
                                     cx,
                                 );
-                            },
-                            false,
-                        ),
-                    ])
-                    .preview(0.66, move |cx| StateItem::init(preview.clone(), false, cx))
-                    .meta(cx.new_model(|_| timestamp).unwrap().into_any())
-                    .build()
-                })
-                .collect();
+                                StateModel::update(|this, cx| this.push_item(item, cx), cx);
+                            }
+                        },
+                        false,
+                    ),
+                    Action::new(
+                        Img::default().icon(Icon::Search),
+                        "Search",
+                        Some(Shortcut::new("/").cmd()),
+                        |actions, cx| {
+                            StateModel::update(
+                                |this, cx| this.push_item(actions.active.clone().unwrap(), cx),
+                                cx,
+                            );
+                        },
+                        false,
+                    ),
+                ])
+                .preview(0.66, move |cx| StateItem::init(preview.clone(), false, cx))
+                .meta(cx.new_model(|_| timestamp).unwrap().into_any())
+                .build();
+
+                items.push(item);
+            }
 
             let id = session.id.clone();
             if let Some(view) = view.upgrade() {
                 view.update(&mut cx, |view, cx| {
-                    view.update(id, list, cx);
+                    view.update(id, items, cx);
                 })?;
             } else {
                 break;

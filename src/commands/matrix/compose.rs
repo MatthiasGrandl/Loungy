@@ -9,14 +9,14 @@
  *
  */
 
+use std::sync::Arc;
+
 use gpui::*;
-use matrix_sdk::{
-    ruma::{
-        events::{room::message::RoomMessageEventContent, MessageLikeEventContent},
-        OwnedEventId, OwnedRoomId,
-    },
-    Client,
+use matrix_sdk::ruma::{
+    events::{room::message::RoomMessageEventContent, AnyMessageLikeEventContent},
+    OwnedEventId,
 };
+use matrix_sdk_ui::Timeline;
 
 use crate::{
     components::shared::{Icon, Img, NoView},
@@ -35,29 +35,19 @@ pub(super) enum ComposeKind {
 #[derive(Clone)]
 #[allow(dead_code)]
 pub(super) struct Compose {
-    client: Client,
-    room_id: OwnedRoomId,
+    timeline: Arc<Timeline>,
     kind: ComposeKind,
 }
 
 impl Compose {
-    pub fn new(client: Client, room_id: OwnedRoomId, kind: ComposeKind) -> Self {
-        Self {
-            client,
-            room_id,
-            kind,
-        }
+    pub fn new(timeline: Arc<Timeline>, kind: ComposeKind) -> Self {
+        Self { timeline, kind }
     }
 }
 
 impl Compose {
-    async fn send(&self, content: impl MessageLikeEventContent) -> anyhow::Result<()> {
-        let room = self
-            .client
-            .get_room(&self.room_id)
-            .ok_or(anyhow::Error::msg("Room not found"))?;
-
-        room.send(content).await?;
+    async fn send(&self, content: AnyMessageLikeEventContent) -> anyhow::Result<()> {
+        self.timeline.send(content).await;
         Ok(())
     }
 }
@@ -85,7 +75,7 @@ impl StateViewBuilder for Compose {
                     let self_clone = self_clone.clone();
                     cx.spawn(|mut cx| async move {
                         let content = RoomMessageEventContent::text_markdown(text);
-                        if self_clone.send(content).await.is_ok() {
+                        if self_clone.send(content.into()).await.is_ok() {
                             toast.success("Messagen sent", &mut cx);
                         } else {
                             toast.error("Failed to send message", &mut cx);

@@ -9,54 +9,42 @@
  *
  */
 
-use std::{collections::HashMap, future::IntoFuture};
-
-use async_std::task::spawn;
-use gpui::*;
-use log::{debug, error, info};
-use matrix_sdk::{
-    room::RoomMember,
-    ruma::{
-        api::client::sync::sync_events::v4::RoomSubscription,
-        events::{
-            reaction::ReactionEventContent,
-            relation::Annotation,
-            room::{
-                message::{
-                    MessageType, Relation, RoomMessageEventContent,
-                    RoomMessageEventContentWithoutRelation,
-                },
-                redaction::SyncRoomRedactionEvent,
-                MediaSource,
-            },
-            AnySyncMessageLikeEvent, AnySyncTimelineEvent, OriginalSyncMessageLikeEvent,
-            SyncMessageLikeEvent,
-        },
-        OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt,
-    },
-    Client, RoomMemberships, SlidingSync,
-};
-use time::format_description;
+use async_std::{stream::StreamExt, task::spawn};
+use std::sync::Arc;
 use url::Url;
+
+use gpui::*;
+use log::{debug, info};
+use matrix_sdk::ruma::{
+    events::{
+        relation::Annotation,
+        room::{message::MessageType, MediaSource},
+    },
+    OwnedUserId,
+};
+use matrix_sdk_ui::{
+    sync_service::SyncService,
+    timeline::{TimelineDetails, TimelineItemContent},
+    Timeline,
+};
+use time::OffsetDateTime;
 
 use crate::{
     components::{
-        list::{AsyncListItems, Item, ItemBuilder, ItemComponent, ItemPreset, ListBuilder},
+        list::{AsyncListItems, ItemBuilder, ItemComponent, ItemPreset, ListBuilder},
         shared::{Icon, Img, ImgMask},
     },
+    date::format_date,
     state::{Action, Shortcut, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
-use super::{
-    list::{RoomUpdate, RoomUpdateEvent},
-    mxc::mxc_to_http,
-};
+use super::mxc::mxc_to_http;
 
 #[derive(Clone)]
 pub(super) struct ChatRoom {
-    pub(super) updates: Model<RoomUpdate>,
-    pub(super) room_id: OwnedRoomId,
+    pub(super) timeline: Arc<Timeline>,
+    pub(super) sync_service: Arc<SyncService>,
 }
 
 pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) {
@@ -85,46 +73,43 @@ impl<'a> Clone for Box<dyn 'a + OnMouseDown> {
 
 #[derive(Clone)]
 pub(super) struct Reaction {
+    emoji: String,
     count: u16,
-    me: Option<String>,
+    me: bool,
     on_mouse_down: Box<dyn OnMouseDown>,
 }
 
 #[derive(Clone, IntoElement)]
-pub(super) struct Reactions {
-    inner: HashMap<String, Reaction>,
-}
+pub(super) struct Reactions(Vec<Reaction>);
 
 impl RenderOnce for Reactions {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {
         let theme = cx.global::<Theme>();
-        div()
-            .flex()
-            .children(self.inner.into_iter().map(|(emoji, reaction)| {
-                div()
-                    .flex()
-                    .items_center()
-                    .py_0p5()
-                    .px_1()
-                    .mr_0p5()
-                    .rounded_lg()
-                    .border_1()
-                    .border_color(theme.crust)
-                    .bg(if reaction.me.is_some() {
-                        theme.surface0
-                    } else {
-                        theme.mantle
-                    })
-                    .child(div().child(emoji).mr_1())
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.text)
-                            .font_weight(FontWeight::BOLD)
-                            .child(reaction.count.to_string()),
-                    )
-                    .on_mouse_down(MouseButton::Left, reaction.on_mouse_down.clone())
-            }))
+        div().flex().children(self.0.into_iter().map(|reaction| {
+            div()
+                .flex()
+                .items_center()
+                .py_0p5()
+                .px_1()
+                .mr_0p5()
+                .rounded_lg()
+                .border_1()
+                .border_color(theme.crust)
+                .bg(if reaction.me {
+                    theme.surface0
+                } else {
+                    theme.mantle
+                })
+                .child(div().child(reaction.emoji.clone()).mr_1())
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.text)
+                        .font_weight(FontWeight::BOLD)
+                        .child(reaction.count.to_string()),
+                )
+                .on_mouse_down(MouseButton::Left, reaction.on_mouse_down.clone())
+        }))
     }
 }
 
@@ -148,52 +133,25 @@ impl RenderOnce for MessageContent {
     }
 }
 
-fn human_duration(unix: u64) -> String {
-    let duration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        - unix;
-    if duration < 60 {
-        format!(
-            "{} second{} ago",
-            duration,
-            if duration == 1 { "" } else { "s" }
-        )
-    } else if duration < 3600 {
-        let count = duration / 60;
-        format!("{} minute{} ago", count, if count == 1 { "" } else { "s" })
-    } else if duration < 86400 {
-        let count = duration / 3600;
-        format!("{} hour{} ago", count, if count == 1 { "" } else { "s" })
-    } else {
-        // print date YYYY/MM/DD
-        time::OffsetDateTime::from_unix_timestamp(unix as i64)
-            .unwrap()
-            .format(&format_description::parse("[year]/[month]/[day]").unwrap())
-            .unwrap()
-    }
-}
-
 #[derive(Clone)]
 #[allow(dead_code)]
 pub(super) struct Message {
     pub id: String,
-    pub room_id: String,
     pub sender: String,
     pub avatar: Img,
     pub content: MessageContent,
-    pub timestamp: u64,
+    pub timestamp: OffsetDateTime,
     pub edited: bool,
     pub me: bool,
     pub reactions: Reactions,
     pub first: bool,
     pub last: bool,
     pub in_reply_to: Option<String>,
+    pub meta: AnyModel,
 }
 
 impl Message {
-    fn actions(&self, _client: &Client, _cx: &mut AsyncWindowContext) -> Vec<Action> {
+    fn actions(&self) -> Vec<Action> {
         let mut actions = vec![Action::new(
             Img::default().icon(Icon::MessageCircleReply),
             "Reply",
@@ -237,7 +195,7 @@ impl ItemComponent for Message {
     fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.first;
-        let show_reactions = !self.reactions.inner.is_empty();
+        let show_reactions = !self.reactions.0.is_empty();
 
         if show_reactions {
             div().mb_8()
@@ -289,7 +247,7 @@ impl ItemComponent for Message {
                     .justify_end()
                     .text_xs()
                     .text_color(theme.subtext0)
-                    .child(human_duration(self.timestamp)),
+                    .child(format_date(&self.timestamp.clone())),
             )
             .child(if show_avatar {
                 let mut avatar = self.avatar.clone();
@@ -324,249 +282,144 @@ impl ItemComponent for Message {
 }
 
 fn get_source(
-    source: MediaSource,
+    source: &MediaSource,
     server: Url,
     //mut encrypted: MutexGuard<HashMap<OwnedMxcUri, EncryptedFile>>,
-) -> String {
+) -> anyhow::Result<Url> {
     match source {
         MediaSource::Encrypted(e) => {
             //encrypted.insert(e.url.clone(), *e.clone());
             //e.url.to_string()
-            mxc_to_http(server, e.url, false).to_string()
+            mxc_to_http(server, e.url.clone(), false)
         }
-        MediaSource::Plain(e) => mxc_to_http(server, e, false).to_string(),
-    }
-}
-
-fn get_content(
-    content: RoomMessageEventContentWithoutRelation,
-    server: Url,
-    //encrypted: MutexGuard<HashMap<OwnedMxcUri, EncryptedFile>>,
-) -> MessageContent {
-    match content.msgtype {
-        MessageType::Text(t) => MessageContent::Text(t.body),
-        MessageType::Image(i) => {
-            MessageContent::Image(ImageSource::Uri(get_source(i.source, server).into()))
-        }
-        e => MessageContent::Text(format!("msgtype not yet supported: {}", e.msgtype())),
+        MediaSource::Plain(e) => mxc_to_http(server, e.clone(), false),
     }
 }
 
 async fn sync(
-    room_id: OwnedRoomId,
-    model: Model<RoomUpdate>,
+    timeline: Arc<Timeline>,
+    sync_service: Arc<SyncService>,
     view: WeakView<AsyncListItems>,
     cx: &mut AsyncWindowContext,
 ) -> anyhow::Result<()> {
-    let (client, sliding_sync) = cx
-        .read_model::<RoomUpdate, (Client, SlidingSync)>(&model, |this, _| {
-            (this.client.clone(), this.sliding_sync.clone())
-        })?;
-
-    let room = sliding_sync
-        .get_room(&room_id)
-        .await
-        .ok_or(anyhow::Error::msg("Room not found"))?;
-
+    let (mut messages, mut stream) = timeline.subscribe().await;
+    let client = sync_service.room_list_service().client().clone();
     let server = client.homeserver();
-
-    let r = client
-        .get_room(&room_id)
-        .ok_or(anyhow::Error::msg("Room not found"))?;
-
-    let members = {
-        let r = r.clone();
-        spawn(async move { r.members_no_sync(RoomMemberships::all()).await }).await?
-    };
-
     let me = client.user_id().unwrap();
-    let mut member_map: HashMap<OwnedUserId, RoomMember> = HashMap::new();
-    for member in members {
-        member_map.insert(member.user_id().to_owned(), member);
-    }
 
-    let mut prev: Option<OriginalSyncMessageLikeEvent<RoomMessageEventContent>> = None;
-    let mut messages: HashMap<OwnedEventId, Message> = HashMap::new();
-    let timeline = room.timeline_queue().into_iter();
-    let mut reactions: HashMap<OwnedEventId, (OwnedEventId, String, bool)> = HashMap::new();
+    loop {
+        let mut prev: Option<OwnedUserId> = None;
+        let mut components: Vec<Message> = vec![];
 
-    for ev in timeline {
-        let m = ev.event.deserialize_as::<AnySyncTimelineEvent>();
-        if m.is_err() {
-            continue;
-        }
-        let m = m.unwrap();
-        if let AnySyncTimelineEvent::MessageLike(e) = m {
-            match e {
-                AnySyncMessageLikeEvent::Reaction(SyncMessageLikeEvent::Original(e)) => {
-                    let emoji = e.content.relates_to.key;
-                    let id = e.content.relates_to.event_id;
-                    let me = e.sender.to_string().eq(&me.to_string());
-                    reactions.insert(e.event_id, (id, emoji, me));
-                }
-                AnySyncMessageLikeEvent::RoomRedaction(SyncRoomRedactionEvent::Original(e)) => {
-                    if let Some(id) = e.content.redacts {
-                        _ = reactions.remove(&id);
-                        _ = messages.remove(&id);
-                    }
-                }
-                AnySyncMessageLikeEvent::RoomMessage(SyncMessageLikeEvent::Original(e)) => {
-                    let in_reply_to = match e.content.clone().relates_to {
-                        Some(Relation::Replacement(r)) => {
-                            if let Some(m) = messages.get_mut(&r.event_id) {
-                                m.edited = true;
-                                m.content = get_content(r.new_content, server.clone());
-                            };
-                            continue;
-                        }
-                        Some(Relation::Reply { in_reply_to }) => {
-                            Some(in_reply_to.event_id.to_string())
-                        }
-                        _ => None,
-                    };
-                    let clone = e.clone();
-                    let sender = e.sender.clone();
-                    let id = e.event_id;
-                    let me = me.to_string().eq(&sender);
-                    let (sender, avatar) = member_map
-                        .clone()
-                        .get(&sender)
-                        .map(|m| {
-                            (
-                                m.display_name().unwrap_or(sender.as_ref()).to_string(),
-                                match m.avatar_url() {
-                                    Some(a) => Img::default().url(mxc_to_http(
-                                        server.clone(),
-                                        OwnedMxcUri::from(a),
-                                        true,
-                                    )),
-                                    None => Img::default().icon(Icon::User),
-                                },
-                            )
-                        })
-                        .unwrap_or((sender.to_string(), Img::default().icon(Icon::User)));
-                    let content = get_content(e.content.into(), server.clone());
-                    let room_id = room.room_id().to_string();
+        for m in messages.clone() {
+            let Some(m) = m.as_event() else { continue };
 
-                    let mut first = true;
-                    if let Some(p) = prev {
-                        if p.sender != e.sender {
-                            if let Some(m) = messages.get_mut(&p.event_id) {
-                                m.last = true;
-                            }
-                        } else {
-                            first = false;
-                        }
-                    }
-                    prev = Some(clone);
-
-                    messages.insert(
-                        id.clone(),
-                        Message {
-                            id: id.to_string(),
-                            room_id: room_id.clone(),
-                            timestamp: e.origin_server_ts.as_secs().into(),
-                            content,
-                            sender,
-                            avatar,
-                            me,
-                            edited: false,
-                            reactions: Reactions {
-                                inner: HashMap::new(),
-                            },
-                            first,
-                            last: false,
-                            in_reply_to,
-                        },
-                    );
-                }
-                _ => {}
-            }
-        }
-    }
-    if let Some(p) = prev {
-        if let Some(m) = messages.get_mut(&p.event_id) {
-            m.last = true;
-        }
-    }
-
-    reactions.into_iter().for_each(|(eid, (id, emoji, me))| {
-        if let Some(m) = messages.get_mut(&id) {
-            let on_mouse_down: Box<dyn OnMouseDown> = {
-                let room = r.clone();
-                let id = id.clone();
-                let reaction_id = eid.clone();
-                let emoji = emoji.clone();
-                if me {
-                    Box::new({
-                        move |_, cx| {
-                            let reaction_id = reaction_id.clone();
-                            let room = room.clone();
-                            cx.spawn(move |_| async move {
-                                let _ = room.redact(&reaction_id, None, None).await;
-                            })
-                            .detach();
-                        }
-                    })
-                } else {
-                    Box::new({
-                        move |_, cx| {
-                            let room = room.clone();
-                            let id = id.clone();
-                            let emoji = emoji.clone();
-                            cx.spawn(move |_| async move {
-                                let content = ReactionEventContent::new(Annotation::new(
-                                    id.clone(),
-                                    emoji.clone(),
-                                ));
-                                let _ = room.send(content).into_future().await;
-                            })
-                            .detach();
-                        }
-                    })
-                }
+            let sender = match m.sender_profile() {
+                TimelineDetails::Ready(sender) => sender,
+                _ => continue,
             };
-            match m.reactions.inner.get_mut(&emoji) {
-                Some(r) => {
-                    r.count += 1;
-                    if me {
-                        r.me = Some(eid.to_string());
-                        r.on_mouse_down = on_mouse_down;
-                    }
+            let avatar = match sender
+                .avatar_url
+                .as_ref()
+                .and_then(|source| mxc_to_http(server.clone(), source.clone(), true).ok())
+            {
+                Some(url) => Img::default().url(url),
+                None => Img::default().icon(Icon::User),
+            };
+
+            let id = m.event_id().map(|id| id.to_string()).unwrap_or_default();
+
+            let mut message = Message {
+                id: id.clone(),
+                avatar,
+                sender: sender
+                    .display_name
+                    .clone()
+                    .unwrap_or(m.sender().to_string()),
+                content: match m.content() {
+                    TimelineItemContent::Message(m) => match m.msgtype() {
+                        MessageType::Text(t) => MessageContent::Text(t.body.clone()),
+                        MessageType::Image(i) => MessageContent::Image(ImageSource::Uri({
+                            let Ok(url) = get_source(&i.source, server.clone()) else {
+                                continue;
+                            };
+                            url.to_string().into()
+                        })),
+                        _ => MessageContent::Text("Unsupported message type".to_string()),
+                    },
+                    _ => MessageContent::Text("Unsupported message type".to_string()),
+                },
+                me: m.is_own(),
+                edited: m.latest_edit_json().is_some(),
+                reactions: Reactions({
+                    m.reactions()
+                        .iter()
+                        .map(|(emoji, r)| Reaction {
+                            emoji: emoji.clone(),
+                            count: r.len() as u16,
+                            me: r.by_sender(me).count() > 0,
+                            on_mouse_down: Box::new({
+                                let annotation = Annotation::new(
+                                    m.event_id().unwrap().to_owned(),
+                                    emoji.clone(),
+                                );
+                                let timeline = timeline.clone();
+                                move |_, _| {
+                                    let timeline = timeline.clone();
+                                    let annotation = annotation.clone();
+                                    spawn(
+                                        async move { timeline.toggle_reaction(&annotation).await },
+                                    );
+                                }
+                            }),
+                        })
+                        .collect()
+                }),
+                timestamp: OffsetDateTime::from_unix_timestamp(m.timestamp().as_secs().into())
+                    .unwrap(),
+                first: false,
+                last: false,
+                in_reply_to: None,
+                meta: cx.new_model(|_| m.clone()).unwrap().into_any(),
+            };
+            if !prev.as_ref().is_some_and(|s| s.eq(&m.sender())) {
+                message.first = true;
+                if let Some(p) = components.last_mut() {
+                    p.last = true;
                 }
-                None => {
-                    let mut reaction = Reaction {
-                        count: 1,
-                        me: None,
-                        on_mouse_down,
-                    };
-                    if me {
-                        reaction.me = Some(eid.to_string());
-                    };
-                    m.reactions.inner.insert(emoji.clone(), reaction);
-                }
+                prev = Some(m.sender().to_owned());
             }
+            components.push(message);
         }
-    });
 
-    let mut messages: Vec<Message> = messages.into_values().collect();
-    messages.sort_unstable_by_key(|m| m.timestamp);
+        if let Some(p) = components.last_mut() {
+            p.last = true;
+        }
 
-    let items: Vec<Item> = messages
-        .into_iter()
-        .map(|m| {
-            ItemBuilder::new(m.id.clone(), m.clone())
-                .keywords(vec![m.sender.clone()])
-                .actions(m.actions(&client, cx))
-                .meta(cx.new_model(|_| m).unwrap().into_any())
-                .preset(ItemPreset::Plain)
-                .build()
-        })
-        .collect();
+        let items = components
+            .into_iter()
+            .map(|m| {
+                ItemBuilder::new(m.id.clone(), m.clone())
+                    .preset(ItemPreset::Plain)
+                    .actions(m.actions())
+                    .meta(cx.new_model(|_| m.clone()).unwrap().into_any())
+                    .build()
+            })
+            .collect();
 
-    view.update(cx, |this, cx| {
-        this.update("messages".to_string(), items, cx);
-    })?;
+        let result = view.update(cx, |this, cx| {
+            this.update("messages".to_string(), items, cx);
+        });
+        if result.is_err() {
+            break;
+        }
+
+        if let Some(diff) = stream.next().await {
+            diff.apply(&mut messages);
+        } else {
+            break;
+        }
+    }
 
     Ok(())
 }
@@ -575,45 +428,18 @@ impl StateViewBuilder for ChatRoom {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search this chat...", cx);
 
-        let sliding_sync = self.updates.read(cx).sliding_sync.clone();
         let view = cx.new_view(|cx| {
             {
-                let id = self.room_id.clone();
-                cx.subscribe(&self.updates, move |_, model, event, cx| match event {
-                    RoomUpdateEvent::Update(room_id) => {
-                        if id.eq(room_id) {
-                            let room_id = room_id.clone();
-                            let model = model.clone();
-                            cx.spawn(move |view, mut cx| async move {
-                                if let Err(err) = sync(room_id, model, view, &mut cx).await {
-                                    error!("Updating room failed: {:?}", err);
-                                }
-                            })
-                            .detach();
+                cx.spawn({
+                    let timeline = self.timeline.clone();
+                    let sync_service = self.sync_service.clone();
+                    |view, mut cx| async move {
+                        if let Err(err) = sync(timeline, sync_service, view, &mut cx).await {
+                            debug!("Updating room failed: {:?}", err);
                         }
                     }
                 })
                 .detach();
-            }
-            {
-                let id = self.room_id.clone();
-                debug!("Chat view created");
-
-                let mut subscription = RoomSubscription::default();
-                subscription.timeline_limit = Some(UInt::new(300).unwrap());
-                {
-                    let sliding_sync = sliding_sync.clone();
-                    sliding_sync.subscribe_to_room(id.clone(), Some(subscription));
-                }
-                {
-                    let sliding_sync = sliding_sync.clone();
-                    let id = id.clone();
-                    cx.on_release(move |_, _, _| {
-                        sliding_sync.unsubscribe_from_room(id);
-                        debug!("Chat view released")
-                    })
-                    .detach();
-                }
             }
             AsyncListItems::new()
         });
@@ -622,22 +448,23 @@ impl StateViewBuilder for ChatRoom {
 
         let list = ListBuilder::new()
             .reverse()
-            .filter(move |this, cx| {
-                this.items_all
-                    .clone()
-                    .into_iter()
-                    .filter(|item| {
-                        let text = this.query.get_text(cx).to_lowercase();
-                        let message = item.get_meta::<Message>(cx).unwrap();
-                        if let MessageContent::Text(t) = &message.content {
-                            if t.to_lowercase().contains(&text) {
-                                return true;
+            .filter({
+                |this, cx| {
+                    let text = this.query.get_text(cx).to_lowercase();
+                    this.items_all
+                        .clone()
+                        .into_iter()
+                        .filter(|item| {
+                            let message = item.get_meta::<Message>(cx).unwrap();
+                            if let MessageContent::Text(t) = &message.content {
+                                if t.to_lowercase().contains(&text) {
+                                    return true;
+                                }
                             }
-                        }
-                        message.sender.to_lowercase().contains(&text)
-                    })
-                    .collect()
-                //
+                            message.sender.to_lowercase().contains(&text)
+                        })
+                        .collect()
+                }
             })
             .build(
                 move |_, _, cx| {

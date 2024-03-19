@@ -29,8 +29,8 @@ use gpui::*;
 use image::{DynamicImage, ImageBuffer};
 use log::error;
 use serde::{Deserialize, Serialize};
-use time::{format_description, OffsetDateTime};
-use tz::TimeZone;
+use time::OffsetDateTime;
+
 use url::Url;
 
 use crate::{
@@ -39,6 +39,7 @@ use crate::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize},
     },
+    date::format_date,
     db::Db,
     paths::paths,
     platform::{close_and_paste, close_and_paste_file, ocr, AppData, ClipboardWatcher},
@@ -375,7 +376,6 @@ struct ClipboardPreview {
     detail: ClipboardDetail,
     bounds: Model<Bounds<Pixels>>,
     state: ListState,
-    offset: i32,
 }
 
 impl ClipboardPreview {
@@ -390,18 +390,12 @@ impl ClipboardPreview {
             .contents;
 
         let bounds = cx.new_model(|_| Bounds::default());
-        let offset = TimeZone::local()
-            .unwrap()
-            .find_current_local_time_type()
-            .unwrap()
-            .ut_offset();
 
         Self {
             id,
             item,
             detail: detail.clone(),
             bounds: bounds.clone(),
-            offset,
             state: ListState::new(
                 1,
                 ListAlignment::Top,
@@ -456,27 +450,6 @@ impl ClipboardPreview {
     }
 }
 
-fn format_date(date: &OffsetDateTime, offset: i32) -> String {
-    let prefix = if date.day() == OffsetDateTime::now_utc().day() {
-        "Today"
-    } else if date.day()
-        == OffsetDateTime::now_utc()
-            .saturating_sub(time::Duration::days(1))
-            .day()
-    {
-        "Yesterday"
-    } else {
-        "[day]. [month repr:short] [year]"
-    };
-    let format = format!("{}, [hour]:[minute]:[second]", prefix);
-    let format = format_description::parse(&format).unwrap();
-
-    date.checked_add(time::Duration::seconds(offset as i64))
-        .unwrap()
-        .format(&format)
-        .unwrap()
-}
-
 impl Render for ClipboardPreview {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
@@ -502,13 +475,13 @@ impl Render for ClipboardPreview {
                 kind.into_any_element()
             }),
         ];
-        let ts = format_date(&self.item.copied_last, self.offset).into_any_element();
+        let ts = format_date(&self.item.copied_last).into_any_element();
         table.append(&mut if self.item.copy_count > 1 {
             vec![
                 ("Last Copied".to_string(), ts),
                 (
                     "First Copied".to_string(),
-                    format_date(&self.item.copied_first, self.offset).into_any_element(),
+                    format_date(&self.item.copied_first).into_any_element(),
                 ),
                 (
                     "Times Copied".to_string(),
