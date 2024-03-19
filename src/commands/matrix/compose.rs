@@ -12,11 +12,8 @@
 use std::sync::Arc;
 
 use gpui::*;
-use matrix_sdk::ruma::{
-    events::{room::message::RoomMessageEventContent, AnyMessageLikeEventContent},
-    OwnedEventId,
-};
-use matrix_sdk_ui::Timeline;
+use matrix_sdk::ruma::events::room::message::{ForwardThread, RoomMessageEventContent};
+use matrix_sdk_ui::{timeline::EventTimelineItem, Timeline};
 
 use crate::{
     components::shared::{Icon, Img, NoView},
@@ -27,9 +24,8 @@ use crate::{
 #[allow(dead_code)]
 pub(super) enum ComposeKind {
     Message,
-    Reply { event_id: OwnedEventId },
-    Edit { event_id: OwnedEventId },
-    Delete { event_id: OwnedEventId },
+    Reply { event: EventTimelineItem },
+    Edit { event: EventTimelineItem },
 }
 
 #[derive(Clone)]
@@ -46,8 +42,22 @@ impl Compose {
 }
 
 impl Compose {
-    async fn send(&self, content: AnyMessageLikeEventContent) -> anyhow::Result<()> {
-        self.timeline.send(content).await;
+    async fn send(&self, content: impl Into<RoomMessageEventContent>) -> anyhow::Result<()> {
+        let content = content.into();
+        match &self.kind {
+            ComposeKind::Reply { event } => {
+                self.timeline
+                    .send_reply(content.into(), event, ForwardThread::No)
+                    .await?;
+            }
+            ComposeKind::Edit { event } => {
+                self.timeline.edit(content, event).await?;
+            }
+            ComposeKind::Message => {
+                self.timeline.send(content.into()).await;
+            }
+        }
+
         Ok(())
     }
 }
@@ -75,7 +85,7 @@ impl StateViewBuilder for Compose {
                     let self_clone = self_clone.clone();
                     cx.spawn(|mut cx| async move {
                         let content = RoomMessageEventContent::text_markdown(text);
-                        if self_clone.send(content.into()).await.is_ok() {
+                        if self_clone.send(content).await.is_ok() {
                             toast.success("Messagen sent", &mut cx);
                         } else {
                             toast.error("Failed to send message", &mut cx);

@@ -109,7 +109,7 @@ async fn sync(
                 let Some(id) = room.as_room_id() else {
                     continue;
                 };
-                let room = client.get_room(id).unwrap();
+                let room = Arc::new(client.get_room(id).unwrap());
 
                 let timeline = Arc::new(room.timeline_builder().build().await);
 
@@ -158,6 +158,7 @@ async fn sync(
                     let preview = ChatRoom {
                         timeline: timeline.clone(),
                         sync_service: ss.clone(),
+                        room: room.clone(),
                     };
                     previews.insert(room_id.clone(), preview.clone());
                     preview

@@ -25,7 +25,7 @@ use log::debug;
 
 use crate::{
     query::{TextEvent, TextInputWeak},
-    state::{Action, ActionsModel, Loading, Shortcut, StateItem, StateViewContext},
+    state::{Action, ActionsModel, Loader, Shortcut, StateItem, StateViewContext},
     theme::Theme,
 };
 
@@ -772,13 +772,13 @@ impl AsyncListItems {
     pub fn loader(view: &View<Self>, actions: &ActionsModel, cx: &mut WindowContext) {
         if let Some(a) = actions.inner.upgrade() {
             let init = view.read(cx).initialized;
-            let mut a = a.read(cx).clone();
-            if !init {
-                Loading::update(&mut a.loading, true, cx);
-            }
-            cx.subscribe(view, move |_, event, cx| match event {
+            let a = a.read(cx).clone();
+            let mut loader = if !init { Some(Loader::add()) } else { None };
+            cx.subscribe(view, move |_, event, _cx| match event {
                 AsyncListItemsEvent::Initialized => {
-                    Loading::update(&mut a.loading, false, cx);
+                    if let Some(loader) = loader.as_mut() {
+                        loader.remove();
+                    }
                 }
                 AsyncListItemsEvent::Update => {
                     a.update();

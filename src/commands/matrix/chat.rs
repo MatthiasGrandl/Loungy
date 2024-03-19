@@ -18,17 +18,20 @@ use std::{sync::Arc, time::Duration};
 use url::Url;
 
 use gpui::*;
-use log::{debug, info};
-use matrix_sdk::ruma::{
-    events::{
-        relation::Annotation,
-        room::{message::MessageType, MediaSource},
+use log::debug;
+use matrix_sdk::{
+    ruma::{
+        events::{
+            relation::Annotation,
+            room::{message::MessageType, MediaSource},
+        },
+        OwnedUserId,
     },
-    OwnedUserId,
+    Room,
 };
 use matrix_sdk_ui::{
     sync_service::SyncService,
-    timeline::{PaginationOptions, TimelineDetails, TimelineItemContent},
+    timeline::{EventTimelineItem, PaginationOptions, TimelineDetails, TimelineItemContent},
     Timeline,
 };
 use time::OffsetDateTime;
@@ -39,16 +42,20 @@ use crate::{
         shared::{Icon, Img, ImgMask},
     },
     date::format_date,
-    state::{Action, Shortcut, StateViewBuilder, StateViewContext},
+    state::{Action, Loader, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
-use super::mxc::mxc_to_http;
+use super::{
+    compose::{Compose, ComposeKind},
+    mxc::mxc_to_http,
+};
 
 #[derive(Clone)]
 pub(super) struct ChatRoom {
     pub(super) timeline: Arc<Timeline>,
     pub(super) sync_service: Arc<SyncService>,
+    pub(super) room: Arc<Room>,
 }
 
 pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) {
@@ -155,13 +162,22 @@ pub(super) struct Message {
 }
 
 impl Message {
-    fn actions(&self) -> Vec<Action> {
+    fn actions(&self, timeline: Arc<Timeline>, room: Arc<Room>) -> Vec<Action> {
         let mut actions = vec![Action::new(
             Img::default().icon(Icon::MessageCircleReply),
             "Reply",
             Some(Shortcut::new("r").cmd()),
-            move |_, _cx| {
-                info!("Reply to message");
+            {
+                let timeline = timeline.clone();
+                move |this, cx| {
+                    let event = this.get_meta::<EventTimelineItem>(cx).unwrap();
+                    let item = StateItem::init(
+                        Compose::new(timeline.clone(), ComposeKind::Reply { event }),
+                        false,
+                        cx,
+                    );
+                    StateModel::update(|this, cx| this.push_item(item, cx), cx);
+                }
             },
             false,
         )];
@@ -171,8 +187,17 @@ impl Message {
                     Img::default().icon(Icon::MessageCircleMore),
                     "Edit",
                     Some(Shortcut::new("e").cmd()),
-                    move |_, _cx| {
-                        info!("Edit message");
+                    {
+                        let timeline = timeline.clone();
+                        move |this, cx| {
+                            let event = this.get_meta::<EventTimelineItem>(cx).unwrap();
+                            let item = StateItem::init(
+                                Compose::new(timeline.clone(), ComposeKind::Edit { event }),
+                                false,
+                                cx,
+                            );
+                            StateModel::update(|this, cx| this.push_item(item, cx), cx);
+                        }
                     },
                     false,
                 ),
@@ -180,8 +205,25 @@ impl Message {
                     Img::default().icon(Icon::MessageCircleDashed),
                     "Delete",
                     Some(Shortcut::new("backspace").cmd()),
-                    move |_, _cx| {
-                        info!("Delete message");
+                    {
+                        let room = room.clone();
+                        move |this, cx| {
+                            let event = this.get_meta::<EventTimelineItem>(cx).unwrap();
+                            let mut toast = this.toast.clone();
+                            let room = room.clone();
+                            cx.spawn(|mut cx| async move {
+                                match room.redact(event.event_id().unwrap(), None, None).await {
+                                    Ok(_) => {
+                                        toast.success("Message deleted", &mut cx);
+                                    }
+                                    Err(err) => {
+                                        log::error!("Failed to delete message {:?}", err);
+                                        toast.error("failed to delete message", &mut cx);
+                                    }
+                                }
+                            })
+                            .detach();
+                        }
                     },
                     false,
                 ),
@@ -302,12 +344,12 @@ fn get_source(
 
 async fn sync(
     timeline: Arc<Timeline>,
-    sync_service: Arc<SyncService>,
+    room: Arc<Room>,
     view: WeakView<AsyncListItems>,
     cx: &mut AsyncWindowContext,
 ) -> anyhow::Result<()> {
     let (mut messages, mut stream) = timeline.subscribe().await;
-    let client = sync_service.room_list_service().client().clone();
+    let client = room.client();
     let server = client.homeserver();
     let me = client.user_id().unwrap();
 
@@ -351,6 +393,9 @@ async fn sync(
                         })),
                         _ => MessageContent::Text("Unsupported message type".to_string()),
                     },
+                    TimelineItemContent::RedactedMessage { .. } => {
+                        continue;
+                    }
                     _ => MessageContent::Text("Unsupported message type".to_string()),
                 },
                 me: m.is_own(),
@@ -405,8 +450,8 @@ async fn sync(
             .map(|m| {
                 ItemBuilder::new(m.id.clone(), m.clone())
                     .preset(ItemPreset::Plain)
-                    .actions(m.actions())
-                    .meta(cx.new_model(|_| m.clone()).unwrap().into_any())
+                    .actions(m.actions(timeline.clone(), room.clone()))
+                    .meta(m.meta.clone())
                     .build()
             })
             .collect();
@@ -436,9 +481,9 @@ impl StateViewBuilder for ChatRoom {
             {
                 cx.spawn({
                     let timeline = self.timeline.clone();
-                    let sync_service = self.sync_service.clone();
+                    let room = self.room.clone();
                     |view, mut cx| async move {
-                        if let Err(err) = sync(timeline, sync_service, view, &mut cx).await {
+                        if let Err(err) = sync(timeline, room, view, &mut cx).await {
                             debug!("Updating room failed: {:?}", err);
                         }
                     }
@@ -459,13 +504,23 @@ impl StateViewBuilder for ChatRoom {
                         .clone()
                         .into_iter()
                         .filter(|item| {
-                            let message = item.get_meta::<Message>(cx).unwrap();
-                            if let MessageContent::Text(t) = &message.content {
-                                if t.to_lowercase().contains(&text) {
+                            let m = item.get_meta::<EventTimelineItem>(cx).unwrap();
+                            if let TimelineItemContent::Message(m) = &m.content() {
+                                if m.body().to_lowercase().contains(&text) {
                                     return true;
                                 }
                             }
-                            message.sender.to_lowercase().contains(&text)
+                            if let TimelineDetails::Ready(p) = m.sender_profile() {
+                                if p.display_name
+                                    .clone()
+                                    .unwrap_or_default()
+                                    .to_lowercase()
+                                    .contains(&text)
+                                {
+                                    return true;
+                                }
+                            }
+                            false
                         })
                         .collect()
                 }
@@ -479,12 +534,14 @@ impl StateViewBuilder for ChatRoom {
                             || future.as_mut().is_some_and(|f| f.now_or_never().is_some()))
                     {
                         let timeline = timeline.clone();
+                        let mut loader = Loader::add();
                         future = Some(
                             spawn(async move {
                                 let timeline = timeline.clone();
                                 let _ = timeline
                                     .paginate_backwards(PaginationOptions::simple_request(10))
                                     .await;
+                                loader.remove();
                                 sleep(Duration::from_millis(250)).await;
                             })
                             .shared(),

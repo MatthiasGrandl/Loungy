@@ -14,7 +14,10 @@ use async_std::task::sleep;
 use gpui::*;
 use log::debug;
 use serde::Deserialize;
-use std::time::{self, Duration};
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::{self, Duration},
+};
 
 use crate::{
     commands::root::list::RootListBuilder,
@@ -26,6 +29,45 @@ use crate::{
     theme::{self, Theme},
     window::{Window, WindowStyle},
 };
+
+use parking_lot::{Mutex, MutexGuard};
+use std::ops::DerefMut;
+
+pub struct LazyMutex<T> {
+    inner: Mutex<Option<T>>,
+    init: fn() -> T,
+}
+
+impl<T> LazyMutex<T> {
+    pub const fn new(init: fn() -> T) -> Self {
+        Self {
+            inner: Mutex::new(None),
+            init,
+        }
+    }
+
+    pub fn lock(&self) -> impl DerefMut<Target = T> + '_ {
+        MutexGuard::map(self.inner.lock(), |val| val.get_or_insert_with(self.init))
+    }
+}
+
+pub static LOADERS: LazyMutex<Vec<Loader>> = LazyMutex::new(Vec::new);
+
+#[derive(Clone)]
+pub struct Loader(Arc<AtomicBool>);
+
+impl Loader {
+    pub fn add() -> Loader {
+        let loader = Loader(Arc::new(AtomicBool::new(true)));
+        LOADERS.lock().push(loader.clone());
+        loader
+    }
+    pub fn remove(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::Relaxed);
+        let mut loaders = LOADERS.lock();
+        loaders.retain(|loader| loader.0.load(std::sync::atomic::Ordering::Relaxed));
+    }
+}
 
 impl ActiveLoaders {
     fn init(cx: &mut WindowContext) -> View<Self> {
@@ -42,7 +84,7 @@ impl ActiveLoaders {
                     if view.upgrade().is_none() {
                         break;
                     }
-                    if show != Self::show(&view, &cx) {
+                    if show != Self::show() {
                         show = !show;
                         show_ts = time::Instant::now();
                     }
@@ -75,79 +117,33 @@ impl ActiveLoaders {
                         })
                     });
                     sleep(Duration::from_millis(1000 / 120)).await;
-                    // cx.background_executor()
-                    //     .timer(Duration::from_millis(1000 / 120))
-                    //     .await;
                 }
             })
             .detach();
 
             Self {
-                inner: vec![],
                 left: 0.0,
                 width: 0.0,
                 opacity: 0.0,
             }
         })
     }
-    fn retain(&mut self, cx: &mut WindowContext) {
-        self.inner
-            .retain(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false));
-    }
-    fn show(view: &WeakView<Self>, cx: &AsyncWindowContext) -> bool {
-        let Some(view) = view.upgrade() else {
-            return false;
-        };
-        cx.read_model(&view.model, |this, cx| {
-            this.inner
-                .iter()
-                .any(|l| l.upgrade().map(|l| l.read(cx).inner).unwrap_or(false))
-        })
-        .unwrap_or(true)
+    fn show() -> bool {
+        LOADERS
+            .lock()
+            .iter()
+            .any(|loader| loader.0.load(std::sync::atomic::Ordering::Relaxed))
     }
 }
 
 pub struct ActiveLoaders {
-    pub inner: Vec<WeakModel<Loading>>,
     width: f32,
     left: f32,
     opacity: f32,
 }
 
-pub struct Loading {
-    inner: bool,
-}
-
-impl Loading {
-    pub fn update(this: &mut Model<Self>, inner: bool, cx: &mut WindowContext) {
-        let m = this.downgrade();
-        this.update(cx, |this, cx| {
-            if this.inner == inner {
-                return;
-            }
-            this.inner = inner;
-            cx.notify();
-        });
-        if !cx.has_global::<StateModel>() {
-            return;
-        }
-        StateModel::update(
-            |this, cx| {
-                if inner {
-                    this.update_loader(Some(m), cx);
-                } else {
-                    this.update_loader(None, cx);
-                }
-            },
-            cx,
-        );
-    }
-}
-
 impl Render for ActiveLoaders {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        self.retain(cx);
-
         let theme = cx.global::<theme::Theme>();
         let mut bg = theme.lavender;
 
@@ -436,11 +432,11 @@ impl StateModel {
     }
     pub fn update(f: impl FnOnce(&mut Self, &mut WindowContext), cx: &mut WindowContext) {
         if !cx.has_global::<Self>() {
+            eprintln!("StateModel not found");
             return;
         }
         cx.update_global::<Self, _>(|this, cx| {
             f(this, cx);
-            this.update_loader(None, cx)
         });
     }
     pub fn update_async(
@@ -484,13 +480,6 @@ impl StateModel {
                 model.stack[0].query.downgrade()
             })
             .set_text("", cx);
-    }
-    pub fn update_loader(&self, loader: Option<WeakModel<Loading>>, cx: &mut WindowContext) {
-        self.loader.update(cx, |this, _cx| {
-            if let Some(loader) = loader {
-                this.inner.push(loader);
-            }
-        });
     }
 }
 
@@ -780,7 +769,6 @@ pub struct Actions {
     query: Option<TextInput>,
     list: Option<View<List>>,
     update_sender: crossbeam_channel::Sender<bool>,
-    pub loading: Model<Loading>,
     pub toast: Toast,
     pub dropdown: View<Dropdown>,
 }
@@ -795,7 +783,6 @@ impl Actions {
             show: false,
             query: None,
             list: None,
-            loading: cx.new_model(|_| Loading { inner: false }),
             toast: Toast::init(cx),
             dropdown: cx.new_view(|_| Dropdown {
                 value: "".to_string(),
