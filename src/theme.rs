@@ -174,24 +174,6 @@ impl Theme {
         let theme = Theme::mode(appearance);
 
         cx.set_global(theme);
-
-        cx.spawn(|mut cx| async move {
-            let mut old = format!("{:?}", cx.update(|cx| cx.window_appearance()).unwrap());
-            loop {
-                let appearance = cx.update(|cx| cx.window_appearance()).unwrap();
-                let new = format!("{:?}", appearance);
-
-                if old != new {
-                    old = new;
-                    let _ = cx.update_global::<Theme, _>(|theme: &mut Theme, cx| {
-                        *theme = Theme::mode(appearance);
-                        cx.refresh();
-                    });
-                }
-                sleep(Duration::from_millis(500)).await;
-            }
-        })
-        .detach();
     }
     pub fn mode(mode: WindowAppearance) -> Theme {
         let settings = db().get::<ThemeSettings>("theme").unwrap_or_default();

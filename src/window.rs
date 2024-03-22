@@ -15,8 +15,10 @@ use async_std::task::sleep;
 use gpui::*;
 
 use crate::{
+    components::shared::NoView,
     platform::{get_frontmost_application_data, AppData},
     state::StateModel,
+    theme::Theme,
 };
 
 pub static WIDTH: f64 = 800.0;
@@ -64,20 +66,32 @@ impl WindowStyle {
 
 pub struct Window {
     //inner: View<Workspace>,
+    inner: View<NoView>,
     hidden: bool,
 }
 
 #[allow(dead_code)]
 impl Window {
     pub fn init(cx: &mut WindowContext) {
-        cx.on_active_status_change(|active, cx| {
-            if active {
-                return;
-            }
-            Self::close(cx);
+        let view = cx.new_view(|cx| {
+            cx.observe_window_activation(|_, cx| {
+                if cx.is_window_active() {
+                    return;
+                };
+                Window::close(cx);
+            })
+            .detach();
+            cx.observe_window_appearance(|_, cx| {
+                cx.update_global::<Theme, _>(|theme: &mut Theme, cx| {
+                    *theme = Theme::mode(cx.window_appearance());
+                    cx.refresh();
+                });
+            })
+            .detach();
+            NoView {}
         });
         cx.set_global::<Self>(Self {
-            //inner: view.clone(),
+            inner: view,
             hidden: false,
         });
     }
