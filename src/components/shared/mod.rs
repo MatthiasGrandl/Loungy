@@ -59,11 +59,31 @@ pub enum ImgSize {
     LG,
 }
 
+#[derive(Clone)]
+pub enum ObjectFit {
+    Cover,
+    Contain,
+    Fill,
+    None,
+}
+
+impl Into<gpui::ObjectFit> for ObjectFit {
+    fn into(self) -> gpui::ObjectFit {
+        match self {
+            ObjectFit::Cover => gpui::ObjectFit::Cover,
+            ObjectFit::Contain => gpui::ObjectFit::Contain,
+            ObjectFit::Fill => gpui::ObjectFit::Fill,
+            ObjectFit::None => gpui::ObjectFit::None,
+        }
+    }
+}
+
 #[derive(Clone, IntoElement)]
 pub struct Img {
     pub src: ImgSource,
     pub mask: ImgMask,
     size: ImgSize,
+    fit: ObjectFit,
 }
 
 impl Default for Img {
@@ -72,6 +92,7 @@ impl Default for Img {
             src: ImgSource::None,
             mask: ImgMask::None,
             size: ImgSize::MD,
+            fit: ObjectFit::Cover,
         }
     }
 }
@@ -93,6 +114,10 @@ impl Img {
             icon,
             color: Some(color),
         };
+        self
+    }
+    pub fn object_fit(mut self, fit: ObjectFit) -> Self {
+        self.fit = fit;
         self
     }
     pub fn dot(mut self, color: Hsla) -> Self {
@@ -128,7 +153,11 @@ impl RenderOnce for Img {
             return favicon.clone().into_any_element();
         }
         let theme = cx.global::<Theme>();
-        let el = div().flex().items_center().justify_center();
+        let el = div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .overflow_hidden();
         let el = match self.mask {
             ImgMask::Circle => el.rounded_full().bg(theme.surface0),
             ImgMask::Rounded => el.rounded_md().bg(theme.surface0),
@@ -155,7 +184,7 @@ impl RenderOnce for Img {
                 svg.into_any_element()
             }
             ImgSource::Base(src) => {
-                let img = img(src).object_fit(ObjectFit::Cover).size_full();
+                let img = img(src).object_fit(self.fit.into()).size_full();
                 let img = match self.mask {
                     ImgMask::Circle => {
                         el = el.p_0p5();

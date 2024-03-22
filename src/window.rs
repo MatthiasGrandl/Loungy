@@ -64,8 +64,8 @@ impl WindowStyle {
     }
 }
 
+#[allow(dead_code)]
 pub struct Window {
-    //inner: View<Workspace>,
     inner: View<NoView>,
     hidden: bool,
 }

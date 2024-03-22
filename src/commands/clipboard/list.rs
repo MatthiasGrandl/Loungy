@@ -37,7 +37,7 @@ use crate::{
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
-        shared::{Icon, Img, ImgMask, ImgSize},
+        shared::{Icon, Img, ImgMask, ImgSize, ObjectFit},
     },
     date::format_date,
     db::Db,
@@ -222,9 +222,11 @@ impl ClipboardListItem {
             self.id,
             ListItem::new(
                 match self.kind.clone() {
-                    ClipboardListItemKind::Image { thumbnail } => {
-                        Some(Img::default().file(thumbnail))
-                    }
+                    ClipboardListItemKind::Image { thumbnail } => Some(
+                        Img::default()
+                            .file(thumbnail)
+                            .object_fit(ObjectFit::Contain),
+                    ),
                     ClipboardListItemKind::Url { url } => Some(
                         Img::default()
                             .mask(ImgMask::Rounded)
