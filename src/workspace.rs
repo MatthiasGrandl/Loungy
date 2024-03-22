@@ -14,7 +14,6 @@ use gpui::*;
 use crate::components::shared::{Icon, Img};
 use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
-use crate::window::Window;
 
 pub struct Workspace {
     state: StateModel,
@@ -24,10 +23,6 @@ impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
             let state = StateModel::init(cx);
-            cx.on_focus_lost(|_, cx| {
-                Window::close(cx);
-            })
-            .detach();
             Workspace { state }
         })
     }

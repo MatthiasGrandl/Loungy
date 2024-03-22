@@ -69,7 +69,13 @@ pub struct Window {
 
 #[allow(dead_code)]
 impl Window {
-    pub fn init(cx: &mut AppContext) {
+    pub fn init(cx: &mut WindowContext) {
+        cx.on_active_status_change(|active, cx| {
+            if active {
+                return;
+            }
+            Self::close(cx);
+        });
         cx.set_global::<Self>(Self {
             //inner: view.clone(),
             hidden: false,

@@ -1502,7 +1502,6 @@ checksum = "186dce98367766de751c42c4f03970fc60fc012296e706ccbb9d5df9b6c1e271"
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "rustc-hash",
 ]
@@ -2146,7 +2145,6 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3268,7 +3266,6 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "as-raw-xcb-connection",
@@ -3346,7 +3343,6 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4859,7 +4855,6 @@ dependencies = [
 [[package]]
 name = "media"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6422,7 +6417,6 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "derive_refineable",
 ]
@@ -7677,7 +7671,6 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "arrayvec",
  "log",
@@ -8634,7 +8627,6 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "async-fs 1.6.0",
