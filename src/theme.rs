@@ -9,6 +9,8 @@
  *
  */
 
+use std::default;
+
 use gpui::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -41,6 +43,7 @@ impl From<catppuccin::Flavour> for Theme {
             name: format!("Catppuccin {}", name).into(),
             font_sans: "Inter".into(),
             font_mono: "JetBrains Mono".into(),
+            window_background: Some(WindowBackgroundContent::Blurred { opacity: 0.9 }),
             flamingo: color_to_hsla(colors.flamingo),
             pink: color_to_hsla(colors.pink),
             mauve: color_to_hsla(colors.mauve),
@@ -75,6 +78,7 @@ pub struct Theme {
     pub name: SharedString,
     pub font_sans: SharedString,
     pub font_mono: SharedString,
+    pub window_background: Option<WindowBackgroundContent>,
     pub flamingo: Hsla,
     pub pink: Hsla,
     pub mauve: Hsla,
@@ -112,6 +116,39 @@ fn load_fonts(cx: &mut AppContext) -> gpui::Result<()> {
         }
     }
     cx.text_system().add_fonts(embedded_fonts)
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "lowercase", tag = "type")]
+pub enum WindowBackgroundContent {
+    Blurred {
+        opacity: f32,
+    },
+    Transparent {
+        opacity: f32,
+    },
+    #[default]
+    Opaque,
+}
+
+impl From<WindowBackgroundContent> for WindowBackground {
+    fn from(content: WindowBackgroundContent) -> Self {
+        match content {
+            WindowBackgroundContent::Blurred { .. } => WindowBackground::Blurred,
+            WindowBackgroundContent::Transparent { .. } => WindowBackground::Transparent,
+            WindowBackgroundContent::Opaque => WindowBackground::Opaque,
+        }
+    }
+}
+
+impl WindowBackgroundContent {
+    pub fn opacity(&self) -> f32 {
+        match self {
+            WindowBackgroundContent::Blurred { opacity }
+            | WindowBackgroundContent::Transparent { opacity } => *opacity,
+            WindowBackgroundContent::Opaque => 1.0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]

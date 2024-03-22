@@ -362,7 +362,7 @@ impl EntryModel {
                                             cx.notify();
                                         },
                                     );
-                                    sleep(Duration::from_secs(2)).await
+                                    sleep(Duration::from_secs(10)).await
                                 }
                             })
                             .detach();
@@ -386,7 +386,9 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                     let mut first = true;
                     loop {
                         if !first {
-                            if let Err(sync) = account.auth_command(vec!["sync"], &mut cx).await {
+                            if let Err(sync) =
+                                account.auth_command(vec!["sync", "-f"], &mut cx).await
+                            {
                                 error!("Failed to sync: {}", sync);
                             }
                         }

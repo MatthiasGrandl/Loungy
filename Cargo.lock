@@ -897,7 +897,7 @@ checksum = "a1d084b0137aaa901caf9f1e8b21daa6aa24d41cd806e111335541eff9683bd6"
 [[package]]
 name = "blade-graphics"
 version = "0.3.0"
-source = "git+https://github.com/kvark/blade?rev=43721bf42d298b7cbee2195ee66f73a5f1c7b2fc#43721bf42d298b7cbee2195ee66f73a5f1c7b2fc"
+source = "git+https://github.com/kvark/blade?rev=61cbd6b2c224791d52b150fe535cee665cc91bb2#61cbd6b2c224791d52b150fe535cee665cc91bb2"
 dependencies = [
  "ash",
  "ash-window",
@@ -927,7 +927,7 @@ dependencies = [
 [[package]]
 name = "blade-macros"
 version = "0.2.1"
-source = "git+https://github.com/kvark/blade?rev=43721bf42d298b7cbee2195ee66f73a5f1c7b2fc#43721bf42d298b7cbee2195ee66f73a5f1c7b2fc"
+source = "git+https://github.com/kvark/blade?rev=61cbd6b2c224791d52b150fe535cee665cc91bb2#61cbd6b2c224791d52b150fe535cee665cc91bb2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1502,7 +1502,7 @@ checksum = "186dce98367766de751c42c4f03970fc60fc012296e706ccbb9d5df9b6c1e271"
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "rustc-hash",
 ]
@@ -2169,7 +2169,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3312,7 +3312,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "as-raw-xcb-connection",
@@ -3375,8 +3375,6 @@ dependencies = [
  "taffy",
  "thiserror",
  "time",
- "tiny-skia",
- "usvg",
  "util",
  "uuid",
  "waker-fn",
@@ -3392,7 +3390,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4906,7 +4904,7 @@ dependencies = [
 [[package]]
 name = "media"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6479,7 +6477,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "derive_refineable",
 ]
@@ -7744,7 +7742,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "arrayvec",
  "log",
@@ -8701,7 +8699,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/MatthiasGrandl/zed#43c85f91e8d8d0fea555fa9f17cf57d296facae3"
+source = "git+https://github.com/MatthiasGrandl/zed#b6b813a922e4827c1f937d06c1c4466ae534291c"
 dependencies = [
  "anyhow",
  "async-fs 1.6.0",

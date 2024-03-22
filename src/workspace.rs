@@ -14,6 +14,7 @@ use gpui::*;
 use crate::components::shared::{Icon, Img};
 use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
+use crate::window::Window;
 
 pub struct Workspace {
     state: StateModel,
@@ -23,6 +24,10 @@ impl Workspace {
     pub fn build(cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
             let state = StateModel::init(cx);
+            cx.on_focus_lost(|_, cx| {
+                Window::close(cx);
+            })
+            .detach();
             Workspace { state }
         })
     }
@@ -45,11 +50,19 @@ impl Render for Workspace {
                 .child(Img::default().icon(Icon::ArrowLeft));
         }
         let a = item.actions.read(cx).clone();
+
         div()
+            .rounded_xl()
+            .border()
+            .border_color(theme.crust)
             .size_full()
             .flex()
             .flex_col()
-            .bg(theme.base)
+            .bg({
+                let mut bg = theme.base;
+                bg.fade_out(0.1);
+                bg
+            })
             .text_color(theme.text)
             .font(theme.font_sans.clone())
             .child(
@@ -67,7 +80,17 @@ impl Render for Workspace {
             .child(
                 div()
                     .mt_auto()
-                    .bg(theme.mantle)
+                    .bg({
+                        let mut bg = theme.mantle;
+                        bg.fade_out(
+                            1.0 - theme
+                                .window_background
+                                .clone()
+                                .unwrap_or_default()
+                                .opacity(),
+                        );
+                        bg
+                    })
                     .w_full()
                     .border_t_1()
                     .border_color(theme.crust)

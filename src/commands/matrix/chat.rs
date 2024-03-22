@@ -393,10 +393,9 @@ async fn sync(
                         })),
                         _ => MessageContent::Text("Unsupported message type".to_string()),
                     },
-                    TimelineItemContent::RedactedMessage { .. } => {
+                    _ => {
                         continue;
                     }
-                    _ => MessageContent::Text("Unsupported message type".to_string()),
                 },
                 me: m.is_own(),
                 edited: m.latest_edit_json().is_some(),

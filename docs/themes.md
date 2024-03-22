@@ -12,6 +12,8 @@ There create a `.toml` file with the following structure:
 
 ```rust
 name = "Tokyonight Night"
+# Valid types are "transparent" and "blurred". If you want a solid color, just don't include this field.
+window_background = { type = "blurred", opacity = 0.9 }
 font_sans = "Inter"
 font_mono = "JetBrains Mono"
 flamingo = "#ff9e64"

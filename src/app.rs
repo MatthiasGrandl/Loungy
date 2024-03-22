@@ -32,6 +32,10 @@ pub fn run_app(app: gpui::App) {
             },
         });
         cx.open_window(WindowStyle::Main.options(bounds), |cx| {
+            let theme = cx.global::<Theme>();
+            cx.set_background(WindowBackground::from(
+                theme.window_background.clone().unwrap_or_default(),
+            ));
             Frontmost::init(cx);
             RootCommands::init(cx);
             HotkeyManager::init(cx);
