@@ -14,6 +14,7 @@ use std::{
     collections::HashMap,
     path::PathBuf,
     sync::{Arc, OnceLock},
+    time::Duration,
 };
 
 use anyhow::anyhow;
@@ -181,7 +182,18 @@ impl RenderOnce for Img {
                     .path(icon.path())
                     .text_color(color.unwrap_or(theme.text))
                     .size_full();
-                svg.into_any_element()
+                if icon == Icon::Loader2 {
+                    svg.with_animation(
+                        "rotate-loader",
+                        Animation::new(Duration::from_secs(1)).repeat(),
+                        |svg, delta| {
+                            svg.with_transformation(Transformation::rotate(percentage(delta)))
+                        },
+                    )
+                    .into_any_element()
+                } else {
+                    svg.into_any_element()
+                }
             }
             ImgSource::Base(src) => {
                 let img = img(src).object_fit(self.fit.into()).size_full();

@@ -9,14 +9,13 @@
  *
  */
 
-use ::simple_easing::linear;
 use async_std::task::sleep;
 use gpui::*;
 use log::debug;
 use serde::Deserialize;
 use std::{
     sync::{atomic::AtomicBool, Arc},
-    time::{self, Duration},
+    time::{self, Duration, Instant},
 };
 
 use crate::{
@@ -73,7 +72,6 @@ impl ActiveLoaders {
     fn init(cx: &mut WindowContext) -> View<Self> {
         cx.new_view(|cx| {
             cx.spawn(|view, mut cx| async move {
-                let easing: fn(f32) -> f32 = linear;
                 let ts = time::Instant::now();
                 let w = 1.0;
                 let w_start = 0.4;
@@ -91,13 +89,13 @@ impl ActiveLoaders {
                     let i = (ts.elapsed().as_millis() as f32 % 1000.0) / 1000.0;
                     let (left, width) = if i > 0.4 {
                         let i = (i - 0.4) / 0.6;
-                        let e = easing(i);
+                        let e = linear(i);
                         let left = e * w;
                         let width = e * (w_stop - w_start) + w_start;
                         (left, width)
                     } else {
                         let i = i / 0.4;
-                        (0.0, easing(i) * w_start)
+                        (0.0, linear(i) * w_start)
                     };
                     let opacity = {
                         let i = show_ts.elapsed().as_millis() as f32 / 500.0;
@@ -163,20 +161,64 @@ impl Render for ActiveLoaders {
 
 #[derive(Clone, PartialEq)]
 pub enum ToastState {
-    Success(String),
-    Error(String),
-    Loading(String),
+    Success {
+        message: String,
+        fade_in: Instant,
+        fade_out: Option<Instant>,
+    },
+    Error {
+        message: String,
+        fade_in: Instant,
+        fade_out: Option<Instant>,
+    },
+    Loading {
+        message: String,
+        fade_in: Instant,
+        fade_out: Option<Instant>,
+    },
     Idle,
 }
 
 impl ToastState {
     fn dot(color: Hsla) -> AnyElement {
+        let size = Pixels(6.0);
         div()
             .size_6()
             .flex()
-            .items_center()
-            .justify_center()
-            .child(div().size_1p5().bg(color).rounded_full())
+            .relative()
+            .child(
+                div()
+                    .size(size)
+                    .absolute()
+                    .inset_0()
+                    .m_auto()
+                    .bg(color)
+                    .rounded_full()
+                    .with_animation(
+                        "ping",
+                        Animation::new(Duration::from_secs(2))
+                            .with_easing(ease_in_out)
+                            .repeat(),
+                        {
+                            move |div, delta| {
+                                let delta = (delta - 0.75) * 4.0;
+                                let mut color = color;
+                                color.a = 1.0 - delta;
+                                let size = Pixels(size.0 * delta * 2.0 + size.0);
+                                div.bg(color).size(size)
+                            }
+                        },
+                    ),
+            )
+            .child(
+                div()
+                    .size(size)
+                    .absolute()
+                    .inset_0()
+                    .m_auto()
+                    .bg(color)
+                    .rounded_full(),
+            )
             .into_any_element()
     }
     pub fn timeout(&mut self, duration: Duration, cx: &mut ViewContext<Self>) {
@@ -195,37 +237,95 @@ impl ToastState {
 impl Render for ToastState {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<theme::Theme>();
-        if let Some((el, mut bg, message)) = match self {
-            ToastState::Success(message) => {
-                Some((ToastState::dot(theme.green), theme.green, message))
-            }
-            ToastState::Error(message) => Some((ToastState::dot(theme.red), theme.red, message)),
-            ToastState::Loading(message) => Some((
+        if let Some((el, bg, message, fade_in, fade_out)) = match self {
+            ToastState::Success {
+                message,
+                fade_in,
+                fade_out,
+            } => Some((
+                ToastState::dot(theme.green),
+                theme.green,
+                message,
+                fade_in,
+                fade_out,
+            )),
+            ToastState::Error {
+                message,
+                fade_in,
+                fade_out,
+            } => Some((
+                ToastState::dot(theme.red),
+                theme.red,
+                message,
+                fade_in,
+                fade_out,
+            )),
+            ToastState::Loading {
+                message,
+                fade_in,
+                fade_out,
+            } => Some((
                 Img::default()
                     .icon(Icon::Loader2)
+                    .mask(ImgMask::None)
                     .size(ImgSize::SM)
                     .into_any_element(),
                 theme.blue,
                 message,
+                fade_in,
+                fade_out,
             )),
             ToastState::Idle => None,
         } {
-            bg.fade_out(0.95);
-
             div()
                 .absolute()
-                .inset_0()
-                .bottom_px()
+                .left_0()
+                .right_0()
+                .h_full()
                 .p_2()
-                .bg(bg)
                 .flex()
                 .items_center()
                 .child(div().child(el).mr_2().flex_shrink_0())
                 .text_color(theme.text)
                 .font_weight(FontWeight::MEDIUM)
                 .child(message.to_string())
+                .with_animation(
+                    "toast-pulse",
+                    Animation::new(Duration::from_secs(3))
+                        .repeat()
+                        .with_easing(bounce(ease_in_out)),
+                    {
+                        let fade_in = *fade_in;
+                        let fade_out = *fade_out;
+                        move |div, delta| {
+                            let mut bg = bg;
+                            let alpha = 0.1 + delta / 20.0;
+                            let now = Instant::now();
+                            let (bottom, alpha) = if fade_out.is_some() && now > fade_out.unwrap() {
+                                let delta =
+                                    now.duration_since(fade_out.unwrap()).as_secs_f32() / 0.3;
+                                if delta < 1.0 {
+                                    (ease_in_out(delta), alpha * ease_in_out(1.0 - delta))
+                                } else {
+                                    (1.0, 0.0)
+                                }
+                            } else {
+                                let delta = now.duration_since(fade_in).as_secs_f32() / 0.3;
+                                if delta < 1.0 {
+                                    (ease_in_out(1.0 - delta), alpha * ease_in_out(delta))
+                                } else {
+                                    (0.0, alpha)
+                                }
+                            };
+
+                            bg.a = alpha;
+                            div.bg(bg).bottom(relative(-bottom))
+                        }
+                    },
+                )
+                .into_any_element()
         } else {
-            div()
+            div().into_any_element()
         }
     }
 }
@@ -242,22 +342,32 @@ impl Toast {
     }
     pub fn loading<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
-            *this = ToastState::Loading(message.to_string());
+            *this = ToastState::Loading {
+                message: message.to_string(),
+                fade_in: Instant::now(),
+                fade_out: None,
+            };
             cx.notify();
         });
     }
     pub fn success<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
-            *this = ToastState::Success(message.to_string());
+            *this = ToastState::Success {
+                message: message.to_string(),
+                fade_in: Instant::now(),
+                fade_out: Some(Instant::now() + Duration::from_secs(3)),
+            };
             cx.notify();
-            this.timeout(Duration::from_secs(2), cx);
         });
     }
     pub fn error<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
-            *this = ToastState::Error(message.to_string());
+            *this = ToastState::Error {
+                message: message.to_string(),
+                fade_in: Instant::now(),
+                fade_out: Some(Instant::now() + Duration::from_secs(4)),
+            };
             cx.notify();
-            this.timeout(Duration::from_secs(2), cx);
         });
     }
     /*
@@ -978,6 +1088,8 @@ impl ActionsModel {
                 actions: model.clone(),
                 update_receiver: r,
             };
+
+            context.query.set_placeholder("Search for actions...", cx);
 
             let actions = this.clone();
             let list = ListBuilder::new().disable_action_updates().build(

@@ -395,6 +395,7 @@ pub struct List {
 
 impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
         let (width, preview) = self
             .preview
             .as_ref()
@@ -412,7 +413,40 @@ impl Render for List {
             div()
                 .size_full()
                 .flex()
-                .child(list(self.state.clone()).w(width).pr_1().h_full())
+                .child(
+                    div()
+                        .w(width)
+                        .h_full()
+                        .relative()
+                        .child(list(self.state.clone()).size_full().pr_1()), // .child(
+                                                                             //     div()
+                                                                             //         .absolute()
+                                                                             //         .neg_right_1p5()
+                                                                             //         .top_0()
+                                                                             //         .bottom_0()
+                                                                             //         .w_1()
+                                                                             //         .h_full()
+                                                                             //         .child({
+                                                                             //             let scroll = self.state.logical_scroll_top();
+                                                                             //             let count = self.state.item_count() * 100;
+                                                                             //             let top = ((scroll.item_ix * 100) as f32
+                                                                             //                 + scroll.offset_in_item.0)
+                                                                             //                 / count as f32;
+                                                                             //             let height = Pixels(32.0);
+                                                                             //             let mt = Pixels(height.0 * top * -1.0);
+                                                                             //             div()
+                                                                             //                 .top(relative(top))
+                                                                             //                 .w_full()
+                                                                             //                 .bg(theme.surface0)
+                                                                             //                 .absolute()
+                                                                             //                 .left_0()
+                                                                             //                 .right_0()
+                                                                             //                 .rounded_sm()
+                                                                             //                 .mt(mt)
+                                                                             //                 .h(height)
+                                                                             //         }),
+                                                                             // ),
+                )
                 .child(preview)
         }
     }
