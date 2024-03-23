@@ -279,9 +279,9 @@ impl Render for ToastState {
         } {
             div()
                 .absolute()
-                .left_0()
-                .right_0()
+                .bottom_0()
                 .h_full()
+                .w_full()
                 .p_2()
                 .flex()
                 .items_center()
@@ -301,7 +301,7 @@ impl Render for ToastState {
                             let mut bg = bg;
                             let alpha = 0.1 + delta / 20.0;
                             let now = Instant::now();
-                            let (bottom, alpha) = if fade_out.is_some() && now > fade_out.unwrap() {
+                            let (left, alpha) = if fade_out.is_some() && now > fade_out.unwrap() {
                                 let delta =
                                     now.duration_since(fade_out.unwrap()).as_secs_f32() / 0.3;
                                 if delta < 1.0 {
@@ -312,14 +312,14 @@ impl Render for ToastState {
                             } else {
                                 let delta = now.duration_since(fade_in).as_secs_f32() / 0.3;
                                 if delta < 1.0 {
-                                    (ease_in_out(1.0 - delta), alpha * ease_in_out(delta))
+                                    (-ease_in_out(1.0 - delta), alpha * ease_in_out(delta))
                                 } else {
                                     (0.0, alpha)
                                 }
                             };
 
                             bg.a = alpha;
-                            div.bg(bg).bottom(relative(-bottom))
+                            div.bg(bg).left(relative(left))
                         }
                     },
                 )
