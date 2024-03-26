@@ -10,7 +10,7 @@ It's built using GPUI, a GPU accelerated application framework for Rust.
 
 ## Showcase
 
-https://github.com/MatthiasGrandl/loungy/assets/50196894/689c4705-c325-44c9-a1d3-99f72bc7fa6f
+https://github.com/MatthiasGrandl/Loungy/assets/50196894/d5c84579-77e6-4e0b-980a-7d1f1975d713
 
 ## Why
 
