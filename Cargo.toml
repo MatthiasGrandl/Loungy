@@ -11,6 +11,7 @@ identifier = "app.loungy"
 copyright = "Copyright (c) Matthias Grandl 2024. All rights reserved."
 category = "Productivity"
 target_triple = "universal-apple-darwin"
+icons = ["icons/*.png"]
 
 [package.metadata.packager.macos]
 signing_identity = "Developer ID Application: Matthias Grandl (LJ9UB62BK7)"
