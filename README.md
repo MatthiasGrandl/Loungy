@@ -27,6 +27,20 @@ In the absence of a proper extension system (which is wanted, but still quite fa
 
 So far there is `clipboard`, `tailscale`, `bitwarden` and `matrix`. You can also build all optional features with `cargo build --all-features --release`.
 
+## Installation
+
+Either download the `.dmg` from the [releases section](https://github.com/MatthiasGrandl/Loungy/releases) or use homebrew:
+
+```sh
+brew install --cask loungy
+```
+
+The pre-built version comes with the following optional crate features:
+
+- `clipboard`
+
+If you want to try any other optional features, at the moment you will have to build Loungy yourself.
+
 ## Development
 
 ### Requirements
