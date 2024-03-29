@@ -32,7 +32,7 @@ So far there is `clipboard`, `tailscale`, `bitwarden` and `matrix`. You can also
 Either download the `.dmg` from the [releases section](https://github.com/MatthiasGrandl/Loungy/releases) or use homebrew:
 
 ```sh
-brew install --cask loungy
+brew install loungy
 ```
 
 The pre-built version comes with the following optional crate features:
