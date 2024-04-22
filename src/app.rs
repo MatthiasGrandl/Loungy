@@ -25,15 +25,15 @@ pub fn run_app(app: gpui::App) {
         Theme::init(cx);
         // TODO: This still only works for a single display
         let bounds = cx.displays().first().map(|d| d.bounds()).unwrap_or(Bounds {
-            origin: Point::new(GlobalPixels::from(0.0), GlobalPixels::from(0.0)),
+            origin: Point::new(DevicePixels::from(0), DevicePixels::from(0)),
             size: Size {
-                width: GlobalPixels::from(1920.0),
-                height: GlobalPixels::from(1080.0),
+                width: DevicePixels::from(1920),
+                height: DevicePixels::from(1080),
             },
         });
         cx.open_window(WindowStyle::Main.options(bounds), |cx| {
             let theme = cx.global::<Theme>();
-            cx.set_background(WindowBackground::from(
+            cx.set_background_appearance(WindowBackgroundAppearance::from(
                 theme.window_background.clone().unwrap_or_default(),
             ));
             Frontmost::init(cx);

@@ -395,7 +395,7 @@ pub struct List {
 
 impl Render for List {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let theme = cx.global::<Theme>();
+        //let theme = cx.global::<Theme>();
         let (width, preview) = self
             .preview
             .as_ref()

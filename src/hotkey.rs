@@ -110,7 +110,7 @@ impl HotkeyManager {
         if keystroke.modifiers.alt {
             tokens.push("alt");
         }
-        if keystroke.modifiers.command {
+        if keystroke.modifiers.platform {
             tokens.push("command");
         }
         if keystroke.modifiers.control {
@@ -150,7 +150,7 @@ impl HotkeyManager {
                 .fold(Keystroke::default(), |mut keystroke, token| {
                     match token {
                         "alt" => keystroke.modifiers.alt = true,
-                        "command" => keystroke.modifiers.command = true,
+                        "command" => keystroke.modifiers.platform = true,
                         "control" => keystroke.modifiers.control = true,
                         "shift" => keystroke.modifiers.shift = true,
                         _ => keystroke.key = token.to_string(),

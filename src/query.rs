@@ -210,7 +210,7 @@ impl RenderOnce for TextInput {
                     let keystroke = &ev.keystroke.key;
                     let chars = editor.text.chars().collect::<Vec<char>>();
                     #[cfg(target_os = "macos")]
-                    let m = ev.keystroke.modifiers.command;
+                    let m = ev.keystroke.modifiers.platform;
                     #[cfg(not(target_os = "macos"))]
                     let m = ev.keystroke.modifiers.control;
 

@@ -21,35 +21,35 @@ use crate::{
     theme::Theme,
 };
 
-pub static WIDTH: f64 = 800.0;
-pub static HEIGHT: f64 = 450.0;
+pub static WIDTH: u32 = 800;
+pub static HEIGHT: u32 = 450;
 
 pub enum WindowStyle {
     Main,
-    Toast { width: f64, height: f64 },
+    Toast { width: u32, height: u32 },
     Settings,
 }
 
 impl WindowStyle {
-    pub fn options(&self, bounds: Bounds<GlobalPixels>) -> WindowOptions {
+    pub fn options(&self, bounds: Bounds<DevicePixels>) -> WindowOptions {
         let mut options = WindowOptions::default();
         let center = bounds.center();
 
         let (width, height, x, y) = match self {
             WindowStyle::Main => {
                 options.focus = true;
-                let width = GlobalPixels::from(WIDTH);
-                let height = GlobalPixels::from(HEIGHT);
-                let x: GlobalPixels = center.x - width / 2.0;
-                let y: GlobalPixels = center.y - height / 2.0;
+                let width = DevicePixels::from(WIDTH);
+                let height = DevicePixels::from(HEIGHT);
+                let x: DevicePixels = center.x - width / 2;
+                let y: DevicePixels = center.y - height / 2;
                 (width, height, x, y)
             }
             WindowStyle::Toast { width, height } => {
                 options.focus = false;
-                let width = GlobalPixels::from(*width);
-                let height = GlobalPixels::from(*height);
-                let x: GlobalPixels = center.x - width / 2.0;
-                let y: GlobalPixels = bounds.bottom() - height - GlobalPixels::from(200.0);
+                let width = DevicePixels::from(*width);
+                let height = DevicePixels::from(*height);
+                let x: DevicePixels = center.x - width / 2;
+                let y: DevicePixels = bounds.bottom() - height - DevicePixels::from(200);
                 (width, height, x, y)
             }
             WindowStyle::Settings => {

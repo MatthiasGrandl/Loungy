@@ -41,7 +41,7 @@ impl From<catppuccin::Flavour> for Theme {
             name: format!("Catppuccin {}", name).into(),
             font_sans: "Inter".into(),
             font_mono: "JetBrains Mono".into(),
-            window_background: Some(WindowBackgroundContent::Blurred { opacity: 0.9 }),
+            window_background: Some(WindowBackgroundAppearanceContent::Blurred { opacity: 0.9 }),
             flamingo: color_to_hsla(colors.flamingo),
             pink: color_to_hsla(colors.pink),
             mauve: color_to_hsla(colors.mauve),
@@ -76,7 +76,7 @@ pub struct Theme {
     pub name: SharedString,
     pub font_sans: SharedString,
     pub font_mono: SharedString,
-    pub window_background: Option<WindowBackgroundContent>,
+    pub window_background: Option<WindowBackgroundAppearanceContent>,
     pub flamingo: Hsla,
     pub pink: Hsla,
     pub mauve: Hsla,
@@ -118,7 +118,7 @@ fn load_fonts(cx: &mut AppContext) -> gpui::Result<()> {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "lowercase", tag = "type")]
-pub enum WindowBackgroundContent {
+pub enum WindowBackgroundAppearanceContent {
     Blurred {
         opacity: f32,
     },
@@ -129,22 +129,26 @@ pub enum WindowBackgroundContent {
     Opaque,
 }
 
-impl From<WindowBackgroundContent> for WindowBackground {
-    fn from(content: WindowBackgroundContent) -> Self {
+impl From<WindowBackgroundAppearanceContent> for WindowBackgroundAppearance {
+    fn from(content: WindowBackgroundAppearanceContent) -> Self {
         match content {
-            WindowBackgroundContent::Blurred { .. } => WindowBackground::Blurred,
-            WindowBackgroundContent::Transparent { .. } => WindowBackground::Transparent,
-            WindowBackgroundContent::Opaque => WindowBackground::Opaque,
+            WindowBackgroundAppearanceContent::Blurred { .. } => {
+                WindowBackgroundAppearance::Blurred
+            }
+            WindowBackgroundAppearanceContent::Transparent { .. } => {
+                WindowBackgroundAppearance::Transparent
+            }
+            WindowBackgroundAppearanceContent::Opaque => WindowBackgroundAppearance::Opaque,
         }
     }
 }
 
-impl WindowBackgroundContent {
+impl WindowBackgroundAppearanceContent {
     pub fn opacity(&self) -> f32 {
         match self {
-            WindowBackgroundContent::Blurred { opacity }
-            | WindowBackgroundContent::Transparent { opacity } => *opacity,
-            WindowBackgroundContent::Opaque => 1.0,
+            WindowBackgroundAppearanceContent::Blurred { opacity }
+            | WindowBackgroundAppearanceContent::Transparent { opacity } => *opacity,
+            WindowBackgroundAppearanceContent::Opaque => 1.0,
         }
     }
 }

@@ -58,12 +58,14 @@ impl StateViewBuilder for ThemeListBuilder {
                                             move |this, cx| {
                                                 cx.update_global::<Theme, _>(|this, cx| {
                                                     *this = theme.clone();
-                                                    cx.set_background(WindowBackground::from(
-                                                        theme
-                                                            .window_background
-                                                            .clone()
-                                                            .unwrap_or_default(),
-                                                    ))
+                                                    cx.set_background_appearance(
+                                                        WindowBackgroundAppearance::from(
+                                                            theme
+                                                                .window_background
+                                                                .clone()
+                                                                .unwrap_or_default(),
+                                                        ),
+                                                    )
                                                 });
                                                 this.toast.success("Theme activated", cx);
                                                 cx.refresh();

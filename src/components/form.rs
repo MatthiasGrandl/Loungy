@@ -258,7 +258,7 @@ impl InputView {
                         proceed = true;
                     } else {
                         let mods = e.keystroke.modifiers;
-                        if mods.shift || mods.control || mods.alt || mods.command {
+                        if mods.shift || mods.control || mods.alt || mods.platform {
                             self.inner.kind = InputKind::Shortcut {
                                 tmp: Some(Shortcut::from(&e.keystroke)),
                                 value: Some(Shortcut::from(&e.keystroke)),

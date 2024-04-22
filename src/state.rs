@@ -377,17 +377,17 @@ impl Toast {
     */
     pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut WindowContext) {
         let bounds = cx.display().map(|d| d.bounds()).unwrap_or(Bounds {
-            origin: Point::new(GlobalPixels::from(0.0), GlobalPixels::from(0.0)),
+            origin: Point::new(DevicePixels::from(0), DevicePixels::from(0)),
             size: Size {
-                width: GlobalPixels::from(1920.0),
-                height: GlobalPixels::from(1080.0),
+                width: DevicePixels::from(1920),
+                height: DevicePixels::from(1080),
             },
         });
         Window::close(cx);
         cx.open_window(
             WindowStyle::Toast {
-                width: message.to_string().len() as f64 * 12.0,
-                height: 50.0,
+                width: message.to_string().len() as u32 * 12,
+                height: 50,
             }
             .options(bounds),
             |cx| {
@@ -647,7 +647,7 @@ impl Shortcut {
     pub fn cmd(mut self) -> Self {
         #[cfg(target_os = "macos")]
         {
-            self.inner.modifiers.command = true;
+            self.inner.modifiers.platform = true;
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -723,7 +723,7 @@ impl RenderOnce for Shortcut {
         if shortcut.modifiers.shift {
             el = key_icon(el, Icon::ArrowBigUp);
         }
-        if shortcut.modifiers.command {
+        if shortcut.modifiers.platform {
             el = key_icon(el, Icon::Command);
         }
         match shortcut.key.as_str() {
