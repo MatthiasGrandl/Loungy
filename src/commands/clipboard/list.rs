@@ -371,7 +371,7 @@ impl ClipboardListItem {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 struct ClipboardPreview {
     id: u64,
     item: ClipboardListItem,
@@ -477,13 +477,13 @@ impl Render for ClipboardPreview {
                 kind.into_any_element()
             }),
         ];
-        let ts = format_date(&self.item.copied_last).into_any_element();
+        let ts = format_date(&self.item.copied_last, cx).into_any_element();
         table.append(&mut if self.item.copy_count > 1 {
             vec![
                 ("Last Copied".to_string(), ts),
                 (
                     "First Copied".to_string(),
-                    format_date(&self.item.copied_first).into_any_element(),
+                    format_date(&self.item.copied_first, cx).into_any_element(),
                 ),
                 (
                     "Times Copied".to_string(),

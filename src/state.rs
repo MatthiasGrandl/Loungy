@@ -572,7 +572,7 @@ impl StateModel {
             cx.notify();
         });
     }
-    #[allow(dead_code)]
+
     pub fn push_item(&self, item: StateItem, cx: &mut WindowContext) {
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
@@ -670,7 +670,7 @@ impl Shortcut {
         }
         #[cfg(not(target_os = "macos"))]
         {
-            self.inner.modifiers.command = true;
+            self.inner.modifiers.platform = true;
         }
         self
     }

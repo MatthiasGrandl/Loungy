@@ -64,13 +64,11 @@ impl WindowStyle {
     }
 }
 
-#[allow(dead_code)]
 pub struct Window {
     inner: View<NoView>,
     hidden: bool,
 }
 
-#[allow(dead_code)]
 impl Window {
     pub fn init(cx: &mut WindowContext) {
         let view = cx.new_view(|cx| {
@@ -143,7 +141,6 @@ pub struct Frontmost {
     inner: Model<Option<AppData>>,
 }
 
-#[allow(dead_code)]
 impl Frontmost {
     pub fn init(cx: &mut AppContext) {
         let model = cx.new_model(|cx| {

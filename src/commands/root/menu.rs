@@ -26,7 +26,7 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
+
 pub struct MenuItem {
     path: Vec<String>,
     #[serde(alias = "pathIndices")]

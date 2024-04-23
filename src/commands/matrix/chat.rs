@@ -52,6 +52,7 @@ use super::{
 };
 
 #[derive(Clone)]
+
 pub(super) struct ChatRoom {
     pub(super) timeline: Arc<Timeline>,
     pub(super) sync_service: Arc<SyncService>,
@@ -145,7 +146,7 @@ impl RenderOnce for MessageContent {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub(super) struct Message {
     pub id: String,
     pub sender: String,
@@ -293,7 +294,7 @@ impl ItemComponent for Message {
                     .justify_end()
                     .text_xs()
                     .text_color(theme.subtext0)
-                    .child(format_date(&self.timestamp.clone())),
+                    .child(format_date(&self.timestamp.clone(), cx)),
             )
             .child(if show_avatar {
                 let mut avatar = self.avatar.clone();

@@ -24,7 +24,7 @@ use crate::{
 };
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub struct NumbatResult {
     equation: String,
     pub result: String,

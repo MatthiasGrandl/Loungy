@@ -224,13 +224,14 @@ impl ItemBuilder {
 }
 
 #[derive(Clone)]
+
 pub enum ItemPreset {
     Plain,
     Default,
 }
 
 #[derive(IntoElement, Clone)]
-#[allow(dead_code)]
+
 pub struct Item {
     id: u64,
     preview: Option<(f32, Box<dyn Preview>)>,

@@ -35,7 +35,7 @@ use crate::theme::Theme;
 mod icon;
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub enum ImgMask {
     Circle,
     Rounded,
@@ -52,7 +52,7 @@ pub enum ImgSource {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub enum ImgSize {
     XS,
     SM,
@@ -68,6 +68,7 @@ pub enum ObjectFit {
     None,
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<gpui::ObjectFit> for ObjectFit {
     fn into(self) -> gpui::ObjectFit {
         match self {

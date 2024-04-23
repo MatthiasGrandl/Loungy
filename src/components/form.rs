@@ -344,7 +344,7 @@ impl InputView {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub enum InputKind {
     TextField {
         placeholder: String,

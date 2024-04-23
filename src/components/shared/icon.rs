@@ -41,7 +41,7 @@ impl fmt::Display for Icon {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
+
 pub enum Icon {
     Ratio,
     LampDesk,

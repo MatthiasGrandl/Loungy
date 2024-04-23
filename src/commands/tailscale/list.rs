@@ -96,7 +96,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                             let (tag, color) = match p.online {
                                 true => ("Connected".to_string(), theme.green),
                                 false => (
-                                    format!("Last seen: {}", format_date(&p.last_seen)),
+                                    format!("Last seen: {}", format_date(&p.last_seen, cx)),
                                     theme.surface0,
                                 ),
                             };

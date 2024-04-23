@@ -9,24 +9,10 @@
  *
  */
 
-use std::sync::OnceLock;
-
-use bonsaidb::core::num_traits::ToPrimitive;
+use gpui::AppContext;
 use time::{format_description, OffsetDateTime};
-use tz::TimeZone;
 
-fn try_local_offset() -> anyhow::Result<i32> {
-    Ok(TimeZone::local()?
-        .find_current_local_time_type()?
-        .ut_offset())
-}
-
-pub fn get_offset() -> &'static i32 {
-    static OFFSET: OnceLock<i32> = OnceLock::new();
-    OFFSET.get_or_init(|| try_local_offset().unwrap_or(0))
-}
-
-pub fn format_date(date: &OffsetDateTime) -> String {
+pub fn format_date(date: &OffsetDateTime, cx: &AppContext) -> String {
     let prefix = if date.day() == OffsetDateTime::now_utc().day() {
         "Today"
     } else if date.day()
@@ -41,8 +27,10 @@ pub fn format_date(date: &OffsetDateTime) -> String {
     let format = format!("{}, [hour]:[minute]:[second]", prefix);
     let format = format_description::parse(&format).unwrap();
 
-    date.checked_add(time::Duration::seconds(get_offset().to_i64().unwrap()))
-        .unwrap()
-        .format(&format)
-        .unwrap()
+    date.checked_add(time::Duration::seconds(
+        cx.local_timezone().whole_seconds() as i64
+    ))
+    .unwrap()
+    .format(&format)
+    .unwrap()
 }

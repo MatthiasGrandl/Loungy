@@ -132,7 +132,7 @@ impl TextView {
         self.masked = masked;
         cx.notify();
     }
-    #[allow(dead_code)]
+
     pub fn reset(&mut self, cx: &mut ViewContext<Self>) {
         self.text = "".to_string();
         self.selection = 0..0;

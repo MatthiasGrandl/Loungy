@@ -9,6 +9,8 @@
  *
  */
 
+#![allow(dead_code)]
+
 use app::run_app;
 use gpui::App;
 
@@ -16,6 +18,7 @@ mod app;
 mod assets;
 mod commands;
 mod components;
+mod date;
 mod db;
 mod hotkey;
 mod paths;
@@ -25,7 +28,6 @@ mod state;
 mod theme;
 mod window;
 mod workspace;
-mod date;
 
 #[async_std::main]
 async fn main() {

@@ -21,7 +21,7 @@ use crate::{
 };
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub(super) enum ComposeKind {
     Message,
     Reply { event: EventTimelineItem },
@@ -29,7 +29,7 @@ pub(super) enum ComposeKind {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
+
 pub(super) struct Compose {
     timeline: Arc<Timeline>,
     kind: ComposeKind,
