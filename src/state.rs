@@ -9,13 +9,13 @@
  *
  */
 
-use async_std::task::sleep;
 use gpui::*;
 use log::debug;
+use parking_lot::{Mutex, MutexGuard};
 use serde::Deserialize;
 use std::{
-    sync::{atomic::AtomicBool, Arc},
-    time::{self, Duration, Instant},
+    ops::DerefMut,
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -28,9 +28,6 @@ use crate::{
     theme::{self, Theme},
     window::{Window, WindowStyle},
 };
-
-use parking_lot::{Mutex, MutexGuard};
-use std::ops::DerefMut;
 
 pub struct LazyMutex<T> {
     inner: Mutex<Option<T>>,
@@ -47,115 +44,6 @@ impl<T> LazyMutex<T> {
 
     pub fn lock(&self) -> impl DerefMut<Target = T> + '_ {
         MutexGuard::map(self.inner.lock(), |val| val.get_or_insert_with(self.init))
-    }
-}
-
-pub static LOADERS: LazyMutex<Vec<Loader>> = LazyMutex::new(Vec::new);
-
-#[derive(Clone)]
-pub struct Loader(Arc<AtomicBool>);
-
-impl Loader {
-    pub fn add() -> Loader {
-        let loader = Loader(Arc::new(AtomicBool::new(true)));
-        LOADERS.lock().push(loader.clone());
-        loader
-    }
-    pub fn remove(&mut self) {
-        self.0.store(false, std::sync::atomic::Ordering::Relaxed);
-        let mut loaders = LOADERS.lock();
-        loaders.retain(|loader| loader.0.load(std::sync::atomic::Ordering::Relaxed));
-    }
-}
-
-impl ActiveLoaders {
-    fn init(cx: &mut WindowContext) -> View<Self> {
-        cx.new_view(|cx| {
-            cx.spawn(|view, mut cx| async move {
-                let ts = time::Instant::now();
-                let w = 1.0;
-                let w_start = 0.4;
-                let w_stop = 0.5;
-                let mut show = false;
-                let mut show_ts = time::Instant::now();
-                loop {
-                    if view.upgrade().is_none() {
-                        break;
-                    }
-                    if show != Self::show() {
-                        show = !show;
-                        show_ts = time::Instant::now();
-                    }
-                    let i = (ts.elapsed().as_millis() as f32 % 1000.0) / 1000.0;
-                    let (left, width) = if i > 0.4 {
-                        let i = (i - 0.4) / 0.6;
-                        let e = linear(i);
-                        let left = e * w;
-                        let width = e * (w_stop - w_start) + w_start;
-                        (left, width)
-                    } else {
-                        let i = i / 0.4;
-                        (0.0, linear(i) * w_start)
-                    };
-                    let opacity = {
-                        let i = show_ts.elapsed().as_millis() as f32 / 500.0;
-                        let i = if i > 1.0 { 1.0 } else { i };
-                        if show {
-                            1.0 - i
-                        } else {
-                            i
-                        }
-                    };
-                    let _ = cx.update(|cx| {
-                        view.update(cx, |this: &mut ActiveLoaders, cx| {
-                            this.left = left;
-                            this.width = width;
-                            this.opacity = opacity;
-                            cx.notify();
-                        })
-                    });
-                    sleep(Duration::from_millis(1000 / 120)).await;
-                }
-            })
-            .detach();
-
-            Self {
-                left: 0.0,
-                width: 0.0,
-                opacity: 0.0,
-            }
-        })
-    }
-    fn show() -> bool {
-        LOADERS
-            .lock()
-            .iter()
-            .any(|loader| loader.0.load(std::sync::atomic::Ordering::Relaxed))
-    }
-}
-
-pub struct ActiveLoaders {
-    width: f32,
-    left: f32,
-    opacity: f32,
-}
-
-impl Render for ActiveLoaders {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let theme = cx.global::<theme::Theme>();
-        let mut bg = theme.lavender;
-
-        bg.fade_out(self.opacity);
-        div().w_full().h_px().bg(theme.mantle).relative().child(
-            div()
-                .absolute()
-                .h_full()
-                .top_0()
-                .bottom_0()
-                .bg(bg)
-                .left(relative(self.left))
-                .w(relative(self.width)),
-        )
     }
 }
 
@@ -223,7 +111,7 @@ impl ToastState {
     }
     pub fn timeout(&mut self, duration: Duration, cx: &mut ViewContext<Self>) {
         cx.spawn(move |view, mut cx| async move {
-            sleep(duration).await;
+            cx.background_executor().timer(duration).await;
             // cx.background_executor().timer(duration).await;
             let _ = view.update(&mut cx, |this, cx| {
                 *this = ToastState::Idle;
@@ -392,7 +280,7 @@ impl Toast {
             .options(bounds),
             |cx| {
                 cx.spawn(|mut cx| async move {
-                    sleep(Duration::from_secs(2)).await;
+                    cx.background_executor().timer(Duration::from_secs(2)).await;
                     //cx.background_executor().timer(Duration::from_secs(2)).await;
                     let _ = cx.update_window(cx.window_handle(), |_, cx| {
                         cx.remove_window();
@@ -525,14 +413,12 @@ pub struct State {
 #[derive(Clone)]
 pub struct StateModel {
     pub inner: Model<State>,
-    pub loader: View<ActiveLoaders>,
 }
 
 impl StateModel {
     pub fn init(cx: &mut WindowContext) -> Self {
         let this = Self {
             inner: cx.new_model(|_| State { stack: vec![] }),
-            loader: ActiveLoaders::init(cx),
         };
         this.push(RootListBuilder {}, cx);
 

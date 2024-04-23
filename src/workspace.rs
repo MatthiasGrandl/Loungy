@@ -12,6 +12,7 @@
 use gpui::*;
 
 use crate::components::shared::{Icon, Img};
+use crate::loader::ActiveLoaders;
 use crate::state::{StateItem, StateModel};
 use crate::theme::Theme;
 
@@ -70,7 +71,7 @@ impl Render for Workspace {
                     .p_2()
                     .w_full(),
             )
-            .child(self.state.loader.clone())
+            .child(ActiveLoaders {})
             .child(div().flex_1().size_full().p_2().child(view.view.clone()))
             .child(
                 div()

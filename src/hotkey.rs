@@ -11,7 +11,6 @@
 
 use std::{collections::HashMap, sync::OnceLock, time::Duration};
 
-use async_std::task::sleep;
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
@@ -77,7 +76,9 @@ impl HotkeyManager {
                         });
                     }
                 }
-                sleep(Duration::from_millis(50)).await;
+                cx.background_executor()
+                    .timer(Duration::from_millis(50))
+                    .await;
                 // cx.background_executor()
                 //     .timer(Duration::from_millis(50))
                 //     .await;

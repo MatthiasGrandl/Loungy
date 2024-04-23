@@ -20,7 +20,6 @@ use std::{
 };
 
 use arboard::Clipboard;
-use async_std::task::sleep;
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
     local::Database,
@@ -658,7 +657,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                         if new_hash != hash {
                             hash = new_hash;
                             if !condition(&app, &mut cx) {
-                                sleep(Duration::from_secs(1)).await;
+                                cx.background_executor().timer(Duration::from_secs(1)).await;
                                 continue;
                             }
                             let entry = if let Ok(Some(mut item)) =
@@ -725,7 +724,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                         if new_hash != hash {
                             hash = new_hash;
                             if !condition(&app, &mut cx) {
-                                sleep(Duration::from_secs(1)).await;
+                                cx.background_executor().timer(Duration::from_secs(1)).await;
                                 continue;
                             }
                             let entry = if let Ok(Some(mut item)) =
@@ -778,7 +777,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                             });
                         }
                     }
-                    sleep(Duration::from_secs(1)).await;
+                    cx.background_executor().timer(Duration::from_secs(1)).await;
                 }
             })
             .detach();

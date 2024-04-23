@@ -42,7 +42,8 @@ use crate::{
         shared::{Icon, Img, ImgMask},
     },
     date::format_date,
-    state::{Action, Loader, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
+    loader::Loader,
+    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 

@@ -21,6 +21,7 @@ mod components;
 mod date;
 mod db;
 mod hotkey;
+mod loader;
 mod paths;
 mod platform;
 mod query;

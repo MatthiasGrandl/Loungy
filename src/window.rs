@@ -11,7 +11,6 @@
 
 use std::time::Duration;
 
-use async_std::task::sleep;
 use gpui::*;
 
 use crate::{
@@ -111,7 +110,9 @@ impl Window {
         });
         // After 90 seconds, reset the state
         cx.spawn(|mut cx| async move {
-            sleep(Duration::from_secs(90)).await;
+            cx.background_executor()
+                .timer(Duration::from_secs(90))
+                .await;
             // cx.background_executor()
             //     .timer(Duration::from_secs(90))
             //     .await;
@@ -130,7 +131,9 @@ impl Window {
             if !active {
                 break;
             }
-            sleep(Duration::from_millis(10)).await;
+            cx.background_executor()
+                .timer(Duration::from_millis(10))
+                .await;
         }
     }
 }
@@ -160,7 +163,9 @@ impl Frontmost {
                     if result.is_err() {
                         break;
                     }
-                    sleep(Duration::from_millis(100)).await;
+                    cx.background_executor()
+                        .timer(Duration::from_millis(100))
+                        .await;
                 }
             })
             .detach();

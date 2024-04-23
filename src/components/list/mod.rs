@@ -18,14 +18,13 @@ use std::{
 
 pub mod nucleo;
 
-use async_std::task::sleep;
-
 use gpui::*;
 use log::debug;
 
 use crate::{
+    loader::Loader,
     query::{TextEvent, TextInputWeak},
-    state::{Action, ActionsModel, Loader, Shortcut, StateItem, StateViewContext},
+    state::{Action, ActionsModel, Shortcut, StateItem, StateViewContext},
     theme::Theme,
 };
 
@@ -707,10 +706,9 @@ impl List {
                             debug!("List view released");
                             break;
                         }
-                        sleep(Duration::from_millis(50)).await;
-                        // cx.background_executor()
-                        //     .timer(Duration::from_millis(50))
-                        //     .await;
+                        cx.background_executor()
+                            .timer(Duration::from_millis(50))
+                            .await;
                     } else {
                         debug!("List view released");
                         break;

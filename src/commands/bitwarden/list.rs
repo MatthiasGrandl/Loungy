@@ -14,7 +14,6 @@ use std::{collections::HashMap, path::PathBuf, sync::OnceLock, time::Duration};
 use async_std::{
     channel,
     process::{Command, Output},
-    task::sleep,
 };
 use bonsaidb::{
     core::schema::{Collection, SerializedCollection},
@@ -362,7 +361,9 @@ impl EntryModel {
                                             cx.notify();
                                         },
                                     );
-                                    sleep(Duration::from_secs(10)).await
+                                    cx.background_executor()
+                                        .timer(Duration::from_secs(10))
+                                        .await
                                 }
                             })
                             .detach();
@@ -502,7 +503,10 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                                                     error!("Autofill timed out");
                                                                     return;
                                                                 }
-                                                                sleep(Duration::from_millis(100))
+                                                                cx.background_executor()
+                                                                    .timer(Duration::from_millis(
+                                                                        100,
+                                                                    ))
                                                                     .await;
                                                                 //cx.background_executor().timer(Duration::from_millis(100)).await;
                                                             }
@@ -541,7 +545,9 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                             let _ = view.update(&mut cx, move |list: &mut AsyncListItems, cx| {
                                 list.update(id.clone(), items, cx);
                             });
-                            sleep(Duration::from_secs(500)).await;
+                            cx.background_executor()
+                                .timer(Duration::from_secs(500))
+                                .await;
                         } else {
                             break;
                         }
