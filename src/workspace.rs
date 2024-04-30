@@ -60,7 +60,7 @@ impl Render for Workspace {
                 bg
             })
             .text_color(theme.text)
-            .font(theme.font_sans.clone())
+            .font_family(theme.font_sans.clone())
             .child(
                 div()
                     .flex()

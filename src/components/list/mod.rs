@@ -59,7 +59,7 @@ impl RenderOnce for Accessory {
                     .flex()
                     .items_center()
                     .text_color(theme.subtext0)
-                    .font(theme.font_mono.clone());
+                    .font_family(theme.font_mono.clone());
                 let el = if let Some(mut img) = img {
                     img.src = match img.src {
                         ImgSource::Icon { icon, color } => ImgSource::Icon {

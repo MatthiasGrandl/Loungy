@@ -531,7 +531,7 @@ impl Render for ClipboardPreview {
             .justify_between()
             .text_xs()
             .child(
-                div().flex_1().font(theme.font_mono.clone()).child(
+                div().flex_1().font_family(theme.font_mono.clone()).child(
                     canvas(
                         {
                             let b = self.bounds.clone();
@@ -541,7 +541,7 @@ impl Render for ClipboardPreview {
                                     *this = bounds;
                                 });
                                 let mut list = list(s).size_full().into_any_element();
-                                list.layout(
+                                list.prepaint_as_root(
                                     bounds.origin,
                                     bounds.size.map(AvailableSpace::Definite),
                                     cx,
@@ -573,7 +573,7 @@ impl Render for ClipboardPreview {
                                             .text_color(theme.subtext0)
                                             .child(key),
                                     )
-                                    .child(div().child(value).font(theme.font_mono.clone()))
+                                    .child(div().child(value).font_family(theme.font_mono.clone()))
                             })
                             .collect::<Vec<_>>(),
                     ),

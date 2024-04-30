@@ -79,9 +79,6 @@ impl HotkeyManager {
                 cx.background_executor()
                     .timer(Duration::from_millis(50))
                     .await;
-                // cx.background_executor()
-                //     .timer(Duration::from_millis(50))
-                //     .await;
             }
         })
         .detach();
