@@ -468,7 +468,12 @@ impl List {
         };
 
         self.selected.update(cx, |this, cx| {
-            *this = self.items.read(cx)[index].id;
+            *this = self
+                .items
+                .read(cx)
+                .get(index)
+                .map(|item| item.id)
+                .unwrap_or(0);
 
             cx.notify();
         });
@@ -489,7 +494,12 @@ impl List {
             0
         };
         self.selected.update(cx, |this, cx| {
-            *this = self.items.read(cx)[index].id;
+            *this = self
+                .items
+                .read(cx)
+                .get(index)
+                .map(|item| item.id)
+                .unwrap_or(0);
             cx.notify();
         });
         self.state.scroll_to_reveal_item(index);
