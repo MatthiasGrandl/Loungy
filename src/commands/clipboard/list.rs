@@ -41,10 +41,12 @@ use crate::{
     date::format_date,
     db::Db,
     paths::paths,
-    platform::{close_and_paste, close_and_paste_file, ocr, AppData, ClipboardWatcher},
+    platform::{
+        close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr, AppData,
+        ClipboardWatcher,
+    },
     state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
-    window::Frontmost,
 };
 
 #[derive(Clone)]
@@ -632,12 +634,14 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                             );
                         });
                     }
-                    let app = Frontmost::get_async(&cx);
+
+                    let app = get_frontmost_application_data();
                     let condition = |app: &Option<AppData>, cx: &mut AsyncAppContext| {
                         if !ClipboardWatcher::is_enabled(cx) {
                             ClipboardWatcher::enabled(cx);
                             return false;
                         }
+
                         // TODO: make this configurable and platform independent
                         if let Some(app) = app {
                             if matches!(

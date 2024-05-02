@@ -16,7 +16,7 @@ use crate::{
     commands::RootCommands,
     hotkey::HotkeyManager,
     theme::Theme,
-    window::{Frontmost, Window, WindowStyle},
+    window::{Window, WindowStyle},
     workspace::Workspace,
 };
 
@@ -36,7 +36,6 @@ pub fn run_app(app: gpui::App) {
             cx.set_background_appearance(WindowBackgroundAppearance::from(
                 theme.window_background.clone().unwrap_or_default(),
             ));
-            Frontmost::init(cx);
             RootCommands::init(cx);
             HotkeyManager::init(cx);
             let view = Workspace::build(cx);
