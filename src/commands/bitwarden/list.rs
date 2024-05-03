@@ -519,6 +519,31 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                                     },
                                     false,
                                 )];
+
+                                let url = login.uris.first().and_then(|uri| {
+                                    Url::parse(&if !uri.uri.starts_with("http") {
+                                        format!("https://{}", uri.uri)
+                                    } else {
+                                        uri.uri.clone()
+                                    })
+                                    .ok()
+                                });
+
+                                if let Some(url) = url {
+                                    actions.push(Action::new(
+                                        Img::default().icon(Icon::Globe),
+                                        "Open",
+                                        Some(Shortcut::new("o").cmd()),
+                                        {
+                                            move |_, cx| {
+                                                Window::close(cx);
+                                                cx.open_url(url.as_str());
+                                            }
+                                        },
+                                        false,
+                                    ));
+                                }
+
                                 // let preview = cx.update_window::<StateItem, _>(cx.window_handle(), |_, cx| {
                                 //     StateItem::init(BitwardenAccountListBuilder, false, cx)
                                 // }).ok();
