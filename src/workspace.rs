@@ -49,7 +49,7 @@ impl Render for Workspace {
 
         div()
             .rounded_xl()
-            .border()
+            .border_1()
             .border_color(theme.crust)
             .size_full()
             .flex()

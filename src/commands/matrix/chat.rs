@@ -302,8 +302,8 @@ impl ItemComponent for Message {
                 avatar.mask = ImgMask::Circle;
                 div()
                     .absolute()
-                    .neg_left_6()
-                    .neg_top_6()
+                    .left_neg_6()
+                    .top_neg_6()
                     .flex()
                     .items_center()
                     .child(avatar)
@@ -321,7 +321,7 @@ impl ItemComponent for Message {
                 div()
                     .absolute()
                     .left_0()
-                    .neg_bottom_6()
+                    .bottom_neg_6()
                     .child(self.reactions.clone()),
             ),
         )
