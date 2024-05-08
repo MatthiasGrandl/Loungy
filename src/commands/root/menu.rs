@@ -52,7 +52,8 @@ impl StateViewBuilder for MenuListBuilder {
             .build(
                 |_, _, _cx| {
                     let data = unsafe { menu_items() };
-                    if let Ok(items) = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice()) {
+                    let result = serde_json::from_slice::<Vec<MenuItem>>(data.as_slice());
+                    if let Ok(items) = result {
                         Ok(Some(
                             items
                                 .into_iter()
@@ -84,7 +85,7 @@ impl StateViewBuilder for MenuListBuilder {
                                         vec![]
                                     };
 
-                                    ItemBuilder::new(path.clone(), {
+                                    ItemBuilder::new(item.path.clone(), {
                                         ListItem::new(
                                             None,
                                             name.clone(),
@@ -99,6 +100,10 @@ impl StateViewBuilder for MenuListBuilder {
                                 .collect(),
                         ))
                     } else {
+                        log::error!(
+                            "Failed to deserialize menu list: {:?}",
+                            result.err().unwrap()
+                        );
                         Err(anyhow::Error::msg("Failed to deserialize menu list"))
                     }
                 },

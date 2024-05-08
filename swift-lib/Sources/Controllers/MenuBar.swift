@@ -1,9 +1,9 @@
 /*
  This source file is part of the Loungy open source project
- 
+
  Copyright (c) 2024 Loungy, Matthias Grandl and the Loungy project contributors
  Licensed under MIT License
- 
+
  See https://github.com/MatthiasGrandl/Loungy/blob/main/LICENSE.md for license information
 */
 
@@ -18,7 +18,7 @@ final class MenuBar {
         case noAppFound
         case menuNotLoaded
         case failToConvert
-        
+
         var description: String {
             switch self {
             case .noAppFound:
@@ -30,7 +30,7 @@ final class MenuBar {
             }
         }
     }
-    
+
     private let virtualKeys = [
         0x24: "enter", // kVK_Return
         0x4C: "enter", // kVK_ANSI_KeypadEnter
@@ -71,26 +71,26 @@ final class MenuBar {
         0x7D: "down", // kVK_DownArrow
         0x7E: "up", // kVK_UpArrow
     ]
-    
+
     private var menuBar: AXUIElement?
     private let state: AXError
-    
+
     init() throws {
         let app = NSWorkspace.shared.menuBarOwningApplication
-        
+
         guard let app else {
             throw Error.noAppFound
         }
-        
+
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         var menuBarValue: CFTypeRef?
-        
+
         state = AXUIElementCopyAttributeValue(
             axApp,
             kAXMenuBarAttribute as CFString,
             &menuBarValue
         )
-        
+
         if state == .success {
             menuBar = (menuBarValue as! AXUIElement)
         }
@@ -103,31 +103,31 @@ final class MenuBar {
             guard let menuBar else {
                 throw Error.menuNotLoaded
             }
-            
+
             let items = load(
                 from: menuBar,
                 using: options
             )
 
             let data = try [UInt8](encoder.encode(items))
-        
+
             return data
         }
         catch {
             throw Error.failToConvert
         }
     }
-    
+
     func selectMenu(from data: Data) throws {
         let decoder = JSONDecoder()
-        
+
         do {
             let indices = try decoder.decode([Int].self, from: data)
-            
+
             guard let menuBar else {
                 throw Error.menuNotLoaded
             }
-            
+
             click(
                 menu: menuBar,
                 pathIndices: indices,
@@ -143,43 +143,43 @@ final class MenuBar {
 // MARK: - Private Methods
 
 private extension MenuBar {
-    
+
     func decode(modifiers: Int) -> Modifiers {
         if modifiers == 0x18 {
             return Modifiers(
                 function: true
             )
         }
-        
+
         return Modifiers(
             control: (modifiers & 0x04) > 0,
             alt: (modifiers & 0x02) > 0,
             shift: (modifiers & 0x01) > 0,
-            command: (modifiers & 0x08) == 0
+            platform: (modifiers & 0x08) == 0
         )
     }
-    
+
     func shortcut(_: String?, _ modifiers: Int, _ virtualKey: Int) -> Shortcut? {
         var shortcut: String?
-        
+
         if virtualKey > 0 {
             if let lookup = virtualKeys[virtualKey] {
                 shortcut = lookup
             }
         }
-        
+
         let mods = decode(modifiers: modifiers)
-        
+
         guard let shortcut else {
             return nil
         }
-        
+
         return Shortcut(
             modifiers: mods,
             key: shortcut
         )
     }
-    
+
     func click(menu element: AXUIElement, pathIndices: [Int], currentIndex: Int) {
         guard
             let menuBarItems = element.attribute(for: kAXChildrenAttribute) as? [AXUIElement],
@@ -187,34 +187,34 @@ private extension MenuBar {
         else {
             return
         }
-        
+
         let itemIndex = pathIndices[currentIndex]
-        
+
         guard
             itemIndex >= menuBarItems.startIndex,
             itemIndex < menuBarItems.endIndex
         else {
             return
         }
-        
+
         let child = menuBarItems[itemIndex]
-        
+
         if currentIndex == pathIndices.count - 1 {
             AXUIElementPerformAction(child, kAXPressAction as CFString)
             return
         }
-        
+
         guard let menuBar = child.attribute(for: kAXChildrenAttribute) as? [AXUIElement] else {
             return
         }
-        
+
         click(
             menu: menuBar[0],
             pathIndices: pathIndices,
             currentIndex: currentIndex + 1
         )
     }
-    
+
     func menuItems(
         for element: AXUIElement,
         menuItems: inout [MenuItem],
@@ -224,7 +224,7 @@ private extension MenuBar {
         options: Options
     ) {
         let children = element.attribute(for: kAXChildrenAttribute) as? [AXUIElement]
-        
+
         guard
             depth < options.maxDepth,
             let children,
@@ -232,9 +232,9 @@ private extension MenuBar {
         else {
             return
         }
-        
+
         var processedChildrenCount = 0
-        
+
         for (index, child) in children.enumerated() {
             guard
                 let enabled = child.attribute(for: kAXEnabledAttribute) as? Bool,
@@ -243,23 +243,23 @@ private extension MenuBar {
             else {
                 continue
             }
-            
+
             title.clearedNewLines()
-            
+
             guard let children = child.attribute(for: kAXChildrenAttribute) as? [AXUIElement] else {
                 continue
             }
-            
+
             if options.dumpInfo {
                 dumpInfo(element: child, name: title, depth: depth)
             }
-            
+
             let menuPath = path + [title]
-            
+
             if options.canIgnorePath(path: menuPath) {
                 continue
             }
-            
+
             if children.count == 1, enabled {
                 // sub-menu item, scan children
                 self.menuItems(
@@ -275,64 +275,64 @@ private extension MenuBar {
                 if options.dumpInfo {
                     print("➕ adding ", menuPath)
                 }
-                
+
                 // not a sub menu, if we have a path to this item
                 let command = child.attribute(for: kAXMenuItemCmdCharAttribute) as? String
                 var modifiers = 0
                 var virtualKey = 0
-                
+
                 if let modifier = child.attribute(for: kAXMenuItemCmdModifiersAttribute) {
                     CFNumberGetValue((modifier as! CFNumber), CFNumberType.longType, &modifiers)
                 }
-                
+
                 if let key = child.attribute(for: kAXMenuItemCmdVirtualKeyAttribute) {
                     CFNumberGetValue((key as! CFNumber), CFNumberType.longType, &virtualKey)
                 }
-                
+
                 var menuItem = MenuItem()
                 menuItem.path = menuPath
                 menuItem.pathIndices = pathIndices + [index]
                 menuItem.shortcut = shortcut(command, modifiers, virtualKey)
-                
+
                 menuItems.append(menuItem)
-                
+
                 processedChildrenCount += 1
-                
+
                 if processedChildrenCount > options.maxChildren {
                     break
                 }
             }
         }
     }
-    
+
     func dumpInfo(element: AXUIElement, name: String, depth: Int) {
         let padding = " " + String(repeating: " |", count: depth - 1)
         print(padding, ":::", name, ":::")
         print(padding, "   ", element)
-        
+
         func printAttributeInfo(_ header: String, _ attributes: [String]) {
             let values = attributes.compactMap { (name: String) -> (name: String, reference: CFTypeRef)? in
                 guard let reference = element.attribute(for: name) else {
                     return nil
                 }
-                
+
                 return (
                     name: name,
                     reference: reference
                 )
             }
-            
+
             guard values.isEmpty == false else {
                 return
             }
-            
+
             print(padding, "    ", header)
-            
+
             values.forEach {
                 print(padding, "        ", $0.name, $0.reference)
             }
         }
-        
+
         printAttributeInfo("- informational attributes", [
             kAXRoleAttribute,
             kAXSubroleAttribute,
@@ -341,7 +341,7 @@ private extension MenuBar {
             kAXDescriptionAttribute,
             kAXHelpAttribute,
         ])
-        
+
         printAttributeInfo("- hierarchy or relationship attributes", [
             kAXParentAttribute,
             kAXChildrenAttribute,
@@ -354,14 +354,14 @@ private extension MenuBar {
             kAXLinkedUIElementsAttribute,
             kAXSharedFocusElementsAttribute,
         ])
-        
+
         printAttributeInfo("- visual state attributes", [
             kAXEnabledAttribute,
             kAXFocusedAttribute,
             kAXPositionAttribute,
             kAXSizeAttribute,
         ])
-        
+
         printAttributeInfo("- value attributes", [
             kAXValueAttribute,
             kAXValueDescriptionAttribute,
@@ -371,7 +371,7 @@ private extension MenuBar {
             kAXValueWrapsAttribute,
             kAXAllowedValuesAttribute,
         ])
-        
+
         printAttributeInfo("- text-specific attributes", [
             kAXSelectedTextAttribute,
             kAXSelectedTextRangeAttribute,
@@ -381,7 +381,7 @@ private extension MenuBar {
             kAXSharedTextUIElementsAttribute,
             kAXSharedCharacterRangeAttribute,
         ])
-        
+
         printAttributeInfo("- window, sheet, or drawer-specific attributes", [
             kAXMainAttribute,
             kAXMinimizedAttribute,
@@ -395,7 +395,7 @@ private extension MenuBar {
             kAXDefaultButtonAttribute,
             kAXCancelButtonAttribute,
         ])
-        
+
         printAttributeInfo("- menu or menu item-specific attributes", [
             kAXMenuItemCmdCharAttribute,
             kAXMenuItemCmdVirtualKeyAttribute,
@@ -404,7 +404,7 @@ private extension MenuBar {
             kAXMenuItemMarkCharAttribute,
             kAXMenuItemPrimaryUIElementAttribute,
         ])
-        
+
         printAttributeInfo("- application element-specific attributes", [
             kAXMenuBarAttribute,
             kAXWindowsAttribute,
@@ -415,7 +415,7 @@ private extension MenuBar {
             kAXFocusedUIElementAttribute,
             kAXExtrasMenuBarAttribute,
         ])
-        
+
         printAttributeInfo("- date/time-specific attributes", [
             kAXHourFieldAttribute,
             kAXMinuteFieldAttribute,
@@ -425,7 +425,7 @@ private extension MenuBar {
             kAXMonthFieldAttribute,
             kAXYearFieldAttribute,
         ])
-        
+
         printAttributeInfo("- table, outline, or browser-specific attributes", [
             kAXRowsAttribute,
             kAXVisibleRowsAttribute,
@@ -440,12 +440,12 @@ private extension MenuBar {
             kAXDisclosedRowsAttribute,
             kAXDisclosedByRowAttribute,
         ])
-        
+
         printAttributeInfo("- matte-specific attributes", [
             kAXMatteHoleAttribute,
             kAXMatteContentUIElementAttribute,
         ])
-        
+
         printAttributeInfo("- ruler-specific attributes", [
             kAXMarkerUIElementsAttribute,
             kAXUnitsAttribute,
@@ -453,7 +453,7 @@ private extension MenuBar {
             kAXMarkerTypeAttribute,
             kAXMarkerTypeDescriptionAttribute,
         ])
-        
+
         printAttributeInfo("- miscellaneous or role-specific attributes", [
             kAXHorizontalScrollBarAttribute,
             kAXVerticalScrollBarAttribute,
@@ -484,39 +484,39 @@ private extension MenuBar {
             kAXAlternateUIVisibleAttribute,
         ])
     }
-    
+
     func load(from menuBar: AXUIElement, using options: Options) -> [MenuItem] {
         var items = [MenuItem]()
-        
+
         guard
             let menuBarItems = menuBar.attribute(for: kAXChildrenAttribute) as? [AXUIElement],
             menuBarItems.count > 0
         else {
             return []
         }
-        
+
         for (index, item) in menuBarItems.enumerated() {
             guard let name = item.attribute(for: kAXTitleAttribute) as? String else {
                 continue
             }
-            
+
             if name == "Apple" {
                 continue
             }
-            
+
             if options.canIgnorePath(path: [name]) {
                 continue
             }
-            
+
             if let menuRoot = options.specificMenuRoot,
                name.lowercased() != menuRoot.lowercased() {
                 continue
             }
-            
+
             guard let children = item.attribute(for: kAXChildrenAttribute) as? [AXUIElement] else {
                 continue
             }
-            
+
             self.menuItems(
                 for: children[0],
                 menuItems: &items,
@@ -526,7 +526,7 @@ private extension MenuBar {
                 options: options
             )
         }
-        
+
         return items
     }
 }
