@@ -9,11 +9,11 @@
  *
  */
 
-use crate::components::{list::AsyncListItems, shared::Img};
+use crate::components::shared::Img;
 use crate::paths::paths;
 use crate::window::Window;
 use cocoa::appkit::NSPasteboard;
-use gpui::{AsyncWindowContext, WeakView, WindowContext};
+use gpui::{AsyncWindowContext, WindowContext};
 use std::time::Duration;
 use std::{fs, path::Path};
 use swift_rs::{swift, Bool, SRObject, SRString};

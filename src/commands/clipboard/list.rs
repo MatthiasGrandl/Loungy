@@ -623,7 +623,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                 }
                 let mut now = Instant::now();
                 clipboard(
-                    |mut cx| {
+                    |cx| {
                         if Instant::now() - now > Duration::from_secs(3600) {
                             now = Instant::now();
                             // Prune clipboard history every hour, keeping entries for a week
