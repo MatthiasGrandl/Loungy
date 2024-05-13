@@ -528,7 +528,7 @@ impl List {
                 self.filter(no_scroll, cx);
             }
             Ok(None) => {}
-            Err(err) => {
+            Err(_err) => {
                 let _ = self.actions.inner.update(cx, |this, cx| {
                     this.toast.error("Failed to refresh list", cx);
                 });

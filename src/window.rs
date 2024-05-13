@@ -50,7 +50,7 @@ impl WindowStyle {
                 return options;
             }
         };
-        options.bounds = Some(Bounds::new(Point { x, y }, Size { width, height }));
+        options.window_bounds = Some(WindowBounds::Windowed(Bounds::new(Point { x, y }, Size { width, height })));
         options.titlebar = None;
         options.is_movable = false;
         options.kind = WindowKind::PopUp;
