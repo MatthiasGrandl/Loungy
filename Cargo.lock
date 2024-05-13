@@ -4286,6 +4286,7 @@ dependencies = [
  "async-std",
  "bonsaidb",
  "catppuccin",
+ "cocoa",
  "crossbeam-channel",
  "env_logger 0.11.3",
  "freedesktop-icons",

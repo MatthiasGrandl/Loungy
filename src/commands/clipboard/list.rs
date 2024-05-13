@@ -42,8 +42,8 @@ use crate::{
     db::Db,
     paths::paths,
     platform::{
-        close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr, AppData,
-        ClipboardWatcher,
+        clipboard, close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr,
+        AppData, ClipboardWatcher,
     },
     state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
@@ -614,175 +614,176 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
             }
             ClipboardWatcher::init(cx);
 
-            cx.spawn(|view, mut cx| async move {
-                let mut clipboard = Clipboard::new().unwrap();
+            cx.spawn(|view, cx| async move {
+                let mut cp = Clipboard::new().unwrap();
                 let mut hash: u64 = 0;
                 let cache = paths().cache.join("clipboard");
                 if !cache.exists() {
                     let _ = std::fs::create_dir_all(&cache);
                 }
                 let mut now = Instant::now();
-                loop {
-                    if Instant::now() - now > Duration::from_secs(3600) {
-                        now = Instant::now();
-                        // Prune clipboard history every hour, keeping entries for a week
-                        let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                            let _ = ClipboardListItem::prune(
-                                Duration::from_secs(60 * 60 * 24 * 7),
-                                view.clone(),
-                                cx,
-                            );
-                        });
-                    }
-
-                    let app = get_frontmost_application_data();
-                    let condition = |app: &Option<AppData>, cx: &mut AsyncAppContext| {
-                        if !ClipboardWatcher::is_enabled(cx) {
-                            ClipboardWatcher::enabled(cx);
-                            return false;
+                clipboard(
+                    |mut cx| {
+                        if Instant::now() - now > Duration::from_secs(3600) {
+                            now = Instant::now();
+                            // Prune clipboard history every hour, keeping entries for a week
+                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                let _ = ClipboardListItem::prune(
+                                    Duration::from_secs(60 * 60 * 24 * 7),
+                                    view.clone(),
+                                    cx,
+                                );
+                            });
                         }
 
-                        // TODO: make this configurable and platform independent
-                        if let Some(app) = app {
-                            if matches!(
-                                app.id.as_str(),
-                                "com.apple.systempreferences" | "com.apple.keychainaccess"
-                            ) {
+                        let app = get_frontmost_application_data();
+                        let condition = |app: &Option<AppData>, cx: &mut AsyncAppContext| {
+                            if !ClipboardWatcher::is_enabled(cx) {
+                                ClipboardWatcher::enabled(cx);
                                 return false;
                             }
-                        }
 
-                        true
-                    };
-                    if let Ok(text) = clipboard.get_text() {
-                        let mut hasher = DefaultHasher::new();
-                        text.hash(&mut hasher);
-                        let new_hash = hasher.finish();
-                        if new_hash != hash {
-                            hash = new_hash;
-                            if !condition(&app, &mut cx) {
-                                cx.background_executor().timer(Duration::from_secs(1)).await;
-                                continue;
-                            }
-                            let entry = if let Ok(Some(mut item)) =
-                                ClipboardListItem::get(&hash, db_items())
-                            {
-                                item.contents.copied_last = OffsetDateTime::now_utc();
-                                item.contents.copy_count += 1;
-                                let _ = item.update(db_items());
-                                item.contents.clone()
-                            } else {
-                                let url = Url::parse(&text);
-                                if url.is_ok() && {
-                                    let url = url.unwrap();
-                                    !url.cannot_be_a_base() && url.scheme().starts_with("http")
-                                } {
-                                    ClipboardListItem::new(
-                                        hash,
-                                        {
-                                            let mut text = text.trim().replace('\n', " ");
-                                            if text.len() > 25 {
-                                                text.truncate(25);
-                                                text.push_str("...");
-                                            }
-                                            text
-                                        },
-                                        ClipboardKind::Url {
-                                            characters: text.chars().count() as u64,
-                                            url: text,
-                                            title: "".to_string(),
-                                        },
-                                        &app,
-                                    )
-                                } else {
-                                    ClipboardListItem::new(
-                                        hash,
-                                        {
-                                            let mut text = text.trim().replace('\n', " ");
-                                            if text.len() > 25 {
-                                                text.truncate(25);
-                                                text.push_str("...");
-                                            }
-                                            text
-                                        },
-                                        ClipboardKind::Text {
-                                            characters: text.chars().count() as u64,
-                                            words: text.split_whitespace().count() as u64,
-                                            text: text.clone(),
-                                        },
-                                        &app,
-                                    )
+                            // TODO: make this configurable and platform independent
+                            if let Some(app) = app {
+                                if matches!(
+                                    app.id.as_str(),
+                                    "com.apple.systempreferences" | "com.apple.keychainaccess"
+                                ) {
+                                    return false;
                                 }
-                            };
-                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                                let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
-                                    let item = entry.get_item(cx);
-                                    view.push(entry.kind.into(), item, cx);
-                                });
-                            });
-                        }
-                    } else if let Ok(image) = clipboard.get_image() {
-                        let mut hasher = DefaultHasher::new();
-                        image.bytes.hash(&mut hasher);
-                        let new_hash = hasher.finish();
-                        if new_hash != hash {
-                            hash = new_hash;
-                            if !condition(&app, &mut cx) {
-                                cx.background_executor().timer(Duration::from_secs(1)).await;
-                                continue;
                             }
-                            let entry = if let Ok(Some(mut item)) =
-                                ClipboardListItem::get(&hash, db_items())
-                            {
-                                item.contents.copied_last = OffsetDateTime::now_utc();
-                                item.contents.copy_count += 1;
-                                let _ = item.update(db_items());
-                                item.contents.clone()
-                            } else {
-                                let width = image.width.try_into().unwrap();
-                                let height = image.height.try_into().unwrap();
-                                let path = cache.join(format!("{}.png", hash));
-                                let thumbnail = cache.join(format!("{}.thumb.png", hash));
-                                // Spawn a thread to generate thumbnail and saving to filesystem.
+
+                            true
+                        };
+                        if let Ok(text) = cp.get_text() {
+                            let mut hasher = DefaultHasher::new();
+                            text.hash(&mut hasher);
+                            let new_hash = hasher.finish();
+                            if new_hash != hash {
+                                hash = new_hash;
+                                if !condition(&app, cx) {
+                                    return;
+                                }
+                                let entry = if let Ok(Some(mut item)) =
+                                    ClipboardListItem::get(&hash, db_items())
                                 {
-                                    let path = path.clone();
-                                    let thumbnail = thumbnail.clone();
-                                    thread::spawn(move || {
-                                        let image = DynamicImage::ImageRgba8(
-                                            ImageBuffer::from_vec(
-                                                width,
-                                                height,
-                                                image.bytes.to_vec(),
-                                            )
-                                            .unwrap(),
-                                        );
-                                        let _ = image.save(&path);
-                                        let t = image.thumbnail(64, 64);
-                                        let _ = t.save(&thumbnail);
+                                    item.contents.copied_last = OffsetDateTime::now_utc();
+                                    item.contents.copy_count += 1;
+                                    let _ = item.update(db_items());
+                                    item.contents.clone()
+                                } else {
+                                    let url = Url::parse(&text);
+                                    if url.is_ok() && {
+                                        let url = url.unwrap();
+                                        !url.cannot_be_a_base() && url.scheme().starts_with("http")
+                                    } {
+                                        ClipboardListItem::new(
+                                            hash,
+                                            {
+                                                let mut text = text.trim().replace('\n', " ");
+                                                if text.len() > 25 {
+                                                    text.truncate(25);
+                                                    text.push_str("...");
+                                                }
+                                                text
+                                            },
+                                            ClipboardKind::Url {
+                                                characters: text.chars().count() as u64,
+                                                url: text,
+                                                title: "".to_string(),
+                                            },
+                                            &app,
+                                        )
+                                    } else {
+                                        ClipboardListItem::new(
+                                            hash,
+                                            {
+                                                let mut text = text.trim().replace('\n', " ");
+                                                if text.len() > 25 {
+                                                    text.truncate(25);
+                                                    text.push_str("...");
+                                                }
+                                                text
+                                            },
+                                            ClipboardKind::Text {
+                                                characters: text.chars().count() as u64,
+                                                words: text.split_whitespace().count() as u64,
+                                                text: text.clone(),
+                                            },
+                                            &app,
+                                        )
+                                    }
+                                };
+                                let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                    let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
+                                        let item = entry.get_item(cx);
+                                        view.push(entry.kind.into(), item, cx);
                                     });
-                                }
-                                ClipboardListItem::new(
-                                    hash,
-                                    format!("Image ({}x{})", width, height),
-                                    ClipboardKind::Image {
-                                        width,
-                                        height,
-                                        path,
-                                        thumbnail,
-                                    },
-                                    &app,
-                                )
-                            };
-                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                                let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
-                                    let item = entry.get_item(cx);
-                                    view.push(entry.kind.into(), item, cx);
                                 });
-                            });
+                            }
+                        } else if let Ok(image) = cp.get_image() {
+                            let mut hasher = DefaultHasher::new();
+                            image.bytes.hash(&mut hasher);
+                            let new_hash = hasher.finish();
+                            if new_hash != hash {
+                                hash = new_hash;
+                                if !condition(&app, cx) {
+                                    return;
+                                }
+                                let entry = if let Ok(Some(mut item)) =
+                                    ClipboardListItem::get(&hash, db_items())
+                                {
+                                    item.contents.copied_last = OffsetDateTime::now_utc();
+                                    item.contents.copy_count += 1;
+                                    let _ = item.update(db_items());
+                                    item.contents.clone()
+                                } else {
+                                    let width = image.width.try_into().unwrap();
+                                    let height = image.height.try_into().unwrap();
+                                    let path = cache.join(format!("{}.png", hash));
+                                    let thumbnail = cache.join(format!("{}.thumb.png", hash));
+                                    // Spawn a thread to generate thumbnail and saving to filesystem.
+                                    {
+                                        let path = path.clone();
+                                        let thumbnail = thumbnail.clone();
+                                        thread::spawn(move || {
+                                            let image = DynamicImage::ImageRgba8(
+                                                ImageBuffer::from_vec(
+                                                    width,
+                                                    height,
+                                                    image.bytes.to_vec(),
+                                                )
+                                                .unwrap(),
+                                            );
+                                            let _ = image.save(&path);
+                                            let t = image.thumbnail(64, 64);
+                                            let _ = t.save(&thumbnail);
+                                        });
+                                    }
+                                    ClipboardListItem::new(
+                                        hash,
+                                        format!("Image ({}x{})", width, height),
+                                        ClipboardKind::Image {
+                                            width,
+                                            height,
+                                            path,
+                                            thumbnail,
+                                        },
+                                        &app,
+                                    )
+                                };
+                                let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                    let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
+                                        let item = entry.get_item(cx);
+                                        view.push(entry.kind.into(), item, cx);
+                                    });
+                                });
+                            }
                         }
-                    }
-                    cx.background_executor().timer(Duration::from_secs(1)).await;
-                }
+                    },
+                    cx,
+                )
+                .await;
             })
             .detach();
             list_items

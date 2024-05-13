@@ -9,10 +9,12 @@
  *
  */
 
-use crate::components::shared::Img;
+use crate::components::{list::AsyncListItems, shared::Img};
 use crate::paths::paths;
 use crate::window::Window;
-use gpui::WindowContext;
+use cocoa::appkit::NSPasteboard;
+use gpui::{AsyncWindowContext, WeakView, WindowContext};
+use std::time::Duration;
 use std::{fs, path::Path};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
@@ -129,4 +131,24 @@ pub fn autofill(value: &str, password: bool, prev: &str) -> Option<String> {
 pub fn ocr(path: &Path) {
     swift!( fn ocr(path: SRString));
     unsafe { ocr(SRString::from(path.to_string_lossy().to_string().as_str())) }
+}
+
+pub async fn clipboard(
+    mut on_change: impl FnMut(&mut AsyncWindowContext),
+    mut cx: AsyncWindowContext,
+) {
+    unsafe {
+        let pasteboard = NSPasteboard::generalPasteboard(cocoa::base::nil);
+        let mut change_count = pasteboard.changeCount();
+
+        loop {
+            if pasteboard.changeCount() != change_count {
+                change_count = pasteboard.changeCount();
+                on_change(&mut cx);
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(50))
+                .await;
+        }
+    }
 }
