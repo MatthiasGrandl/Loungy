@@ -11,10 +11,12 @@
 
 mod desktop_file;
 
+use walkdir::WalkDir;
+
 use crate::components::shared::{Icon, Img};
 use crate::paths::paths;
 
-use std::fs;
+use std::{fs, env};
 use std::path::PathBuf;
 
 use super::AppData;
@@ -49,6 +51,69 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
         keywords: file.keywords,
         tag: "Application".to_string(),
     })
+}
+
+fn get_desktop_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    if let Ok(data_home) = env::var("XDG_DATA_HOME") {
+        let data_home = PathBuf::from(data_home);
+        if data_home.exists() {
+            dirs.push(data_home);
+        }
+    } else {
+        let home_dir = PathBuf::from("/home").join(whoami::username());
+        let share_dir = home_dir.join(PathBuf::from("/.local/share"));
+
+        if share_dir.exists() {
+            dirs.push(share_dir);
+        }
+    }
+
+    if let Ok(xdg_data_dirs) = env::var("XDG_DATA_DIRS") {
+        dirs.extend(
+            xdg_data_dirs
+                .split(":")
+                .map(|s| PathBuf::from(s))
+                .filter(|d| d.exists()),
+        );
+    } else {
+        let usr_local_share = PathBuf::from("/usr/local/share");
+        let usr_share = PathBuf::from("/usr/share");
+
+        if usr_share.exists() {
+            dirs.push(usr_share);
+        }
+
+        if usr_local_share.exists() {
+            dirs.push(usr_local_share);
+        }
+    }
+
+    return dirs;
+}
+
+pub fn get_application_files() -> Vec<PathBuf> {
+    let dirs = get_desktop_dirs();
+
+    let mut files = Vec::new();
+    for dir in dirs {
+        let walker = WalkDir::new(dir).into_iter();
+        for entry in walker {
+            if let Ok(entry) = entry {
+                if entry
+                    .path()
+                    .extension()
+                    .and_then(|ext| Some(ext == "desktop"))
+                    .unwrap_or(false)
+                {
+                    files.push(entry.path().to_path_buf());
+                }
+            }
+        }
+    }
+
+    return files;
 }
 
 pub fn get_frontmost_application_data() -> Option<AppData> {

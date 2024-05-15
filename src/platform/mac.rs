@@ -15,7 +15,7 @@ use crate::window::Window;
 use cocoa::appkit::NSPasteboard;
 use gpui::{AsyncWindowContext, WindowContext};
 use std::time::Duration;
-use std::{fs, path::Path};
+use std::{fs, path::{Path, PathBuf}};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
 use super::{AppData, ClipboardWatcher};
@@ -61,6 +61,42 @@ pub fn get_application_data(path: &Path) -> Option<AppData> {
             tag: tag.to_string(),
         }
     })
+}
+
+pub fn get_application_files() -> Vec<PathBuf> {
+    let user_dir = PathBuf::from("/Users")
+        .join(whoami::username())
+        .join("Applications");
+
+    let applications_folders = vec![
+        PathBuf::from("/Applications"),
+        PathBuf::from("/Applications/Chromium Apps"),
+        PathBuf::from("/System/Applications/Utilities"),
+        PathBuf::from("/System/Applications"),
+        PathBuf::from("/System/Library/CoreServices/Applications"),
+        PathBuf::from("/Library/PreferencePanes"),
+        PathBuf::from("/System/Library/ExtensionKit/Extensions"),
+        user_dir.clone(),
+        user_dir.clone().join("Chromium Apps.localized"),
+        // Not sure about the correct path for PWAs
+        user_dir.clone().join("Chrome Apps.localized"),
+        user_dir.clone().join("Brave Apps.localized"),
+    ];
+
+    let mut files = Vec::new();
+
+    for applications_folder in applications_folders {
+        let dir = applications_folder.read_dir();
+        if dir.is_err() {
+            continue;
+        }
+        for entry in dir.unwrap().flatten() {
+            let path = entry.path();
+            files.push(path);
+        }
+    }
+
+    return files;
 }
 
 pub fn get_frontmost_application_data() -> Option<AppData> {
