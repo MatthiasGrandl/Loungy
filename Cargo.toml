@@ -83,6 +83,7 @@ cocoa = "0.25.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 freedesktop_entry_parser = "1.3.0"
 freedesktop-icons = "0.2.6"
+walkdir = "2.5.0"
 
 [features]
 tailscale = []

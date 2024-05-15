@@ -4315,6 +4315,7 @@ dependencies = [
  "time",
  "toml 0.8.12",
  "url",
+ "walkdir",
  "whoami",
 ]
 
