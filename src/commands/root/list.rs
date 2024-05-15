@@ -9,7 +9,7 @@
  *
  */
 
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use gpui::*;
 
@@ -19,7 +19,7 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    platform::{get_applications_folders, get_application_data},
+    platform::{get_application_files, get_application_data},
     state::{Action, StateViewBuilder, StateViewContext},
     window::Window,
 };
@@ -84,77 +84,69 @@ impl StateViewBuilder for RootListBuilder {
             .build(
                 |_, _, _cx| {
                     {
-                        let applications_folders = get_applications_folders();
+                        let application_entries = get_application_files();
 
                         let mut apps = HashMap::<String, Item>::new();
 
-                        for applications_folder in applications_folders {
-                            let dir = applications_folder.read_dir();
-                            if dir.is_err() {
+                        for entry in application_entries {
+                            // search for .icns in Contents/Resources
+                            let data = get_application_data(&entry);
+                            if data.is_none() {
                                 continue;
                             }
-                            for entry in dir.unwrap().flatten() {
-                                let path = entry.path();
-
-                                // search for .icns in Contents/Resources
-                                let data = get_application_data(&path);
-                                if data.is_none() {
-                                    continue;
-                                }
-                                let data = data.unwrap();
-                                let app = ItemBuilder::new(
-                                    data.id.clone(),
-                                    ListItem::new(
-                                        Some(data.icon.clone()),
-                                        data.name.clone(),
-                                        None,
-                                        vec![Accessory::new(data.tag.clone(), None)],
-                                    ),
-                                )
-                                .keywords(vec![data.name.clone()])
-                                .actions(vec![Action::new(
-                                    Img::default().icon(Icon::ArrowUpRightFromSquare),
-                                    format!("Open {}", data.tag.clone()),
+                            let data = data.unwrap();
+                            let app = ItemBuilder::new(
+                                data.id.clone(),
+                                ListItem::new(
+                                    Some(data.icon.clone()),
+                                    data.name.clone(),
                                     None,
-                                    {
-                                        let id = data.id.clone();
+                                    vec![Accessory::new(data.tag.clone(), None)],
+                                ),
+                            )
+                            .keywords(vec![data.name.clone()])
+                            .actions(vec![Action::new(
+                                Img::default().icon(Icon::ArrowUpRightFromSquare),
+                                format!("Open {}", data.tag.clone()),
+                                None,
+                                {
+                                    let id = data.id.clone();
 
-                                        #[cfg(target_os = "macos")]
-                                        {
-                                            let ex = data.tag == "System Setting";
-                                            move |_, cx| {
-                                                Window::close(cx);
-                                                let id = id.clone();
-                                                let mut command =
-                                                    std::process::Command::new("open");
-                                                if ex {
-                                                    command.arg(format!(
-                                                        "x-apple.systempreferences:{}",
-                                                        id
-                                                    ));
-                                                } else {
-                                                    command.arg("-b");
-                                                    command.arg(id);
-                                                }
-                                                let _ = command.spawn();
+                                    #[cfg(target_os = "macos")]
+                                    {
+                                        let ex = data.tag == "System Setting";
+                                        move |_, cx| {
+                                            Window::close(cx);
+                                            let id = id.clone();
+                                            let mut command =
+                                                std::process::Command::new("open");
+                                            if ex {
+                                                command.arg(format!(
+                                                    "x-apple.systempreferences:{}",
+                                                    id
+                                                ));
+                                            } else {
+                                                command.arg("-b");
+                                                command.arg(id);
                                             }
+                                            let _ = command.spawn();
                                         }
-                                        #[cfg(target_os = "linux")]
-                                        {
-                                            move |_, cx| {
-                                                Window::close(cx);
-                                                let mut command =
-                                                    std::process::Command::new("gtk-launch");
-                                                command.arg(id.clone());
-                                                let _ = command.spawn();
-                                            }
+                                    }
+                                    #[cfg(target_os = "linux")]
+                                    {
+                                        move |_, cx| {
+                                            Window::close(cx);
+                                            let mut command =
+                                            std::process::Command::new("gtk-launch");
+                                        command.arg(id.clone());
+                                        let _ = command.spawn();
                                         }
-                                    },
-                                    false,
-                                )])
-                                .build();
-                                apps.insert(data.id, app);
-                            }
+                                    }
+                                },
+                                false,
+                            )])
+                            .build();
+                            apps.insert(data.id, app);
                         }
                         let mut apps: Vec<Item> = apps.values().cloned().collect();
                         apps.sort_unstable_by_key(|a| a.get_keywords()[0].clone());

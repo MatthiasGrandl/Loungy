@@ -51,7 +51,7 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     })
 }
 
-pub fn get_applications_folders() -> Vec<PathBuf> {
+pub fn get_application_files() -> Vec<PathBuf> {
     return vec![
         PathBuf::from("/usr/share/applications"),
         PathBuf::from("/usr/local/share/applications"),
