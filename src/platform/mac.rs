@@ -63,6 +63,27 @@ pub fn get_application_data(path: &Path) -> Option<AppData> {
     })
 }
 
+pub fn get_applications_folders() -> Vec<PathBuf> {
+    let user_dir = PathBuf::from("/Users")
+        .join(whoami::username())
+        .join("Applications");
+
+    return vec![
+        PathBuf::from("/Applications"),
+        PathBuf::from("/Applications/Chromium Apps"),
+        PathBuf::from("/System/Applications/Utilities"),
+        PathBuf::from("/System/Applications"),
+        PathBuf::from("/System/Library/CoreServices/Applications"),
+        PathBuf::from("/Library/PreferencePanes"),
+        PathBuf::from("/System/Library/ExtensionKit/Extensions"),
+        user_dir.clone(),
+        user_dir.clone().join("Chromium Apps.localized"),
+        // Not sure about the correct path for PWAs
+        user_dir.clone().join("Chrome Apps.localized"),
+        user_dir.clone().join("Brave Apps.localized"),
+    ];
+}
+
 pub fn get_frontmost_application_data() -> Option<AppData> {
     let cache_dir = paths().cache.join("apps");
     if !cache_dir.exists() {

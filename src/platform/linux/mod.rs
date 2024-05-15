@@ -51,6 +51,16 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     })
 }
 
+pub fn get_applications_folders() -> Vec<PathBuf> {
+    return vec![
+        PathBuf::from("/usr/share/applications"),
+        PathBuf::from("/usr/local/share/applications"),
+        PathBuf::from("/home")
+            .join(whoami::username())
+            .join(".local/share/applications"),
+    ];
+}
+
 pub fn get_frontmost_application_data() -> Option<AppData> {
     None
 }

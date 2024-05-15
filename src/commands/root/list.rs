@@ -19,7 +19,7 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    platform::get_application_data,
+    platform::{get_applications_folders, get_application_data},
     state::{Action, StateViewBuilder, StateViewContext},
     window::Window,
 };
@@ -84,33 +84,7 @@ impl StateViewBuilder for RootListBuilder {
             .build(
                 |_, _, _cx| {
                     {
-                        let user_dir = PathBuf::from("/Users")
-                            .join(whoami::username())
-                            .join("Applications");
-
-                        #[cfg(target_os = "macos")]
-                        let applications_folders = vec![
-                            PathBuf::from("/Applications"),
-                            PathBuf::from("/Applications/Chromium Apps"),
-                            PathBuf::from("/System/Applications/Utilities"),
-                            PathBuf::from("/System/Applications"),
-                            PathBuf::from("/System/Library/CoreServices/Applications"),
-                            PathBuf::from("/Library/PreferencePanes"),
-                            PathBuf::from("/System/Library/ExtensionKit/Extensions"),
-                            user_dir.clone(),
-                            user_dir.clone().join("Chromium Apps.localized"),
-                            // Not sure about the correct path for PWAs
-                            user_dir.clone().join("Chrome Apps.localized"),
-                            user_dir.clone().join("Brave Apps.localized"),
-                        ];
-                        #[cfg(target_os = "linux")]
-                        let applications_folders = vec![
-                            PathBuf::from("/usr/share/applications"),
-                            PathBuf::from("/usr/local/share/applications"),
-                            PathBuf::from("/home")
-                                .join(whoami::username())
-                                .join(".local/share/applications"),
-                        ];
+                        let applications_folders = get_applications_folders();
 
                         let mut apps = HashMap::<String, Item>::new();
 
