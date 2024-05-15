@@ -15,7 +15,7 @@ use crate::window::Window;
 use cocoa::appkit::NSPasteboard;
 use gpui::{AsyncWindowContext, WindowContext};
 use std::time::Duration;
-use std::{fs, path::Path};
+use std::{fs, path::{Path, PathBuf}};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
 use super::{AppData, ClipboardWatcher};
@@ -68,7 +68,7 @@ pub fn get_application_files() -> Vec<PathBuf> {
         .join(whoami::username())
         .join("Applications");
 
-    let application_folders = vec![
+    let applications_folders = vec![
         PathBuf::from("/Applications"),
         PathBuf::from("/Applications/Chromium Apps"),
         PathBuf::from("/System/Applications/Utilities"),
@@ -83,7 +83,7 @@ pub fn get_application_files() -> Vec<PathBuf> {
         user_dir.clone().join("Brave Apps.localized"),
     ];
 
-    let files = Vec::new();
+    let mut files = Vec::new();
 
     for applications_folder in applications_folders {
         let dir = applications_folder.read_dir();

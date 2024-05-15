@@ -138,8 +138,8 @@ impl StateViewBuilder for RootListBuilder {
                                             Window::close(cx);
                                             let mut command =
                                             std::process::Command::new("gtk-launch");
-                                        command.arg(id.clone());
-                                        let _ = command.spawn();
+                                            command.arg(id.clone());
+                                            let _ = command.spawn();
                                         }
                                     }
                                 },
