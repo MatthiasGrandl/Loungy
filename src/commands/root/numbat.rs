@@ -103,10 +103,7 @@ impl Numbat {
                                     equation: s.replace('➞', "to"),
                                 })
                             }
-                            Err(_e) => {
-                                //eprintln!("{:#?}", e);
-                                None
-                            }
+                            Err(_e) => None,
                         };
                         cx.notify();
                     }

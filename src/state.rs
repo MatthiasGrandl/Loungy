@@ -331,6 +331,7 @@ impl Render for PopupToast {
 
 #[derive(Clone)]
 pub struct StateItem {
+    pub id: String,
     pub query: TextInput,
     pub view: AnyView,
     pub actions: View<Actions>,
@@ -392,8 +393,10 @@ impl StateItem {
             actions: actions_weak,
             update_receiver: r,
         };
+        let id = view.command();
         let view = view.build(&mut context, cx);
         Self {
+            id,
             query,
             view,
             actions,
@@ -402,8 +405,23 @@ impl StateItem {
     }
 }
 
-pub trait StateViewBuilder: Clone {
+pub trait StateViewBuilder: CommandTrait + Clone {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView;
+}
+
+pub trait CommandTrait {
+    fn command(&self) -> String;
+}
+
+#[macro_export]
+macro_rules! command {
+    ($ty:ty) => {
+        impl CommandTrait for $ty {
+            fn command(&self) -> String {
+                module_path!().to_string()
+            }
+        }
+    };
 }
 
 pub struct State {
@@ -428,7 +446,7 @@ impl StateModel {
     }
     pub fn update(f: impl FnOnce(&mut Self, &mut WindowContext), cx: &mut WindowContext) {
         if !cx.has_global::<Self>() {
-            eprintln!("StateModel not found");
+            log::error!("StateModel not found");
             return;
         }
         cx.update_global::<Self, _>(|this, cx| {

@@ -17,6 +17,7 @@ use std::{
 use regex::Regex;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, ItemBuilder, ListBuilder, ListItem},
@@ -24,7 +25,7 @@ use crate::{
     },
     paths::paths,
     platform::{get_application_data, AppData},
-    state::{Action, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -71,6 +72,8 @@ fn format_bytes(bytes: u64) -> String {
 
 #[derive(Clone)]
 pub struct ProcessListBuilder;
+command!(ProcessListBuilder);
+
 impl StateViewBuilder for ProcessListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context
@@ -216,6 +219,7 @@ impl StateViewBuilder for ProcessListBuilder {
 }
 
 pub struct ProcessCommandBuilder;
+command!(ProcessCommandBuilder);
 
 impl RootCommandBuilder for ProcessCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {

@@ -99,10 +99,17 @@ impl Window {
                 cx.activate_window();
                 this.hidden = false;
             }
-            // } else {
-            //     cx.hide();
-            //     this.hidden = true;
-            // }
+        });
+    }
+    pub fn toggle(cx: &mut WindowContext) {
+        cx.update_global::<Self, _>(|this, cx| {
+            if this.hidden {
+                cx.activate_window();
+                this.hidden = false;
+            } else {
+                cx.hide();
+                this.hidden = true;
+            }
         });
     }
     pub fn close(cx: &mut WindowContext) {

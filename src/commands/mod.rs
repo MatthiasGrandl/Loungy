@@ -15,13 +15,16 @@ use gpui::*;
 use log::error;
 
 use crate::{
+    command,
     components::{
         form::{Form, Input, InputKind},
         list::{Accessory, Item, ItemBuilder, ListItem},
         shared::{Icon, Img},
     },
     hotkey::HotkeyManager,
-    state::{Action, CloneableFn, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{
+        Action, CloneableFn, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext,
+    },
 };
 
 #[cfg(target_os = "macos")]
@@ -40,7 +43,7 @@ mod tailscale;
 
 #[derive(Clone)]
 pub struct RootCommand {
-    id: String,
+    pub id: String,
     title: String,
     subtitle: String,
     icon: Icon,
@@ -70,7 +73,7 @@ impl RootCommand {
     }
 }
 
-pub trait RootCommandBuilder {
+pub trait RootCommandBuilder: CommandTrait {
     fn build(&self, cx: &mut WindowContext) -> RootCommand;
 }
 
@@ -98,8 +101,10 @@ impl RootCommands {
         ];
         let mut map = HashMap::new();
         for command in commands {
-            let command = command.build(cx);
-            map.insert(command.id.clone(), command);
+            let id = command.command();
+            let mut command = command.build(cx);
+            command.id = id.clone();
+            map.insert(id, command);
         }
         cx.set_global(Self { commands: map });
     }
@@ -163,7 +168,7 @@ impl Global for RootCommands {}
 pub struct HotkeyBuilder {
     id: String,
 }
-
+command!(HotkeyBuilder);
 impl StateViewBuilder for HotkeyBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         let id = self.id.clone();

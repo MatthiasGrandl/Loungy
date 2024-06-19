@@ -18,12 +18,15 @@ use matrix_sdk::ruma::OwnedRoomId;
 use matrix_sdk_ui::{sync_service::State, timeline::RoomExt};
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask},
     },
-    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
+    state::{
+        Action, CommandTrait, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext,
+    },
 };
 
 use super::{
@@ -39,6 +42,7 @@ struct RoomList {
     view: View<AsyncListItems>,
 }
 
+command!(RoomList);
 impl StateViewBuilder for RoomList {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search your rooms...", cx);
@@ -228,7 +232,7 @@ async fn sync(
     }
     Ok(())
 }
-
+command!(MatrixCommandBuilder);
 impl RootCommandBuilder for MatrixCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
         let view = cx.new_view(|cx| {

@@ -16,13 +16,14 @@ use serde::Deserialize;
 use time::OffsetDateTime;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     date::format_date,
-    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
 
@@ -56,6 +57,8 @@ struct Status {
 
 #[derive(Clone)]
 pub struct TailscaleListBuilder;
+
+command!(TailscaleListBuilder);
 impl StateViewBuilder for TailscaleListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search for peers...", cx);
@@ -183,6 +186,7 @@ impl StateViewBuilder for TailscaleListBuilder {
 }
 
 pub struct TailscaleCommandBuilder;
+command!(TailscaleCommandBuilder);
 
 impl RootCommandBuilder for TailscaleCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {

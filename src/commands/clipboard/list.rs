@@ -33,6 +33,7 @@ use time::OffsetDateTime;
 use url::Url;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
@@ -45,7 +46,9 @@ use crate::{
         clipboard, close_and_paste, close_and_paste_file, get_frontmost_application_data, ocr,
         AppData, ClipboardWatcher,
     },
-    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
+    state::{
+        Action, CommandTrait, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext,
+    },
     theme::Theme,
 };
 
@@ -53,7 +56,7 @@ use crate::{
 pub struct ClipboardListBuilder {
     view: View<AsyncListItems>,
 }
-
+command!(ClipboardListBuilder);
 impl StateViewBuilder for ClipboardListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context
@@ -582,6 +585,7 @@ impl Render for ClipboardPreview {
             )
     }
 }
+command!(ClipboardPreview);
 
 impl StateViewBuilder for ClipboardPreview {
     fn build(&self, _context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
@@ -600,7 +604,7 @@ pub(super) fn db_detail() -> &'static Database {
 }
 
 pub struct ClipboardCommandBuilder;
-
+command!(ClipboardCommandBuilder);
 impl RootCommandBuilder for ClipboardCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
         let view = cx.new_view(|cx| {

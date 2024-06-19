@@ -14,13 +14,14 @@ use std::{collections::HashMap, time::Duration};
 use gpui::*;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder, RootCommands},
     components::{
         list::{nucleo::fuzzy_match, Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    platform::{get_application_files, get_application_data},
-    state::{Action, StateViewBuilder, StateViewContext},
+    platform::{get_application_data, get_application_files},
+    state::{Action, CommandTrait, StateViewBuilder, StateViewContext},
     window::Window,
 };
 
@@ -28,7 +29,7 @@ use super::numbat::{Numbat, NumbatWrapper};
 
 #[derive(Clone)]
 pub struct RootListBuilder;
-
+command!(RootListBuilder);
 impl StateViewBuilder for RootListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context
@@ -118,8 +119,7 @@ impl StateViewBuilder for RootListBuilder {
                                         move |_, cx| {
                                             Window::close(cx);
                                             let id = id.clone();
-                                            let mut command =
-                                                std::process::Command::new("open");
+                                            let mut command = std::process::Command::new("open");
                                             if ex {
                                                 command.arg(format!(
                                                     "x-apple.systempreferences:{}",
@@ -137,7 +137,7 @@ impl StateViewBuilder for RootListBuilder {
                                         move |_, cx| {
                                             Window::close(cx);
                                             let mut command =
-                                            std::process::Command::new("gtk-launch");
+                                                std::process::Command::new("gtk-launch");
                                             command.arg(id.clone());
                                             let _ = command.spawn();
                                         }
@@ -161,7 +161,7 @@ impl StateViewBuilder for RootListBuilder {
 }
 
 pub struct LoungyCommandBuilder;
-
+command!(LoungyCommandBuilder);
 impl RootCommandBuilder for LoungyCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {
         RootCommand::new(

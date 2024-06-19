@@ -13,15 +13,16 @@ use gpui::*;
 use log::error;
 
 use crate::{
+    command,
     components::form::{Form, Input, InputKind},
-    state::{StateViewBuilder, StateViewContext},
+    state::{CommandTrait, StateViewBuilder, StateViewContext},
 };
 
 use super::client::Session;
 
 #[derive(Clone)]
 pub struct AccountCreationBuilder;
-
+command!(AccountCreationBuilder);
 impl StateViewBuilder for AccountCreationBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Login...", cx);

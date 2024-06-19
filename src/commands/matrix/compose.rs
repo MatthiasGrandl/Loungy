@@ -16,8 +16,9 @@ use matrix_sdk::ruma::events::room::message::{ForwardThread, RoomMessageEventCon
 use matrix_sdk_ui::{timeline::EventTimelineItem, Timeline};
 
 use crate::{
+    command,
     components::shared::{Icon, Img, NoView},
-    state::{Action, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, StateViewBuilder, StateViewContext},
 };
 
 #[derive(Clone)]
@@ -61,7 +62,7 @@ impl Compose {
         Ok(())
     }
 }
-
+command!(Compose);
 impl StateViewBuilder for Compose {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Type a message...", cx);

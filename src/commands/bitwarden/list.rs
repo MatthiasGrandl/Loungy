@@ -26,6 +26,7 @@ use serde_json::Value;
 use url::Url;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, AsyncListItems, Item, ItemBuilder, ListBuilder, ListItem},
@@ -34,7 +35,7 @@ use crate::{
     db::Db,
     paths::paths,
     platform::{autofill, close_and_paste},
-    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     window::Window,
 };
 
@@ -46,7 +47,7 @@ use super::accounts::{
 pub struct BitwardenListBuilder {
     view: View<AsyncListItems>,
 }
-
+command!(BitwardenListBuilder);
 impl StateViewBuilder for BitwardenListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search your vault...", cx);
@@ -376,7 +377,7 @@ impl EntryModel {
         }
     }
 }
-
+command!(BitwardenCommandBuilder);
 impl RootCommandBuilder for BitwardenCommandBuilder {
     fn build(&self, cx: &mut WindowContext) -> RootCommand {
         let view = cx.new_view(|cx| {

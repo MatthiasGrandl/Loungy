@@ -17,12 +17,13 @@ use serde_json::Value;
 use swift_rs::{swift, SRData};
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{Accessory, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
 };
 
 #[derive(Deserialize)]
@@ -42,6 +43,7 @@ swift!( pub fn menu_item_select(data: SRData));
 
 #[derive(Clone)]
 pub struct MenuListBuilder;
+command!(MenuListBuilder);
 impl StateViewBuilder for MenuListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context
@@ -115,6 +117,7 @@ impl StateViewBuilder for MenuListBuilder {
 }
 
 pub struct MenuCommandBuilder;
+command!(MenuCommandBuilder);
 
 impl RootCommandBuilder for MenuCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {

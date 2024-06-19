@@ -17,13 +17,14 @@ use gpui::*;
 use log::error;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         form::{Form, Input, InputKind},
         list::{Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
 };
 
 use super::list::{db, BitwardenAccount};
@@ -33,6 +34,8 @@ pub(super) struct BitwardenPasswordPromptBuilder {
     pub(super) account: BitwardenAccount,
     pub(super) password: Sender<(String, bool)>,
 }
+
+command!(BitwardenPasswordPromptBuilder);
 
 impl StateViewBuilder for BitwardenPasswordPromptBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
@@ -80,7 +83,7 @@ impl StateViewBuilder for BitwardenPasswordPromptBuilder {
                         .await
                         .is_err()
                     {
-                        eprintln!("Failed to send password back");
+                        log::error!("Failed to send password back");
                     }
                     StateModel::update_async(
                         |this, cx| {
@@ -102,6 +105,7 @@ impl EventEmitter<Self> for BitwardenPasswordPromptBuilder {}
 
 #[derive(Clone)]
 pub struct BitwardenAccountFormBuilder;
+command!(BitwardenAccountFormBuilder);
 impl StateViewBuilder for BitwardenAccountFormBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         Form::new(
@@ -213,6 +217,7 @@ impl StateViewBuilder for BitwardenAccountFormBuilder {
 
 #[derive(Clone)]
 pub struct BitwardenAccountListBuilder;
+command!(BitwardenAccountListBuilder);
 impl StateViewBuilder for BitwardenAccountListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search your accounts...", cx);
@@ -304,7 +309,7 @@ impl StateViewBuilder for BitwardenAccountListBuilder {
 }
 
 pub struct BitwardenAccountCommandBuilder;
-
+command!(BitwardenAccountCommandBuilder);
 impl RootCommandBuilder for BitwardenAccountCommandBuilder {
     fn build(&self, _: &mut WindowContext) -> RootCommand {
         RootCommand::new(

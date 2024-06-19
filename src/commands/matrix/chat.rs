@@ -37,13 +37,16 @@ use matrix_sdk_ui::{
 use time::OffsetDateTime;
 
 use crate::{
+    command,
     components::{
         list::{AsyncListItems, ItemBuilder, ItemComponent, ItemPreset, ListBuilder},
         shared::{Icon, Img, ImgMask},
     },
     date::format_date,
     loader::Loader,
-    state::{Action, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext},
+    state::{
+        Action, CommandTrait, Shortcut, StateItem, StateModel, StateViewBuilder, StateViewContext,
+    },
     theme::Theme,
 };
 
@@ -474,6 +477,7 @@ async fn sync(
     Ok(())
 }
 
+command!(ChatRoom);
 impl StateViewBuilder for ChatRoom {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search this chat...", cx);

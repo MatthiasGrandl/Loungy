@@ -14,18 +14,21 @@ use std::time::Duration;
 use gpui::*;
 
 use crate::{
+    command,
     commands::{RootCommand, RootCommandBuilder},
     components::{
         list::{ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
     db::db,
-    state::{Action, Shortcut, StateModel, StateViewBuilder, StateViewContext},
+    state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::{Theme, ThemeSettings},
 };
 
 #[derive(Clone)]
 pub struct ThemeListBuilder;
+command!(ThemeListBuilder);
+
 impl StateViewBuilder for ThemeListBuilder {
     fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView {
         context.query.set_placeholder("Search for themes...", cx);
@@ -135,6 +138,7 @@ impl StateViewBuilder for ThemeListBuilder {
 }
 
 pub struct ThemeCommandBuilder;
+command!(ThemeCommandBuilder);
 
 impl RootCommandBuilder for ThemeCommandBuilder {
     fn build(&self, _cx: &mut WindowContext) -> RootCommand {

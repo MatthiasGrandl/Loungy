@@ -23,16 +23,16 @@ use gpui::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    commands::RootCommands,
+    commands::{RootCommand, RootCommands},
     db::Db,
-    state::{Actions, CloneableFn, StateModel},
+    state::{Actions, StateModel},
     window::Window,
 };
 
 pub struct HotkeyManager {
     manager: GlobalHotKeyManager,
     hotkeys: Vec<HotKey>,
-    map: HashMap<u32, Box<dyn CloneableFn>>,
+    map: HashMap<u32, RootCommand>,
 }
 
 impl Global for HotkeyManager {}
@@ -68,11 +68,28 @@ impl HotkeyManager {
                 if let Ok(event) = receiver.try_recv() {
                     if event.state == global_hotkey::HotKeyState::Released {
                         let _ = cx.update_global::<HotkeyManager, _>(|manager, cx| {
-                            if let Some(action) = manager.map.get(&event.id) {
-                                StateModel::update(|this, cx| this.reset(cx), cx);
-                                action(&mut Actions::default(cx), cx);
+                            if let Some(command) = manager.map.get(&event.id) {
+                                let state = cx.global::<StateModel>();
+                                let state = state.inner.read(cx);
+                                let mut is_active = false;
+                                if let Some(active) = state.stack.last() {
+                                    is_active = active.id.eq(&command.id);
+                                };
+                                if !is_active {
+                                    StateModel::update(
+                                        |this, cx| {
+                                            this.reset(cx);
+                                        },
+                                        cx,
+                                    );
+                                    (command.action)(&mut Actions::default(cx), cx);
+                                    Window::open(cx);
+                                } else {
+                                    Window::toggle(cx);
+                                }
+                            } else {
+                                Window::toggle(cx);
                             }
-                            Window::open(cx);
                         });
                     }
                 }
@@ -94,11 +111,11 @@ impl HotkeyManager {
                 let known = commands.commands.get(hotkey.id.as_str());
                 if let Some(known) = known {
                     let hotkey = HotKey::try_from(hotkey.hotkey).unwrap();
-
                     manager.hotkeys.push(hotkey);
-                    manager.map.insert(hotkey.id(), known.action.clone());
+                    manager.map.insert(hotkey.id(), known.clone());
                 }
             }
+
             let _ = manager.manager.register_all(&manager.hotkeys);
         });
     }
