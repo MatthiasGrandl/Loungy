@@ -265,14 +265,14 @@ impl Toast {
     */
     pub fn floating(&mut self, message: impl ToString, icon: Option<Icon>, cx: &mut WindowContext) {
         let bounds = cx.display().map(|d| d.bounds()).unwrap_or(Bounds {
-            origin: Point::new(DevicePixels::from(0), DevicePixels::from(0)),
+            origin: Point::new(Pixels::from(0.0), Pixels::from(0.0)),
             size: Size {
-                width: DevicePixels::from(1920),
-                height: DevicePixels::from(1080),
+                width: Pixels::from(1920.0),
+                height: Pixels::from(1080.0),
             },
         });
         Window::close(cx);
-        cx.open_window(
+        let _ = cx.open_window(
             WindowStyle::Toast {
                 width: message.to_string().len() as u32 * 12,
                 height: 50,

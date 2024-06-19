@@ -25,32 +25,35 @@ pub enum WindowStyle {
 }
 
 impl WindowStyle {
-    pub fn options(&self, bounds: Bounds<DevicePixels>) -> WindowOptions {
+    pub fn options(&self, bounds: Bounds<Pixels>) -> WindowOptions {
         let mut options = WindowOptions::default();
         let center = bounds.center();
 
         let (width, height, x, y) = match self {
             WindowStyle::Main => {
                 options.focus = true;
-                let width = DevicePixels::from(WIDTH);
-                let height = DevicePixels::from(HEIGHT);
-                let x: DevicePixels = center.x - width / 2;
-                let y: DevicePixels = center.y - height / 2;
+                let width = Pixels::from(WIDTH);
+                let height = Pixels::from(HEIGHT);
+                let x: Pixels = center.x - width / 2.0;
+                let y: Pixels = center.y - height / 2.0;
                 (width, height, x, y)
             }
             WindowStyle::Toast { width, height } => {
                 options.focus = false;
-                let width = DevicePixels::from(*width);
-                let height = DevicePixels::from(*height);
-                let x: DevicePixels = center.x - width / 2;
-                let y: DevicePixels = bounds.bottom() - height - DevicePixels::from(200);
+                let width = Pixels::from(*width);
+                let height = Pixels::from(*height);
+                let x: Pixels = center.x - width / 2.0;
+                let y: Pixels = bounds.bottom() - height - Pixels::from(200.0);
                 (width, height, x, y)
             }
             WindowStyle::Settings => {
                 return options;
             }
         };
-        options.window_bounds = Some(WindowBounds::Windowed(Bounds::new(Point { x, y }, Size { width, height })));
+        options.window_bounds = Some(WindowBounds::Windowed(Bounds::new(
+            Point { x, y },
+            Size { width, height },
+        )));
         options.titlebar = None;
         options.is_movable = false;
         options.kind = WindowKind::PopUp;
@@ -96,6 +99,10 @@ impl Window {
                 cx.activate_window();
                 this.hidden = false;
             }
+            // } else {
+            //     cx.hide();
+            //     this.hidden = true;
+            // }
         });
     }
     pub fn close(cx: &mut WindowContext) {
@@ -108,9 +115,6 @@ impl Window {
             cx.background_executor()
                 .timer(Duration::from_secs(90))
                 .await;
-            // cx.background_executor()
-            //     .timer(Duration::from_secs(90))
-            //     .await;
             let _ = cx.update_global::<Self, _>(|window, cx| {
                 if window.hidden {
                     StateModel::update(|this, cx| this.reset(cx), cx);

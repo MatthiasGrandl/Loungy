@@ -214,6 +214,8 @@ impl RenderOnce for TextInput {
                     #[cfg(not(target_os = "macos"))]
                     let m = ev.keystroke.modifiers.control;
 
+                    let ime_key = &ev.keystroke.clone().with_simulated_ime().ime_key;
+
                     if m {
                         match keystroke.as_str() {
                             "a" => {
@@ -250,8 +252,7 @@ impl RenderOnce for TextInput {
                             }
                             _ => {}
                         }
-                    } else if !ev.keystroke.ime_key.clone().unwrap_or_default().is_empty() {
-                        let ime_key = &ev.keystroke.ime_key.clone().unwrap_or_default();
+                    } else if let Some(ime_key) = ime_key {
                         editor
                             .text
                             .replace_range(editor.char_range_to_text_range(&editor.text), ime_key);

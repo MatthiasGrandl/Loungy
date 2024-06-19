@@ -15,7 +15,10 @@ use crate::window::Window;
 use cocoa::appkit::NSPasteboard;
 use gpui::{AsyncWindowContext, WindowContext};
 use std::time::Duration;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use swift_rs::{swift, Bool, SRObject, SRString};
 
 use super::{AppData, ClipboardWatcher};
@@ -96,7 +99,7 @@ pub fn get_application_files() -> Vec<PathBuf> {
         }
     }
 
-    return files;
+    files
 }
 
 pub fn get_frontmost_application_data() -> Option<AppData> {
