@@ -525,6 +525,13 @@ impl<'a> Clone for Box<dyn 'a + CloneableFn> {
     }
 }
 
+// implement Default for CloneableFn
+impl Default for Box<dyn CloneableFn> {
+    fn default() -> Self {
+        Box::new(|_, _| {})
+    }
+}
+
 #[derive(Clone, IntoElement, Deserialize)]
 pub struct Shortcut {
     inner: Keystroke,

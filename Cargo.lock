@@ -4275,6 +4275,7 @@ dependencies = [
  "async-std",
  "bonsaidb",
  "catppuccin",
+ "clap 4.5.7",
  "cocoa",
  "crossbeam-channel",
  "env_logger 0.11.3",

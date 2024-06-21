@@ -13,6 +13,7 @@ use std::collections::HashMap;
 
 use gpui::*;
 use log::error;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     command,
@@ -27,9 +28,7 @@ use crate::{
     },
 };
 
-#[cfg(target_os = "macos")]
-use self::root::menu;
-use self::root::{list, process, theme};
+use self::root::list;
 
 #[cfg(feature = "bitwarden")]
 mod bitwarden;
@@ -37,18 +36,24 @@ mod bitwarden;
 mod clipboard;
 #[cfg(feature = "matrix")]
 mod matrix;
+#[cfg(target_os = "macos")]
+mod menu;
+mod process;
 pub mod root;
 #[cfg(feature = "tailscale")]
 mod tailscale;
+mod theme;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RootCommand {
     pub id: String,
     title: String,
     subtitle: String,
     icon: Icon,
     keywords: Vec<String>,
+    #[serde(skip)]
     shortcut: Option<Shortcut>,
+    #[serde(skip)]
     pub action: Box<dyn CloneableFn>,
 }
 impl RootCommand {
@@ -77,7 +82,7 @@ pub trait RootCommandBuilder: CommandTrait {
     fn build(&self, cx: &mut WindowContext) -> RootCommand;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RootCommands {
     pub commands: HashMap<String, RootCommand>,
 }
@@ -87,9 +92,9 @@ impl RootCommands {
         let commands: Vec<Box<dyn RootCommandBuilder>> = vec![
             Box::new(list::LoungyCommandBuilder),
             #[cfg(target_os = "macos")]
-            Box::new(menu::MenuCommandBuilder),
-            Box::new(process::ProcessCommandBuilder),
-            Box::new(theme::ThemeCommandBuilder),
+            Box::new(menu::list::MenuCommandBuilder),
+            Box::new(process::list::ProcessCommandBuilder),
+            Box::new(theme::list::ThemeCommandBuilder),
             #[cfg(feature = "tailscale")]
             Box::new(tailscale::list::TailscaleCommandBuilder),
             #[cfg(feature = "bitwarden")]

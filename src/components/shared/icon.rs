@@ -12,6 +12,7 @@
 use std::fmt;
 
 use gpui::SharedString;
+use serde::{Deserialize, Serialize};
 
 fn to_kebap(s: &str) -> String {
     s.chars().fold(String::new(), |mut s, c| {
@@ -40,7 +41,7 @@ impl fmt::Display for Icon {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 
 pub enum Icon {
     Ratio,

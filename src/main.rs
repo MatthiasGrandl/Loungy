@@ -13,6 +13,7 @@
 
 use app::run_app;
 use gpui::App;
+use ipc::{client::client_connect, server::setup_socket};
 
 mod app;
 mod assets;
@@ -21,6 +22,7 @@ mod components;
 mod date;
 mod db;
 mod hotkey;
+mod ipc;
 mod loader;
 mod paths;
 mod platform;
@@ -33,7 +35,11 @@ mod workspace;
 #[async_std::main]
 async fn main() {
     env_logger::init();
-    let app = App::new();
 
-    run_app(app)
+    if let Ok(listener) = setup_socket().await {
+        let app = App::new();
+        run_app(listener, app);
+    } else if let Err(e) = client_connect().await {
+        log::error!("CLI Error: {:?}", e);
+    }
 }
