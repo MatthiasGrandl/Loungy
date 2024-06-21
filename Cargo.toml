@@ -14,7 +14,6 @@ target_triple = "universal-apple-darwin"
 icons = ["icons/*.png"]
 
 [package.metadata.packager.macos]
-signing_identity = "Developer ID Application: Matthias Grandl (LJ9UB62BK7)"
 entitlements = "macos/entitlements.plist"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
