@@ -79,6 +79,7 @@ pub fn get_application_files() -> Vec<PathBuf> {
         PathBuf::from("/System/Library/CoreServices/Applications"),
         PathBuf::from("/Library/PreferencePanes"),
         PathBuf::from("/System/Library/ExtensionKit/Extensions"),
+        PathBuf::from("/System/Library/CoreServices/Finder.app"),
         user_dir.clone(),
         user_dir.clone().join("Chromium Apps.localized"),
         // Not sure about the correct path for PWAs
@@ -89,6 +90,12 @@ pub fn get_application_files() -> Vec<PathBuf> {
     let mut files = Vec::new();
 
     for applications_folder in applications_folders {
+        if let Some(ext) = applications_folder.extension() {
+            if ext.eq("app") {
+                files.push(applications_folder);
+                continue;
+            }
+        }
         let dir = applications_folder.read_dir();
         if dir.is_err() {
             continue;
