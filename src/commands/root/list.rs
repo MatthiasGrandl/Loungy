@@ -12,6 +12,8 @@
 use std::{collections::HashMap, time::Duration};
 
 use gpui::*;
+use notify::Watcher;
+use notify_debouncer_full::new_debouncer;
 
 use crate::{
     command,
@@ -20,7 +22,7 @@ use crate::{
         list::{nucleo::fuzzy_match, Accessory, Item, ItemBuilder, ListBuilder, ListItem},
         shared::{Icon, Img},
     },
-    platform::{get_application_data, get_application_files},
+    platform::{get_application_data, get_application_files, get_application_folders},
     state::{Action, CommandTrait, StateViewBuilder, StateViewContext},
     window::Window,
 };
@@ -37,8 +39,8 @@ impl StateViewBuilder for RootListBuilder {
             .set_placeholder("Search for apps and commands...", cx);
         let numbat = Numbat::init(&context.query, cx);
         let commands = RootCommands::list(cx);
-        ListBuilder::new()
-            .interval(Duration::from_secs(60))
+
+        let list = ListBuilder::new()
             .filter(move |this, cx| {
                 let mut items = this.items_all.clone();
                 items.append(&mut commands.clone());
@@ -155,8 +157,33 @@ impl StateViewBuilder for RootListBuilder {
                 },
                 context,
                 cx,
-            )
-            .into()
+            );
+
+        let list_clone = list.clone();
+        cx.spawn(|mut cx| async move {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let mut debouncer = new_debouncer(Duration::from_secs(1), None, tx).unwrap();
+
+            let dirs = get_application_folders();
+            for dir in dirs {
+                let _ = debouncer
+                    .watcher()
+                    .watch(&dir, notify::RecursiveMode::NonRecursive);
+            }
+
+            loop {
+                if rx.try_recv().is_ok() {
+                    let _ = list_clone.update(&mut cx, |this, cx| {
+                        this.update(true, cx);
+                    });
+                };
+
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+            }
+        })
+        .detach();
+
+        list.into()
     }
 }
 

@@ -16,8 +16,8 @@ use walkdir::WalkDir;
 use crate::components::shared::{Icon, Img};
 use crate::paths::paths;
 
-use std::{fs, env};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use super::AppData;
 
@@ -53,7 +53,7 @@ pub fn get_application_data(path: &PathBuf) -> Option<AppData> {
     })
 }
 
-fn get_desktop_dirs() -> Vec<PathBuf> {
+pub fn get_application_folders() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
     if let Ok(data_home) = env::var("XDG_DATA_HOME") {
@@ -94,7 +94,7 @@ fn get_desktop_dirs() -> Vec<PathBuf> {
 }
 
 pub fn get_application_files() -> Vec<PathBuf> {
-    let dirs = get_desktop_dirs();
+    let dirs = get_application_folders();
 
     let mut files = Vec::new();
     for dir in dirs {

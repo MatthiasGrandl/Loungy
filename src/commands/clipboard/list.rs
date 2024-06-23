@@ -718,7 +718,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                         )
                                     }
                                 };
-                                let _ = cx.update_window(cx.window_handle(), |_, cx| {
+                                let _ = cx.update(|cx| {
                                     let _ = view.update(cx, |view: &mut AsyncListItems, cx| {
                                         let item = entry.get_item(cx);
                                         view.push(entry.kind.into(), item, cx);
