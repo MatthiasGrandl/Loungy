@@ -1,25 +1,39 @@
 /*
  This source file is part of the Loungy open source project
- 
+
  Copyright (c) 2024 Loungy, Matthias Grandl and the Loungy project contributors
  Licensed under MIT License
- 
+
  See https://github.com/MatthiasGrandl/Loungy/blob/main/LICENSE.md for license information
  */
 
 import Foundation
 import SwiftRs
+import Cocoa
 
 // MARK: - Container Library
+
+func enableAccessibilityFeatures() {
+    let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+    let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
+
+    if accessibilityEnabled {
+        print("Accessibility features enabled.")
+    } else {
+        print("Accessibility features not enabled. Please enable in System Preferences.")
+    }
+}
+
 
 final class Library {
     let apps: Apps
     let autofill: AutoFill
     let ocr: OCR
-    
+
     static let shared = Library()
-    
+
     init() {
+        enableAccessibilityFeatures()
         apps = Apps()
         autofill = AutoFill()
         ocr = OCR()
@@ -103,7 +117,7 @@ public func listMenuItems() -> SRData {
     do {
         let menubar = try MenuBar()
         let listItems = try menubar.listItems()
-        
+
         return SRData(listItems)
     }
     catch {
@@ -111,7 +125,7 @@ public func listMenuItems() -> SRData {
         error.printCustomInfo()
         // exit(0)
     }
-    
+
     return SRData([])
 }
 

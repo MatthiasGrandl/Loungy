@@ -240,6 +240,13 @@ impl BitwardenAccount {
             .command(vec!["status", "--raw", "--nointeraction"])
             .await?;
 
+        if !status.status.success() {
+            return Err(anyhow::anyhow!(
+                "Bitwarden Status Query Failed: {}",
+                String::from_utf8_lossy(&status.stderr)
+            ));
+        }
+
         let status: BitwardenStatus = serde_json::from_slice(&status.stdout)?;
 
         match status.status {
@@ -249,13 +256,14 @@ impl BitwardenAccount {
             BitwardenVaultStatus::Unauthenticated => {
                 self.command(vec!["config", "server", &self.instance])
                     .await?;
-                if !self
+                let login = self
                     .command(vec!["login", "--apikey", "--nointeraction"])
-                    .await?
-                    .status
-                    .success()
-                {
-                    return Err(anyhow::anyhow!("Failed to login"));
+                    .await?;
+                if !login.status.success() {
+                    return Err(anyhow::anyhow!(
+                        "Bitwarden Failed To Login: {}",
+                        String::from_utf8_lossy(&login.stderr)
+                    ));
                 }
             }
             _ => {}

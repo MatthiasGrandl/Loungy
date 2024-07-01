@@ -100,6 +100,7 @@ async fn handle_client(
                     Window::toggle(cx);
                 }
             }
+            TopLevelCommand::Pipe => {}
         }
         Ok(())
     });
@@ -119,6 +120,7 @@ pub enum TopLevelCommand {
     Hide,
     Quit,
     Command,
+    Pipe,
 }
 
 impl From<TopLevelCommand> for clap::builder::OsStr {
@@ -129,6 +131,7 @@ impl From<TopLevelCommand> for clap::builder::OsStr {
             TopLevelCommand::Hide => "hide".into(),
             TopLevelCommand::Quit => "quit".into(),
             TopLevelCommand::Command => "command".into(),
+            TopLevelCommand::Pipe => "pipe".into(),
         }
     }
 }
@@ -153,5 +156,12 @@ pub fn get_command(commands: &RootCommands) -> clap::Command {
                         })
                         .collect::<Vec<_>>(),
                 ),
+        )
+        .arg(
+            Arg::new("Delimeter")
+                .long("Delimeter")
+                .short('d')
+                .required_if_eq("Action", TopLevelCommand::Pipe)
+                .default_value(" "),
         )
 }

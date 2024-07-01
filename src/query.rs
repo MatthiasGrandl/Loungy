@@ -214,7 +214,7 @@ impl RenderOnce for TextInput {
                     #[cfg(not(target_os = "macos"))]
                     let m = ev.keystroke.modifiers.control;
 
-                    let ime_key = &ev.keystroke.clone().with_simulated_ime().ime_key;
+                    let ime_key = &ev.keystroke.ime_key;
 
                     if m {
                         match keystroke.as_str() {
@@ -252,8 +252,6 @@ impl RenderOnce for TextInput {
                             }
                             _ => {}
                         }
-                    } else if keystroke.as_str() == "enter" && !ev.keystroke.modifiers.shift {
-                        //
                     } else if let Some(ime_key) = ime_key {
                         editor
                             .text
@@ -300,6 +298,16 @@ impl RenderOnce for TextInput {
                                         "",
                                     );
                                     editor.selection.end = editor.selection.start;
+                                }
+                            }
+                            "enter" => {
+                                if ev.keystroke.modifiers.shift {
+                                    editor.text.insert(
+                                        editor.char_range_to_text_range(&editor.text).start,
+                                        '\n',
+                                    );
+                                    let i = editor.selection.start + 1;
+                                    editor.selection = i..i;
                                 }
                             }
                             _ => {}
