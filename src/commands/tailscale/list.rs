@@ -12,8 +12,8 @@
 use std::{collections::HashMap, process::Command, time::Duration};
 
 use gpui::*;
+use jiff::Timestamp;
 use serde::Deserialize;
-use time::OffsetDateTime;
 
 use crate::{
     command,
@@ -43,8 +43,7 @@ struct Peer {
     rx_bytes: u64,
     tx_bytes: u64,
     created: String,
-    #[serde(with = "time::serde::iso8601")]
-    last_seen: OffsetDateTime,
+    last_seen: Timestamp,
     online: bool,
     active: bool,
 }
@@ -99,7 +98,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                             let (tag, color) = match p.online {
                                 true => ("Connected".to_string(), theme.green),
                                 false => (
-                                    format!("Last seen: {}", format_date(&p.last_seen, cx)),
+                                    format!("Last seen: {}", format_date(p.last_seen, cx)),
                                     theme.surface0,
                                 ),
                             };

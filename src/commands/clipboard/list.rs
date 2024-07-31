@@ -26,9 +26,9 @@ use bonsaidb::{
 };
 use gpui::*;
 use image::{DynamicImage, ImageBuffer};
+use jiff::{Span, Timestamp, ToSpan};
 use log::error;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 
 use url::Url;
 
@@ -72,7 +72,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                     let view = self.view.clone();
                     move |actions, cx| {
                         if let Err(err) =
-                            ClipboardListItem::prune(Duration::from_secs(0), view.downgrade(), cx)
+                            ClipboardListItem::prune(ToSpan::seconds(0), view.downgrade(), cx)
                         {
                             error!("Failed to prune clipboard: {:?}", err);
                             actions
@@ -114,7 +114,7 @@ impl StateViewBuilder for ClipboardListBuilder {
                         items.get(&t).cloned().unwrap_or_default()
                     };
 
-                    items.sort_by_key(|item| Reverse(item.get_meta::<OffsetDateTime>(cx).unwrap()));
+                    items.sort_by_key(|item| Reverse(item.get_meta::<Timestamp>(cx).unwrap()));
                     Ok(Some(items))
                 },
                 context,
@@ -187,10 +187,8 @@ struct ClipboardListItem {
     #[natural_id]
     id: u64,
     title: String,
-    #[serde(with = "time::serde::iso8601")]
-    copied_first: OffsetDateTime,
-    #[serde(with = "time::serde::iso8601")]
-    copied_last: OffsetDateTime,
+    copied_first: Timestamp,
+    copied_last: Timestamp,
     kind: ClipboardListItemKind,
     copy_count: u32,
 }
@@ -205,8 +203,8 @@ impl ClipboardListItem {
         let item = Self {
             id,
             title: title.to_string(),
-            copied_last: OffsetDateTime::now_utc(),
-            copied_first: OffsetDateTime::now_utc(),
+            copied_last: Timestamp::now(),
+            copied_first: Timestamp::now(),
             copy_count: 1,
             kind: kind.clone().into(),
         };
@@ -360,13 +358,13 @@ impl ClipboardListItem {
         Ok(())
     }
     fn prune(
-        age: Duration,
+        age: Span,
         view: WeakView<AsyncListItems>,
         cx: &mut WindowContext,
     ) -> anyhow::Result<()> {
         let items = Self::all(db_items()).query()?;
         for item in items {
-            if item.contents.copied_last < OffsetDateTime::now_utc() - age {
+            if item.contents.copied_last < Timestamp::now().checked_sub(age).unwrap() {
                 let _ = item.contents.delete(view.clone(), cx);
             }
         }
@@ -481,13 +479,13 @@ impl Render for ClipboardPreview {
                 kind.into_any_element()
             }),
         ];
-        let ts = format_date(&self.item.copied_last, cx).into_any_element();
+        let ts = format_date(self.item.copied_last, cx).into_any_element();
         table.append(&mut if self.item.copy_count > 1 {
             vec![
                 ("Last Copied".to_string(), ts),
                 (
                     "First Copied".to_string(),
-                    format_date(&self.item.copied_first, cx).into_any_element(),
+                    format_date(self.item.copied_first, cx).into_any_element(),
                 ),
                 (
                     "Times Copied".to_string(),
@@ -633,7 +631,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                             // Prune clipboard history every hour, keeping entries for a week
                             let _ = cx.update_window(cx.window_handle(), |_, cx| {
                                 let _ = ClipboardListItem::prune(
-                                    Duration::from_secs(60 * 60 * 24 * 7),
+                                    ToSpan::seconds(60 * 60 * 24 * 7),
                                     view.clone(),
                                     cx,
                                 );
@@ -671,7 +669,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                 let entry = if let Ok(Some(mut item)) =
                                     ClipboardListItem::get(&hash, db_items())
                                 {
-                                    item.contents.copied_last = OffsetDateTime::now_utc();
+                                    item.contents.copied_last = jiff::Timestamp::now();
                                     item.contents.copy_count += 1;
                                     let _ = item.update(db_items());
                                     item.contents.clone()
@@ -737,7 +735,7 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                                 let entry = if let Ok(Some(mut item)) =
                                     ClipboardListItem::get(&hash, db_items())
                                 {
-                                    item.contents.copied_last = OffsetDateTime::now_utc();
+                                    item.contents.copied_last = Timestamp::now();
                                     item.contents.copy_count += 1;
                                     let _ = item.update(db_items());
                                     item.contents.clone()

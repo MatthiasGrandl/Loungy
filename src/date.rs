@@ -10,27 +10,23 @@
  */
 
 use gpui::AppContext;
-use time::{format_description, OffsetDateTime};
+use jiff::{fmt::strtime, tz::TimeZone, Timestamp, ToSpan};
 
-pub fn format_date(date: &OffsetDateTime, cx: &AppContext) -> String {
-    let prefix = if date.day() == OffsetDateTime::now_utc().day() {
+pub fn format_date(date: Timestamp, _cx: &AppContext) -> String {
+    let tz = TimeZone::system();
+    let zoned = date.to_zoned(tz.clone());
+    let zoned_now = Timestamp::now().to_zoned(tz.clone());
+    let prefix = if zoned_now.day().eq(&zoned.day()) {
         "Today"
-    } else if date.day()
-        == OffsetDateTime::now_utc()
-            .saturating_sub(time::Duration::days(1))
-            .day()
+    } else if zoned_now
+        .day()
+        .eq(&zoned.checked_sub(ToSpan::day(1)).unwrap().day())
     {
         "Yesterday"
     } else {
-        "[day]. [month repr:short] [year]"
+        "%d. %b %Y"
     };
-    let format = format!("{}, [hour]:[minute]:[second]", prefix);
-    let format = format_description::parse(&format).unwrap();
+    let format = format!("{}, %H:%M:%S", prefix);
 
-    date.checked_add(time::Duration::seconds(
-        cx.local_timezone().whole_seconds() as i64
-    ))
-    .unwrap()
-    .format(&format)
-    .unwrap()
+    strtime::format(format, zoned.datetime()).unwrap()
 }

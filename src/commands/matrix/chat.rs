@@ -14,6 +14,7 @@ use async_std::{
     task::{sleep, spawn, JoinHandle},
 };
 use futures::{future::Shared, FutureExt};
+use jiff::Timestamp;
 use std::{sync::Arc, time::Duration};
 use url::Url;
 
@@ -34,7 +35,6 @@ use matrix_sdk_ui::{
     timeline::{EventTimelineItem, PaginationOptions, TimelineDetails, TimelineItemContent},
     Timeline,
 };
-use time::OffsetDateTime;
 
 use crate::{
     command,
@@ -156,7 +156,7 @@ pub(super) struct Message {
     pub sender: String,
     pub avatar: Img,
     pub content: MessageContent,
-    pub timestamp: OffsetDateTime,
+    pub timestamp: Timestamp,
     pub edited: bool,
     pub me: bool,
     pub reactions: Reactions,
@@ -298,7 +298,7 @@ impl ItemComponent for Message {
                     .justify_end()
                     .text_xs()
                     .text_color(theme.subtext0)
-                    .child(format_date(&self.timestamp.clone(), cx)),
+                    .child(format_date(self.timestamp, cx)),
             )
             .child(if show_avatar {
                 let mut avatar = self.avatar.clone();
@@ -428,8 +428,7 @@ async fn sync(
                         })
                         .collect()
                 }),
-                timestamp: OffsetDateTime::from_unix_timestamp(m.timestamp().as_secs().into())
-                    .unwrap(),
+                timestamp: Timestamp::from_second(m.timestamp().as_secs().into()).unwrap(),
                 first: false,
                 last: false,
                 in_reply_to: None,
