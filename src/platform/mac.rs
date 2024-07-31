@@ -70,7 +70,23 @@ pub fn get_application_folders() -> Vec<PathBuf> {
     let user_dir = PathBuf::from("/Users")
         .join(whoami::username())
         .join("Applications");
-    vec![
+    let mut user_dirs = user_dir
+        .read_dir()
+        .map(|i| {
+            i.into_iter()
+                .filter_map(|dir| {
+                    if let Ok(dir) = dir {
+                        let path = dir.path();
+                        if path.is_dir() {
+                            return Some(path);
+                        }
+                    }
+                    None
+                })
+                .collect::<Vec<PathBuf>>()
+        })
+        .unwrap_or_default();
+    user_dirs.append(&mut vec![
         PathBuf::from("/Applications"),
         PathBuf::from("/Applications/Chromium Apps"),
         PathBuf::from("/System/Applications/Utilities"),
@@ -80,11 +96,12 @@ pub fn get_application_folders() -> Vec<PathBuf> {
         PathBuf::from("/System/Library/ExtensionKit/Extensions"),
         PathBuf::from("/System/Library/CoreServices/Finder.app"),
         user_dir.clone(),
+        user_dir.clone().join("Home Manager Apps"),
         user_dir.clone().join("Chromium Apps.localized"),
-        // Not sure about the correct path for PWAs
         user_dir.clone().join("Chrome Apps.localized"),
         user_dir.clone().join("Brave Apps.localized"),
-    ]
+    ]);
+    user_dirs
 }
 
 pub fn get_application_files() -> Vec<PathBuf> {
