@@ -30,19 +30,19 @@ use crate::{
 
 use self::root::list;
 
-#[cfg(feature = "bitwarden")]
-mod bitwarden;
-#[cfg(feature = "clipboard")]
-mod clipboard;
-#[cfg(feature = "matrix")]
-mod matrix;
-#[cfg(target_os = "macos")]
-mod menu;
-mod process;
+// #[cfg(feature = "bitwarden")]
+// mod bitwarden;
+// #[cfg(feature = "clipboard")]
+// mod clipboard;
+// #[cfg(feature = "matrix")]
+// mod matrix;
+// #[cfg(target_os = "macos")]
+// mod menu;
+// mod process;
 pub mod root;
-#[cfg(feature = "tailscale")]
-mod tailscale;
-mod theme;
+// #[cfg(feature = "tailscale")]
+// mod tailscale;
+// mod theme;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RootCommand {
@@ -91,18 +91,18 @@ impl RootCommands {
     pub fn init(cx: &mut WindowContext) {
         let commands: Vec<Box<dyn RootCommandBuilder>> = vec![
             Box::new(list::LoungyCommandBuilder),
-            #[cfg(target_os = "macos")]
-            Box::new(menu::list::MenuCommandBuilder),
-            Box::new(process::list::ProcessCommandBuilder),
-            Box::new(theme::list::ThemeCommandBuilder),
-            #[cfg(feature = "tailscale")]
-            Box::new(tailscale::list::TailscaleCommandBuilder),
-            #[cfg(feature = "bitwarden")]
-            Box::new(bitwarden::list::BitwardenCommandBuilder),
-            #[cfg(feature = "matrix")]
-            Box::new(matrix::list::MatrixCommandBuilder),
-            #[cfg(feature = "clipboard")]
-            Box::new(clipboard::list::ClipboardCommandBuilder),
+            // #[cfg(target_os = "macos")]
+            // Box::new(menu::list::MenuCommandBuilder),
+            // Box::new(process::list::ProcessCommandBuilder),
+            // Box::new(theme::list::ThemeCommandBuilder),
+            // #[cfg(feature = "tailscale")]
+            // Box::new(tailscale::list::TailscaleCommandBuilder),
+            // #[cfg(feature = "bitwarden")]
+            // Box::new(bitwarden::list::BitwardenCommandBuilder),
+            // #[cfg(feature = "matrix")]
+            // Box::new(matrix::list::MatrixCommandBuilder),
+            // #[cfg(feature = "clipboard")]
+            // Box::new(clipboard::list::ClipboardCommandBuilder),
         ];
         let mut map = HashMap::new();
         for command in commands {

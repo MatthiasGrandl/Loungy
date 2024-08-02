@@ -1,0 +1,18 @@
+package loungy:command;
+
+interface command {
+    record metadata {
+        id: string,
+        title: string,
+        subtitle: string,
+        keywords: list<string>,
+        icon: string,
+    }
+    init: func() -> metadata;
+    run: func();
+}
+
+world loungy {
+    import host;
+    export command;
+}

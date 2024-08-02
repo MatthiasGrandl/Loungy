@@ -19,7 +19,7 @@ use std::{
 };
 
 use crate::{
-    commands::root::list::RootListBuilder,
+    // commands::root::list::RootListBuilder,
     components::{
         list::{Accessory, ItemBuilder, List, ListBuilder, ListItem},
         shared::{Icon, Img, ImgMask, ImgSize},
@@ -438,8 +438,7 @@ impl StateModel {
         let this = Self {
             inner: cx.new_model(|_| State { stack: vec![] }),
         };
-        this.push(RootListBuilder {}, cx);
-
+        // this.push(RootListBuilder {}, cx);
         cx.set_global(this.clone());
 
         this
@@ -491,9 +490,9 @@ impl StateModel {
         self.inner
             .update(cx, |model, _| {
                 model.stack.truncate(1);
-                model.stack[0].query.downgrade()
+                model.stack.get(0).and_then(|i| Some(i.query.downgrade()))
             })
-            .set_text("", cx);
+            .and_then(|q| Some(q.set_text("", cx)));
     }
 }
 

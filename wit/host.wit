@@ -1,0 +1,61 @@
+package loungy:command;
+
+interface host  {
+    use command.{metadata};
+    variant img-source {
+        url(string),
+        path(string),
+        dot(string),
+        favicon(string),
+    }
+    variant img-mask {
+        circle,
+        rounded,
+        none,
+    }
+    variant img-size {
+        xs,
+        sm,
+        md,
+        lg,
+    }
+    variant object-fit {
+        contain,
+        cover,
+        fill,
+        none,
+    }
+    record img {
+        mask: img-mask,
+        source: img-source,
+        size: img-size,
+        object-fit: object-fit,
+    }
+    record app-data {
+        id: string,
+        name: string,
+        icon: img,
+        icon-path: path,
+        keywords: list<string>,
+        tag: string,
+    }
+
+    type path = string;
+
+    is-open: func() -> bool;
+    open: func();
+    toggle: func();
+    close: func();
+    get-commands: func() -> list<metadata>;
+    get-app-data: func(path: path) -> option<app-data>;
+    run-command: func(name: string);
+    // get-app-folders: func() -> list<path>;
+    // get-app-files: func() -> list<path>;
+    // get-frontmost-app: func() -> option<app-data>;
+    // close-and-paste: func(text: string, format: bool);
+    // close-and-paste-file: func(path: path);
+    // autofill: func(text: string, password: bool, prev: string) -> option<string>;
+    // ocr: func(path: path);
+    // wait-for-close: func(callback: func());
+    // on-clipboard-change: func(callback: func());
+}

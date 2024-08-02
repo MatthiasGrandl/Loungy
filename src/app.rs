@@ -9,20 +9,22 @@
  *
  */
 
+use crate::wasm::bindings::loungy::command::host::Host;
 use async_std::os::unix::net::UnixListener;
 use gpui::*;
 
 use crate::{
     assets::Assets,
-    commands::RootCommands,
-    hotkey::HotkeyManager,
-    ipc::server::start_server,
     theme::Theme,
+    wasm::host::WasmHost,
     window::{Window, WindowStyle},
     workspace::Workspace,
 };
 
-pub fn run_app(listener: UnixListener, app: gpui::App) {
+pub fn run_app(
+    //listener: UnixListener,
+    app: gpui::App,
+) {
     app.with_assets(Assets).run(move |cx: &mut AppContext| {
         Theme::init(cx);
         // TODO: This still only works for a single display
@@ -34,13 +36,15 @@ pub fn run_app(listener: UnixListener, app: gpui::App) {
             },
         });
         let _ = cx.open_window(WindowStyle::Main.options(bounds), |cx| {
+            WasmHost::new(cx);
+
             let theme = cx.global::<Theme>();
             cx.set_background_appearance(WindowBackgroundAppearance::from(
                 theme.window_background.clone().unwrap_or_default(),
             ));
-            RootCommands::init(cx);
-            cx.spawn(|cx| start_server(listener, cx)).detach();
-            HotkeyManager::init(cx);
+            //RootCommands::init(cx);
+            // cx.spawn(|cx| start_server(listener, cx)).detach();
+            // HotkeyManager::init(cx);
             let view = Workspace::build(cx);
             Window::init(cx);
 

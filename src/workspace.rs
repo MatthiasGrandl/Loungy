@@ -33,6 +33,9 @@ impl Render for Workspace {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let theme = cx.global::<Theme>();
         let stack: &Vec<StateItem> = self.state.inner.read(cx).stack.as_ref();
+        if stack.is_empty() {
+            return div();
+        }
         let item = stack.last().unwrap();
         let view = stack.iter().filter(|item| item.workspace).last().unwrap();
 

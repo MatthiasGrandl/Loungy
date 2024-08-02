@@ -8,9 +8,10 @@
  *  See https://github.com/MatthiasGrandl/Loungy/blob/main/LICENSE.md for license information
  *
  */
-
-use crate::components::shared::Img;
 use crate::paths::paths;
+use crate::wasm::bindings::loungy::command::host::{
+    AppData, Img, ImgMask, ImgSize, ImgSource, ObjectFit,
+};
 use crate::window::Window;
 use cocoa::appkit::NSPasteboard;
 use gpui::{AsyncWindowContext, WindowContext};
@@ -21,7 +22,7 @@ use std::{
 };
 use swift_rs::{swift, Bool, SRObject, SRString};
 
-use super::{AppData, ClipboardWatcher};
+use super::ClipboardWatcher;
 
 #[repr(C)]
 struct AppDataMac {
@@ -58,8 +59,13 @@ pub fn get_application_data(path: &Path) -> Option<AppData> {
         AppData {
             id: data.id.to_string(),
             name: data.name.to_string(),
-            icon: Img::default().file(icon_path.clone()),
-            icon_path,
+            icon_path: icon_path.to_string_lossy().to_string(),
+            icon: Img {
+                mask: ImgMask::None,
+                source: ImgSource::Path(icon_path.to_string_lossy().to_string()),
+                object_fit: ObjectFit::Contain,
+                size: ImgSize::Md,
+            },
             keywords: vec![],
             tag: tag.to_string(),
         }
@@ -139,8 +145,13 @@ pub fn get_frontmost_application_data() -> Option<AppData> {
         AppData {
             id: data.id.to_string(),
             name: data.name.to_string(),
-            icon: Img::default().file(icon_path.clone()),
-            icon_path,
+            icon: Img {
+                mask: ImgMask::None,
+                source: ImgSource::Path(icon_path.to_string_lossy().to_string()),
+                object_fit: ObjectFit::Contain,
+                size: ImgSize::Md,
+            },
+            icon_path: icon_path.to_string_lossy().to_string(),
             keywords: vec![],
             tag: "".to_string(),
         }
