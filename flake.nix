@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
@@ -13,16 +13,16 @@
           inherit system overlays;
         };
 
-        libraries = with pkgs; [
+        libraries = with pkgs; (pkgs.lib.strings.optionalString stdenv.isLinux [
           glib
           openssl_3
           vulkan-headers
           vulkan-loader
           wayland
           wayland-protocols
-        ];
+        ]) ++ [];
 
-        packages = with pkgs; [
+        packages = with pkgs; (pkgs.lib.strings.optionalString stdenv.isLinux [
           fontconfig
           glib
           libxkbcommon
@@ -31,6 +31,7 @@
           vulkan-tools
           wayland-scanner
           xorg.libxcb
+        ]) ++ [
           (pkgs.rust-bin.stable.latest.default.override
             { extensions = [ "rust-src" ]; })
         ];
@@ -38,11 +39,26 @@
       {
         devShell = pkgs.mkShell {
           buildInputs = packages;
-
           shellHook =
             ''
               export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
             '';
         };
-      });
+        packages = rec {
+          loungy = pkgs.rustPlatform.buildRustPackage {
+            name = "loungy";
+            src = ./.;
+            cargoLock = {
+              lockFile = ./Cargo.lock;
+              allowBuiltinFetchGit = true;
+            };
+          };
+          default = loungy;
+        };
+        apps = rec {
+          loungy = flake-utils.lib.mkApp { drv = self.packages.${system}.loungy; };
+          default = loungy;
+        };
+      }
+    );
 }
