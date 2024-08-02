@@ -210,10 +210,7 @@ impl BitwardenAccount {
     }
     pub async fn command(&self, args: Vec<&str>) -> anyhow::Result<Output> {
         let mut env: HashMap<String, String> = HashMap::new();
-        env.insert(
-            "PATH".to_string(),
-            "/opt/homebrew/bin:/usr/local/bin".to_string(),
-        );
+        env.insert("PATH".to_string(), paths().path_env.clone());
         env.insert(
             "BITWARDENCLI_APPDATA_DIR".to_string(),
             self.path().to_string_lossy().to_string(),

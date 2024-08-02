@@ -12,6 +12,7 @@
 use std::{path::PathBuf, sync::OnceLock};
 
 pub struct Paths {
+    pub path_env: String,
     pub cache: PathBuf,
     pub config: PathBuf,
     pub data: PathBuf,
@@ -23,10 +24,20 @@ impl Paths {
     pub fn new() -> Self {
         let username = whoami::username();
         #[cfg(target_os = "macos")]
-        let user_dir = PathBuf::from("/Users").join(username);
+        let user_dir = PathBuf::from("/Users").join(username.clone());
         #[cfg(target_os = "linux")]
         let user_dir = PathBuf::from("/home").join(username);
         Self {
+            #[cfg(target_os = "macos")]
+            path_env: format!(
+                "/opt/homebrew/bin:/usr/local/bin:/Users/{}/.nix-profile/bin",
+                username
+            ),
+            #[cfg(target_os = "linux")]
+            path_env: format!(
+                "/opt/homebrew/bin:/usr/local/bin:/home/{}/.nix-profile/bin",
+                username
+            ),
             #[cfg(target_os = "macos")]
             cache: user_dir.clone().join("Library/Caches").join(NAME),
             #[cfg(target_os = "linux")]

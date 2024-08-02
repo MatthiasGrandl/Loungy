@@ -23,6 +23,7 @@ use crate::{
         shared::{Icon, Img},
     },
     date::format_date,
+    paths::paths,
     state::{Action, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext},
     theme::Theme,
 };
@@ -75,10 +76,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                         .eq(&this.actions.get_dropdown_value(cx));
                     let theme = cx.global::<Theme>().clone();
                     let mut env: HashMap<String, String> = HashMap::new();
-                    env.insert(
-                        "PATH".to_string(),
-                        "/opt/homebrew/bin:/usr/local/bin".to_string(),
-                    );
+                    env.insert("PATH".to_string(), paths().path_env.clone());
                     let status = Command::new("tailscale")
                         .envs(env)
                         .arg("status")
