@@ -1,0 +1,37 @@
+package loungy:command;
+
+interface %list {
+  use shared.{img,shortcut,callback,action};
+  record simple {
+    title: string,
+    subtitle: string,
+    img: img,
+    accessories: list<accessory>,
+  }
+  variant list-component {
+    simple(simple)
+  }
+  record tag {
+    tag: string,
+    img: img,
+  }
+  variant accessory {
+    tag(tag),
+    shortcut(shortcut),
+    none,
+  }
+  record list-item {
+      id: string,
+      preview: option<callback>,
+      actions: list<action>,
+      weight: option<u32>,
+      keywords: list<string>,
+      meta: list<u8>,
+      component: list-component,
+  }
+
+  record %list {
+      items: list<list-item>,
+      initialized: bool,
+  }
+}

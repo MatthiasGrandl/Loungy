@@ -9,7 +9,7 @@
  *
  */
 use crate::paths::paths;
-use crate::wasm::bindings::loungy::command::host::{
+use crate::wasm::bindings::loungy::command::shared::{
     AppData, Img, ImgMask, ImgSize, ImgSource, ObjectFit,
 };
 use crate::window::Window;

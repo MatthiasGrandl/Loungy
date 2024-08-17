@@ -1,46 +1,7 @@
 package loungy:command;
 
-interface host  {
-    use command.{metadata};
-    variant img-source {
-        url(string),
-        path(string),
-        dot(string),
-        favicon(string),
-    }
-    variant img-mask {
-        circle,
-        rounded,
-        none,
-    }
-    variant img-size {
-        xs,
-        sm,
-        md,
-        lg,
-    }
-    variant object-fit {
-        contain,
-        cover,
-        fill,
-        none,
-    }
-    record img {
-        mask: img-mask,
-        source: img-source,
-        size: img-size,
-        object-fit: object-fit,
-    }
-    record app-data {
-        id: string,
-        name: string,
-        icon: img,
-        icon-path: path,
-        keywords: list<string>,
-        tag: string,
-    }
-
-    type path = string;
+interface host {
+    use shared.{metadata,callback,app-data,path};
 
     is-open: func() -> bool;
     open: func();

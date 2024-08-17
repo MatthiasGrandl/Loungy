@@ -3,3 +3,4 @@
 .vscode
 flamegraph.svg
 target
+.aider*

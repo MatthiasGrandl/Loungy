@@ -1,4 +1,4 @@
-use crate::exports::loungy::command::command::{Guest, Metadata};
+use crate::exports::loungy::command::command::{Callback, Guest, Metadata};
 use crate::loungy::command::host;
 
 wit_bindgen::generate!({
@@ -20,6 +20,9 @@ impl Guest for Component {
     }
     fn run() {
         eprintln!("HELLO WORLD: {:?}", host::get_commands());
+    }
+    fn call(name: String, payload: Callback) {
+        eprintln!("Callback: {:?} {:?}", name, payload);
     }
 }
 

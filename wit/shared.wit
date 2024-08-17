@@ -1,0 +1,79 @@
+package loungy:command;
+
+interface shared {
+  use icons.{icon};
+  variant img-source {
+      url(string),
+      path(string),
+      dot(string),
+      favicon(string),
+      icon(icon),
+      none,
+  }
+
+  record modifiers {
+      platform: bool,
+      shift: bool,
+      ctrl: bool,
+      alt: bool,
+  }
+
+  record shortcut {
+      key: string,
+      modifiers: modifiers,
+  }
+
+  record action {
+      label: string,
+      image: img,
+      shortcut: option<shortcut>,
+      callback: callback,
+      hide: bool,
+  }
+
+  variant img-mask {
+      circle,
+      rounded,
+      none,
+  }
+  variant img-size {
+      xs,
+      sm,
+      md,
+      lg,
+  }
+  variant object-fit {
+      contain,
+      cover,
+      fill,
+      none,
+  }
+  record img {
+      mask: img-mask,
+      source: img-source,
+      size: img-size,
+      object-fit: object-fit,
+  }
+  record app-data {
+      id: string,
+      name: string,
+      icon: img,
+      icon-path: path,
+      keywords: list<string>,
+      tag: string,
+  }
+
+  type path = string;
+  type callback = string;
+  record metadata {
+      id: string,
+      title: string,
+      subtitle: string,
+      keywords: list<string>,
+      icon: img,
+  }
+  variant callback-type {
+      //list(list-item),
+      none,
+  }
+}

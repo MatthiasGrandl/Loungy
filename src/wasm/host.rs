@@ -16,9 +16,9 @@ use futures::channel::oneshot;
 use futures::future::{BoxFuture, LocalBoxFuture, Shared};
 use futures::{FutureExt, StreamExt};
 use gpui::*;
-use wasmtime::component::{Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Engine, Store};
-use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{DirPerms, FilePerms, ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 pub struct WasmHost {
     engine: Engine,
@@ -193,7 +193,7 @@ impl WasmHost {
                 let mut store = wasmtime::Store::new(&this.engine, state);
                 let mut linker = Linker::new(&this.engine);
                 host::add_to_linker(&mut linker, |state: &mut WasmState| state)?;
-                wasmtime_wasi::add_to_linker_sync(&mut linker)?;
+                wasmtime_wasi::add_to_linker_async(&mut linker)?;
                 let mut instance = Loungy::instantiate_async(&mut store, &comp, &linker).await?;
                 let meta = instance
                     .loungy_command_command()
