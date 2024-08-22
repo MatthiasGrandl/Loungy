@@ -186,11 +186,30 @@ impl WasmHost {
             _main_thread_task: main_thread_task,
         });
 
-        let extensions = WasmExtensions {
-            tasks: this.clone().load_extensions(cx),
-        };
+        let extensions = WasmExtensions { tasks: this.clone().load_extensions(cx) };
         let _ = extensions.list();
-        cx.set_global::<WasmExtensions>(extensions);
+        cx.set_global::<WasmExtensions>(extensions.clone());
+
+        let item_actions = ItemActions {
+            on_click: Box::new(move |id, cx| {
+                let ext = extensions.clone();
+                cx.spawn(async move {
+                    if let Some(extension) = ext.find_async(id.to_string()).await {
+                        let _ = extension.run().await;
+                    }
+                });
+            }),
+            on_double_click: Box::new(move |id, cx| {
+                let ext = extensions.clone();
+                cx.spawn(async move {
+                    if let Some(extension) = ext.find_async(id.to_string()).await {
+                        let _ = extension.run().await;
+                    }
+                });
+            }),
+        };
+
+        cx.set_global(item_actions);
 
         this
     }

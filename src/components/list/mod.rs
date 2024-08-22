@@ -391,6 +391,7 @@ pub struct List {
     pub filter: Box<dyn FilterList>,
     preview: Option<(u64, f32, StateItem)>,
     reverse: bool,
+    item_actions: ItemActions,
 }
 
 impl Render for List {
@@ -452,7 +453,15 @@ impl Render for List {
     }
 }
 
+pub struct ItemActions {
+    pub on_click: Box<dyn Fn(u64, &mut WindowContext)>,
+    pub on_double_click: Box<dyn Fn(u64, &mut WindowContext)>,
+}
+
 impl List {
+    pub fn set_item_actions(&mut self, actions: ItemActions) {
+        self.item_actions = actions;
+    }
     pub fn up(&mut self, cx: &mut ViewContext<Self>) {
         if !self.query.has_focus(cx) {
             return;
@@ -621,25 +630,16 @@ impl List {
                             return div().into_any_element();
                         }
                         let actions = actions.unwrap().read(cx).clone();
-                        let sender = sender.clone();
                         let id = item.id;
-                        div()
-                            .child(item)
-                            .on_mouse_down(MouseButton::Left, {
-                                move |ev, cx| match ev.click_count {
-                                    1 => {
-                                        let _ = sender.send(id);
-                                    }
-                                    2 => {
-                                        let mut actions = actions.clone();
-                                        if let Some(action) = &action {
-                                            (action.action)(&mut actions, cx);
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            })
-                            .into_any_element()
+                        let on_click = self.item_actions.on_click.clone();
+                        let on_double_click = self.item_actions.on_double_click.clone();
+                        div().child(item).on_mouse_down(MouseButton::Left, move |ev, cx| {
+                            match ev.click_count {
+                                1 => on_click(id, cx),
+                                2 => on_double_click(id, cx),
+                                _ => {}
+                            }
+                        }).into_any_element()
                     }
                 },
             ),
