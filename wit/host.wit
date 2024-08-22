@@ -1,7 +1,12 @@
 package loungy:command;
 
 interface host {
-    use shared.{metadata,callback,app-data,path};
+    use shared.{metadata,callback,app-data,path,state-item};
+
+    state-push: func(item: state-item);
+    state-replace: func(item: state-item);
+    state-pop: func();
+    state-reset: func();
 
     is-open: func() -> bool;
     open: func();

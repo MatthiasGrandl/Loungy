@@ -1,11 +1,11 @@
 package loungy:command;
 
 interface command {
-    use shared.{img,metadata,callback-type,callback};
+    use shared.{img,metadata,callback,callback-payload,callback-result};
     
     init: func() -> metadata;
     run: func();
-    call: func(callback: callback) -> callback-type;
+    call: func(callback: callback, payload: callback-payload) -> callback-result;
 }
 
 world loungy {

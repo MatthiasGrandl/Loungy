@@ -15,6 +15,7 @@ use parking_lot::{Mutex, MutexGuard};
 use serde::Deserialize;
 use std::{
     ops::DerefMut,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -26,6 +27,7 @@ use crate::{
     },
     query::{TextEvent, TextInput, TextInputWeak},
     theme::{self, Theme},
+    wasm::{bindings::loungy::command::shared, host::WasmExtension},
     window::{Window, WindowStyle},
 };
 
@@ -329,25 +331,68 @@ impl Render for PopupToast {
     }
 }
 
+struct StateView {
+    component: shared::StateComponent,
+}
+
+impl Render for StateView {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        div()
+    }
+}
+
+impl StateView {
+    pub fn init(
+        item: shared::StateItem,
+        context: &mut StateViewContext,
+        cx: &mut WindowContext,
+    ) -> AnyView {
+        let view = match item.component {
+            shared::StateComponent::List(list) => {
+                let mut builder = ListBuilder::new();
+                if let Some(interval) = list.interval {
+                    builder = builder.interval(Duration::from_millis(interval));
+                }
+                let extension = context.extension.clone();
+                if let Some(filter) = list.filter {
+                    builder = builder.filter(move |this, cx| {
+                        let query = query.unwrap().read(cx).text.clone();
+                        match extension
+                            .callback_sync(filter, shared::CallbackPayload::Filter(query))
+                        {
+                            Ok(shared::CallbackResult::List(items)) => items,
+                            Err(_) => vec![],
+                        }
+                    })
+                }
+                builder.build(
+                    |_, _, _| {
+                        extension.callback_sync(list.update, shared::CallbackPayload::None)?
+                    },
+                    cx,
+                )
+            }
+        };
+    }
+}
+
 #[derive(Clone)]
 pub struct StateItem {
-    pub id: String,
+    inner: shared::StateItem,
     pub query: TextInput,
     pub view: AnyView,
     pub actions: View<Actions>,
-    pub workspace: bool,
 }
 
 pub struct StateViewContext {
     pub query: TextInputWeak,
     pub actions: ActionsModel,
-    pub update_receiver: crossbeam_channel::Receiver<bool>,
+    pub extension: Arc<WasmExtension>,
 }
 
 impl StateItem {
-    pub fn init(view: impl StateViewBuilder, workspace: bool, cx: &mut WindowContext) -> Self {
-        let (s, r) = crossbeam_channel::unbounded::<bool>();
-        let (actions_weak, actions) = ActionsModel::init(s, cx);
+    pub fn init(item: shared::StateItem, cx: &mut WindowContext) -> Self {
+        let (actions_weak, actions) = ActionsModel::init(cx);
         let query = TextInput::new(cx);
 
         let actions_clone = actions_weak.clone();
@@ -391,37 +436,15 @@ impl StateItem {
         let mut context = StateViewContext {
             query: query.downgrade(),
             actions: actions_weak,
-            update_receiver: r,
         };
-        let id = view.command();
-        let view = view.build(&mut context, cx);
+        let view = StateView::init(item.clone(), &mut context, cx);
         Self {
-            id,
+            inner: item,
             query,
             view,
             actions,
-            workspace,
         }
     }
-}
-
-pub trait StateViewBuilder: CommandTrait + Clone {
-    fn build(&self, context: &mut StateViewContext, cx: &mut WindowContext) -> AnyView;
-}
-
-pub trait CommandTrait {
-    fn command(&self) -> String;
-}
-
-#[macro_export]
-macro_rules! command {
-    ($ty:ty) => {
-        impl CommandTrait for $ty {
-            fn command(&self) -> String {
-                module_path!().to_string()
-            }
-        }
-    };
 }
 
 pub struct State {
@@ -468,8 +491,8 @@ impl StateModel {
             };
         });
     }
-    pub fn push(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
-        let item = StateItem::init(view, true, cx);
+    pub fn push(&self, item: shared::StateItem, cx: &mut WindowContext) {
+        let item = StateItem::init(item, cx);
         self.inner.update(cx, |model, cx| {
             model.stack.push(item);
             cx.notify();
@@ -482,9 +505,9 @@ impl StateModel {
             cx.notify();
         });
     }
-    pub fn replace(&self, view: impl StateViewBuilder, cx: &mut WindowContext) {
+    pub fn replace(&self, item: shared::StateItem, cx: &mut WindowContext) {
         self.pop(cx);
-        self.push(view, cx);
+        self.push(item, cx);
     }
     pub fn reset(&self, cx: &mut WindowContext) {
         self.inner
@@ -788,13 +811,12 @@ pub struct Actions {
     show: bool,
     query: Option<TextInput>,
     list: Option<View<List>>,
-    update_sender: crossbeam_channel::Sender<bool>,
     pub toast: Toast,
     pub dropdown: View<Dropdown>,
 }
 
 impl Actions {
-    fn new(update_sender: crossbeam_channel::Sender<bool>, cx: &mut WindowContext) -> Self {
+    fn new(cx: &mut WindowContext) -> Self {
         Self {
             global: cx.new_model(|_| Vec::new()),
             local: cx.new_model(|_| Vec::new()),
@@ -808,7 +830,6 @@ impl Actions {
                 value: "".to_string(),
                 items: vec![],
             }),
-            update_sender,
         }
     }
     pub fn default(cx: &mut WindowContext) -> Self {
@@ -904,9 +925,6 @@ impl Actions {
         }
         None
     }
-    pub fn update(&self) {
-        let _ = self.update_sender.send(true);
-    }
     pub fn set_dropdown_value(&mut self, value: impl ToString, cx: &mut WindowContext) {
         self.dropdown.update(cx, |this, cx| {
             let value = value.to_string();
@@ -976,15 +994,12 @@ pub struct ActionsModel {
 }
 
 impl ActionsModel {
-    pub fn init(
-        update_sender: crossbeam_channel::Sender<bool>,
-        cx: &mut WindowContext,
-    ) -> (Self, View<Actions>) {
+    pub fn init(cx: &mut WindowContext) -> (Self, View<Actions>) {
         let inner = cx.new_view(|cx| {
             #[cfg(debug_assertions)]
             cx.on_release(|_, _, _| debug!("ActionsModel released"))
                 .detach();
-            Actions::new(update_sender, cx)
+            Actions::new(cx)
         });
 
         let model = Self {

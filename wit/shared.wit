@@ -2,12 +2,19 @@ package loungy:command;
 
 interface shared {
   use icons.{icon};
+
+  type color = string;
+
+  record icon-colored {
+      icon: icon,
+      color: option<color>,
+  }
   variant img-source {
-      url(string),
+      uri(string),
       path(string),
-      dot(string),
+      dot(color),
       favicon(string),
-      icon(icon),
+      icon(icon-colored),
       none,
   }
 
@@ -65,6 +72,14 @@ interface shared {
 
   type path = string;
   type callback = string;
+  variant callback-payload {
+    filter(string),
+    none,
+  }
+  variant callback-result {
+    %list(list-item),
+    none,
+  }
   record metadata {
       id: string,
       title: string,
@@ -72,8 +87,51 @@ interface shared {
       keywords: list<string>,
       icon: img,
   }
-  variant callback-type {
-      //list(list-item),
-      none,
+
+  record list-item-simple {
+    title: string,
+    subtitle: string,
+    img: img,
+    accessories: list<accessory>,
+  }
+  variant list-item-component {
+    simple(list-item-simple)
+  }
+  record accessory-tag {
+    tag: string,
+    img: img,
+  }
+  variant accessory {
+    tag(accessory-tag),
+    shortcut(shortcut),
+    none,
+  }
+  record list-item {
+      id: string,
+      preview: option<callback>,
+      actions: list<action>,
+      weight: option<u32>,
+      keywords: list<string>,
+      meta: list<u8>,
+      component: list-item-component,
+      update: callback,
+      filter: option<callback>,
+  }
+
+  record %list {
+      items: list<list-item>,
+      interval: option<u64>,
+  }
+
+  variant state-component {
+    %list(%list),
+    none,
+  }
+
+  record state-item {
+    id: string,
+    actions: list<action>,
+    workspace: bool,
+    component: state-component,
   }
 }

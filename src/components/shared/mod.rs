@@ -17,56 +17,24 @@ use std::{
     time::Duration,
 };
 
+use crate::wasm::bindings::loungy::command::shared::*;
 use anyhow::anyhow;
 use async_std::task::{spawn, spawn_blocking, JoinHandle};
 use futures::future::Shared;
 use futures::FutureExt;
-use gpui::*;
+use gpui::{
+    div, img, percentage, svg, Animation, AnimationExt, IntoElement, ParentElement, Render,
+    SharedUri, Styled, Transformation, View, ViewContext, WindowContext,
+};
 use log::debug;
 use parking_lot::Mutex;
 use reqwest::StatusCode;
 use scraper::{Html, Selector};
 use url::Url;
 
-pub use icon::Icon;
-
 use crate::theme::Theme;
 
 mod icon;
-
-#[derive(Clone)]
-
-pub enum ImgMask {
-    Circle,
-    Rounded,
-    None,
-}
-
-#[derive(Clone)]
-pub enum ImgSource {
-    Base(ImageSource),
-    Icon { icon: Icon, color: Option<Hsla> },
-    Dot(Hsla),
-    Favicon(View<Favicon>),
-    None,
-}
-
-#[derive(Clone)]
-
-pub enum ImgSize {
-    XS,
-    SM,
-    MD,
-    LG,
-}
-
-#[derive(Clone)]
-pub enum ObjectFit {
-    Cover,
-    Contain,
-    Fill,
-    None,
-}
 
 #[allow(clippy::from_over_into)]
 impl Into<gpui::ObjectFit> for ObjectFit {
@@ -80,63 +48,60 @@ impl Into<gpui::ObjectFit> for ObjectFit {
     }
 }
 
-#[derive(Clone, IntoElement)]
-pub struct Img {
-    pub src: ImgSource,
-    pub mask: ImgMask,
-    size: ImgSize,
-    fit: ObjectFit,
-}
-
 impl Default for Img {
     fn default() -> Self {
         Self {
-            src: ImgSource::None,
+            source: ImgSource::None,
             mask: ImgMask::None,
-            size: ImgSize::MD,
-            fit: ObjectFit::Cover,
+            size: ImgSize::Md,
+            object_fit: ObjectFit::Cover,
         }
     }
 }
 
 impl Img {
     pub fn icon(mut self, icon: Icon) -> Self {
-        self.src = ImgSource::Icon { icon, color: None };
+        self.source = ImgSource::Icon { icon, color: None };
         self.mask = ImgMask::Rounded;
         self
     }
-    pub fn icon_color(mut self, color: Hsla) -> Self {
-        let icon = match self.src {
+    pub fn icon_color(mut self, color: gpui::Hsla) -> Self {
+        let icon = match self.source {
             ImgSource::Icon { icon, color: _ } => icon,
             _ => {
                 return self;
             }
         };
-        self.src = ImgSource::Icon {
+        self.source = ImgSource::Icon {
             icon,
             color: Some(color),
         };
         self
     }
     pub fn object_fit(mut self, fit: ObjectFit) -> Self {
-        self.fit = fit;
+        self.object_fit = fit;
         self
     }
-    pub fn dot(mut self, color: Hsla) -> Self {
-        self.src = ImgSource::Dot(color);
+    pub fn dot(mut self, color: gpui::Hsla) -> Self {
+        self.source = ImgSource::Dot(color);
         self
     }
-    pub fn favicon(mut self, url: impl ToString, fallback: Icon, cx: &mut WindowContext) -> Self {
+    pub fn favicon(
+        mut self,
+        url: impl ToString,
+        fallback: Icon,
+        cx: &mut gpui::WindowContext,
+    ) -> Self {
         let favicon = Favicon::new(&self, url, fallback, cx);
-        self.src = ImgSource::Favicon(favicon);
+        self.source = ImgSource::Favicon(favicon);
         self
     }
     pub fn file(mut self, src: PathBuf) -> Self {
-        self.src = ImgSource::Base(ImageSource::File(Arc::new(src)));
+        self.source = ImgSource::Base(ImgSource::File(Arc::new(src)));
         self
     }
     pub fn url(mut self, src: impl ToString) -> Self {
-        self.src = ImgSource::Base(ImageSource::Uri(SharedUri::from(src.to_string())));
+        self.source = ImgSource::Base(ImgSource::Uri(src.to_string()));
         self
     }
     pub fn mask(mut self, mask: ImgMask) -> Self {
@@ -149,13 +114,13 @@ impl Img {
     }
 }
 
-impl RenderOnce for Img {
-    fn render(self, cx: &mut WindowContext) -> impl IntoElement {
-        if let ImgSource::Favicon(favicon) = &self.src {
+impl gpui::RenderOnce for Img {
+    fn render(self, cx: &mut gpui::WindowContext) -> impl gpui::IntoElement {
+        if let ImgSource::Favicon(favicon) = &self.source {
             return favicon.clone().into_any_element();
         }
         let theme = cx.global::<Theme>();
-        let el = div()
+        let el = gpui::div()
             .flex()
             .items_center()
             .justify_center()
@@ -166,12 +131,12 @@ impl RenderOnce for Img {
             ImgMask::None => el,
         };
         let mut el = match self.size {
-            ImgSize::XS => el.size_4(),
-            ImgSize::SM => el.size_5(),
-            ImgSize::MD => el.size_6(),
-            ImgSize::LG => el.size_8(),
+            ImgSize::Xs => el.size_4(),
+            ImgSize::Sm => el.size_5(),
+            ImgSize::Md => el.size_6(),
+            ImgSize::Lg => el.size_8(),
         };
-        let img = match self.src {
+        let img = match self.source {
             ImgSource::Icon { icon, color } => {
                 match self.mask {
                     ImgMask::None => {}
@@ -179,11 +144,12 @@ impl RenderOnce for Img {
                         el = el.p_1();
                     }
                 }
-                let svg = svg()
-                    .path(icon.path())
-                    .text_color(color.unwrap_or(theme.text))
-                    .size_full();
-                if icon == Icon::Loader2 {
+                let color = match color {
+                    Some(color) => gpui::Hsla::from(gpui::Rgba::try_from(color.as_ref()).unwrap()),
+                    None => theme.text,
+                };
+                let svg = svg().path(icon.path()).text_color(color).size_full();
+                if icon == Icon::LoaderWit2 {
                     svg.with_animation(
                         "rotate-loader",
                         Animation::new(Duration::from_secs(1)).repeat(),
@@ -197,7 +163,7 @@ impl RenderOnce for Img {
                 }
             }
             ImgSource::Base(src) => {
-                let img = img(src).object_fit(self.fit.into()).size_full();
+                let img = img(src).object_fit(self.object_fit.into()).size_full();
                 let img = match self.mask {
                     ImgMask::Circle => {
                         el = el.p_0p5();
@@ -211,7 +177,11 @@ impl RenderOnce for Img {
                 };
                 img.into_any_element()
             }
-            ImgSource::Dot(color) => div().rounded_full().bg(color).size_1_2().into_any_element(),
+            ImgSource::Dot(color) => div()
+                .rounded_full()
+                .bg(gpui::Rgba::try_from(color.as_ref()).unwrap())
+                .size_1_2()
+                .into_any_element(),
             ImgSource::Favicon(_) => unreachable!(),
             ImgSource::None => div().into_any_element(),
         };
