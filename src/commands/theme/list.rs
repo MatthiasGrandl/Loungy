@@ -149,9 +149,9 @@ impl RootCommandBuilder for ThemeCommandBuilder {
             Icon::Palette,
             vec!["Appearance"],
             None,
-            Box::new(|_, cx| {
+            |_, cx| {
                 StateModel::update(|this, cx| this.push(ThemeListBuilder, cx), cx);
-            }),
+            },
         )
     }
 }

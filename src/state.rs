@@ -15,6 +15,8 @@ use parking_lot::{Mutex, MutexGuard};
 use serde::Deserialize;
 use std::{
     ops::DerefMut,
+    rc::Rc,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -501,37 +503,6 @@ impl Global for StateModel {}
 
 // Actions
 
-pub trait CloneableFn: Fn(&mut Actions, &mut WindowContext) {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
-    where
-        Self: 'a;
-}
-
-impl<F> CloneableFn for F
-where
-    F: Fn(&mut Actions, &mut WindowContext) + Clone,
-{
-    fn clone_box<'a>(&self) -> Box<dyn 'a + CloneableFn>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + CloneableFn> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
-}
-
-// implement Default for CloneableFn
-impl Default for Box<dyn CloneableFn> {
-    fn default() -> Self {
-        Box::new(|_, _| {})
-    }
-}
-
 #[derive(Clone, IntoElement, Deserialize)]
 pub struct Shortcut {
     inner: Keystroke,
@@ -698,12 +669,14 @@ impl RenderOnce for Shortcut {
     }
 }
 
+pub type ActionFn = Rc<dyn Fn(&mut Actions, &mut WindowContext)>;
+
 #[derive(Clone, IntoElement)]
 pub struct Action {
     pub label: String,
     pub shortcut: Option<Shortcut>,
     pub image: Img,
-    pub action: Box<dyn CloneableFn>,
+    pub action: ActionFn,
     pub hide: bool,
 }
 
@@ -729,13 +702,28 @@ impl Action {
         image: Img,
         label: impl ToString,
         shortcut: Option<Shortcut>,
-        action: impl CloneableFn + 'static,
+        action: impl Fn(&mut Actions, &mut WindowContext) + 'static,
         hide: bool,
     ) -> Self {
         Self {
             label: label.to_string(),
             shortcut,
-            action: Box::new(action),
+            action: Rc::new(action),
+            image,
+            hide,
+        }
+    }
+    pub fn new_rc(
+        image: Img,
+        label: impl ToString,
+        shortcut: Option<Shortcut>,
+        action: ActionFn,
+        hide: bool,
+    ) -> Self {
+        Self {
+            label: label.to_string(),
+            shortcut,
+            action,
             image,
             hide,
         }

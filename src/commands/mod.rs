@@ -9,7 +9,7 @@
  *
  */
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use gpui::*;
 use log::error;
@@ -24,7 +24,8 @@ use crate::{
     },
     hotkey::HotkeyManager,
     state::{
-        Action, CloneableFn, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext,
+        Action, ActionFn, Actions, CommandTrait, Shortcut, StateModel, StateViewBuilder,
+        StateViewContext,
     },
 };
 
@@ -44,6 +45,10 @@ pub mod root;
 mod tailscale;
 mod theme;
 
+fn def() -> ActionFn {
+    Rc::new(|_, _| {})
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RootCommand {
     pub id: String,
@@ -53,8 +58,8 @@ pub struct RootCommand {
     keywords: Vec<String>,
     #[serde(skip)]
     shortcut: Option<Shortcut>,
-    #[serde(skip)]
-    pub action: Box<dyn CloneableFn>,
+    #[serde(skip, default = "def")]
+    pub action: ActionFn,
 }
 impl RootCommand {
     pub fn new(
@@ -64,7 +69,7 @@ impl RootCommand {
         icon: Icon,
         keywords: Vec<impl ToString>,
         shortcut: Option<Shortcut>,
-        action: Box<dyn CloneableFn>,
+        action: impl Fn(&mut Actions, &mut WindowContext) + 'static,
     ) -> Self {
         Self {
             id: id.to_string(),
@@ -73,7 +78,7 @@ impl RootCommand {
             icon,
             keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
             shortcut,
-            action,
+            action: Rc::new(action),
         }
     }
 }
@@ -135,7 +140,7 @@ impl RootCommands {
                 )
                 .keywords(keywords)
                 .actions(vec![
-                    Action::new(
+                    Action::new_rc(
                         Img::default().icon(command.icon.clone()),
                         command.title.clone(),
                         None,

@@ -128,9 +128,9 @@ impl RootCommandBuilder for MenuCommandBuilder {
             Icon::Library,
             vec!["MacOS", "Apple"],
             None,
-            Box::new(|_, cx| {
+            |_, cx| {
                 StateModel::update(|this, cx| this.push(MenuListBuilder, cx), cx);
-            }),
+            },
         )
     }
 }

@@ -198,9 +198,9 @@ impl RootCommandBuilder for LoungyCommandBuilder {
             Icon::Rocket,
             vec!["Settings"],
             None,
-            Box::new(|actions, cx| {
+            |actions, cx| {
                 actions.toast.error("Preferences not yet implemented", cx);
-            }),
+            },
         )
     }
 }

@@ -230,9 +230,9 @@ impl RootCommandBuilder for ProcessCommandBuilder {
             Icon::Cpu,
             vec!["Kill", "Memory", "CPU"],
             None,
-            Box::new(|_, cx| {
+            |_, cx| {
                 StateModel::update(|this, cx| this.push(ProcessListBuilder, cx), cx);
-            }),
+            },
         )
     }
 }
