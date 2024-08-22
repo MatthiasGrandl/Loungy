@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::bindings::loungy::command::host;
+use super::bindings::loungy::command::shared;
 use super::bindings::Loungy;
 use crate::paths::paths;
 use crate::platform::{
@@ -10,6 +11,7 @@ use crate::platform::{
     get_application_folders, get_frontmost_application_data, ocr,
 };
 use crate::window::Window;
+use async_std::task::block_on;
 use async_trait::async_trait;
 use futures::channel::mpsc::{self, UnboundedSender};
 use futures::channel::oneshot;
@@ -35,6 +37,42 @@ pub struct WasmState {
 pub struct WasmExtension {
     metadata: host::Metadata,
     sender: UnboundedSender<ExtensionCall>,
+}
+
+impl WasmExtension {
+    pub async fn run(&self) -> Result<()> {
+        self.call(|instance, store| {
+            async { instance.loungy_command_command().call_run(store).await }.boxed()
+        })
+        .await?;
+        Ok(())
+    }
+    pub async fn callback(
+        &self,
+        name: impl ToString,
+        payload: shared::CallbackPayload,
+    ) -> Result<shared::CallbackResult> {
+        let name = name.to_string();
+        Ok(self
+            .call(move |instance, store| {
+                let name = name.clone();
+                async move {
+                    instance
+                        .loungy_command_command()
+                        .call_call(store, &name, &payload)
+                        .await
+                }
+                .boxed()
+            })
+            .await?)
+    }
+    pub fn callback_sync(
+        &self,
+        name: impl ToString,
+        payload: shared::CallbackPayload,
+    ) -> Result<shared::CallbackResult> {
+        block_on(self.callback(name, payload))
+    }
 }
 
 #[derive(Clone)]
@@ -69,13 +107,7 @@ impl WasmExtensions {
         self.list_async()
             .await
             .into_iter()
-            .map(|extension| host::Metadata {
-                id: extension.metadata.id.clone(),
-                title: extension.metadata.title.clone(),
-                subtitle: extension.metadata.subtitle.clone(),
-                icon: extension.metadata.icon.clone(),
-                keywords: extension.metadata.keywords.clone(),
-            })
+            .map(|extension| extension.metadata.clone())
             .collect()
     }
     pub async fn find_async(&self, id: impl ToString) -> Option<Arc<WasmExtension>> {
@@ -93,11 +125,7 @@ impl WasmExtensions {
         let Some(extension) = self.find_async(id).await else {
             return Err(anyhow::anyhow!("Extension not found"));
         };
-        Ok(extension
-            .call(|instance, store| {
-                async { instance.loungy_command_command().call_run(store).await }.boxed()
-            })
-            .await?)
+        Ok(extension.run().await?)
     }
 }
 
@@ -277,6 +305,18 @@ impl WasmHost {
 
 #[async_trait]
 impl host::Host for WasmState {
+    async fn state_push(&mut self, item: host::StateItem) {
+        //
+    }
+    async fn state_replace(&mut self, item: host::StateItem) {
+        //
+    }
+    async fn state_pop(&mut self) {
+        //
+    }
+    async fn state_reset(&mut self) {
+        //
+    }
     async fn is_open(&mut self) -> bool {
         self.host
             .on_main_thread(|cx| async { Window::is_open(cx) }.boxed_local())
