@@ -225,16 +225,18 @@ impl RenderOnce for TextInput {
                                 if !editor.masked {
                                     let selected_text =
                                         chars[editor.selection.clone()].iter().collect();
-                                    cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                                    cx.write_to_clipboard(ClipboardItem::new_string(selected_text));
                                 }
                             }
                             "v" => {
                                 let clipboard = cx.read_from_clipboard();
                                 if let Some(clipboard) = clipboard {
-                                    let text = clipboard.text();
+                                    let Some(text) = clipboard.text() else {
+                                        return;
+                                    };
                                     editor.text.replace_range(
                                         editor.char_range_to_text_range(&editor.text),
-                                        text,
+                                        &text,
                                     );
                                     let i = editor.selection.start + text.chars().count();
                                     editor.selection = i..i;
@@ -243,7 +245,7 @@ impl RenderOnce for TextInput {
                             "x" => {
                                 let selected_text =
                                     chars[editor.selection.clone()].iter().collect();
-                                cx.write_to_clipboard(ClipboardItem::new(selected_text));
+                                cx.write_to_clipboard(ClipboardItem::new_string(selected_text));
                                 editor.text.replace_range(
                                     editor.char_range_to_text_range(&editor.text),
                                     "",

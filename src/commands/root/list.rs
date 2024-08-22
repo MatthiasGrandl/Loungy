@@ -65,7 +65,7 @@ impl StateViewBuilder for RootListBuilder {
                                 None,
                                 {
                                     move |this, cx: &mut WindowContext| {
-                                        cx.write_to_clipboard(ClipboardItem::new(
+                                        cx.write_to_clipboard(ClipboardItem::new_string(
                                             result.result.to_string(),
                                         ));
                                         this.toast.floating(

@@ -135,7 +135,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                         {
                                             let ip = ip.clone();
                                             move |this, cx| {
-                                                cx.write_to_clipboard(ClipboardItem::new(
+                                                cx.write_to_clipboard(ClipboardItem::new_string(
                                                     ip.clone(),
                                                 ));
                                                 this.toast.floating(
@@ -154,7 +154,7 @@ impl StateViewBuilder for TailscaleListBuilder {
                                         {
                                             let ip = ipv6.clone();
                                             move |this, cx| {
-                                                cx.write_to_clipboard(ClipboardItem::new(
+                                                cx.write_to_clipboard(ClipboardItem::new_string(
                                                     ip.clone(),
                                                 ));
                                                 this.toast.floating(
