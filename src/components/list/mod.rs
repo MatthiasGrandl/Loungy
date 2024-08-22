@@ -12,6 +12,7 @@
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
+    rc::Rc,
     sync::mpsc::channel,
     time::Duration,
 };
@@ -140,29 +141,19 @@ impl ItemComponent for ListItem {
         )
         .into_any_element()
     }
-    fn clone_box(&self) -> Box<dyn ItemComponent> {
-        Box::new(self.clone())
-    }
 }
 
 pub trait ItemComponent {
     fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement;
-    fn clone_box(&self) -> Box<dyn ItemComponent>;
-}
-
-impl Clone for Box<dyn ItemComponent> {
-    fn clone(&self) -> Box<dyn ItemComponent> {
-        self.clone_box()
-    }
 }
 
 pub struct ItemBuilder {
     id: u64,
-    preview: Option<(f32, Box<dyn Preview>)>,
+    preview: Option<(f32, Rc<dyn Preview>)>,
     actions: Vec<Action>,
     weight: Option<u16>,
     keywords: Vec<String>,
-    component: Box<dyn ItemComponent>,
+    component: Rc<dyn ItemComponent>,
     preset: ItemPreset,
     meta: Option<AnyModel>,
 }
@@ -180,11 +171,11 @@ impl ItemBuilder {
             keywords: vec![],
             meta: None,
             preset: ItemPreset::Default,
-            component: Box::new(component),
+            component: Rc::new(component),
         }
     }
     pub fn preview(mut self, width: f32, preview: impl Preview + 'static) -> Self {
-        self.preview = Some((width, Box::new(preview)));
+        self.preview = Some((width, Rc::new(preview)));
         self
     }
     pub fn meta(mut self, meta: AnyModel) -> Self {
@@ -233,11 +224,11 @@ pub enum ItemPreset {
 
 pub struct Item {
     id: u64,
-    preview: Option<(f32, Box<dyn Preview>)>,
+    preview: Option<(f32, Rc<dyn Preview>)>,
     actions: Vec<Action>,
     weight: Option<u16>,
     keywords: Vec<String>,
-    component: Box<dyn ItemComponent>,
+    component: Rc<dyn ItemComponent>,
     selected: bool,
     preset: ItemPreset,
     pub meta: Option<AnyModel>,
@@ -256,29 +247,8 @@ impl Item {
     }
 }
 
-pub trait Preview: Fn(&mut WindowContext) -> StateItem {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + Preview>
-    where
-        Self: 'a;
-}
-
-impl<F> Preview for F
-where
-    F: Fn(&mut WindowContext) -> StateItem + Clone,
-{
-    fn clone_box<'a>(&self) -> Box<dyn 'a + Preview>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + Preview> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
-}
+pub trait Preview: Fn(&mut WindowContext) -> StateItem + 'static {}
+impl<F> Preview for F where F: Fn(&mut WindowContext) -> StateItem + 'static {}
 
 impl RenderOnce for Item {
     fn render(self, cx: &mut WindowContext) -> impl IntoElement {

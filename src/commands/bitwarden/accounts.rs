@@ -319,9 +319,9 @@ impl RootCommandBuilder for BitwardenAccountCommandBuilder {
             Icon::Vault,
             vec!["Passwords"],
             None,
-            Box::new(|_, cx| {
+            |_, cx| {
                 StateModel::update(|this, cx| this.push(BitwardenAccountListBuilder, cx), cx);
-            }),
+            },
         )
     }
 }

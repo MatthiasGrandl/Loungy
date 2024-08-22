@@ -596,7 +596,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
             Icon::Lock,
             vec!["Passwords"],
             None,
-            Box::new(move |_, cx| {
+            move |_, cx| {
                 let view = view.clone();
                 let accounts = BitwardenAccount::all(db());
                 if accounts.count().unwrap_or_default() == 0 {
@@ -607,7 +607,7 @@ impl RootCommandBuilder for BitwardenCommandBuilder {
                 } else {
                     StateModel::update(|this, cx| this.push(BitwardenListBuilder { view }, cx), cx);
                 };
-            }),
+            },
         )
     }
 }

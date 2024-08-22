@@ -15,7 +15,7 @@ use async_std::{
 };
 use futures::{future::Shared, FutureExt};
 use jiff::Timestamp;
-use std::{sync::Arc, time::Duration};
+use std::{rc::Rc, sync::Arc, time::Duration};
 use url::Url;
 
 use gpui::*;
@@ -63,36 +63,15 @@ pub(super) struct ChatRoom {
     pub(super) room: Arc<Room>,
 }
 
-pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) {
-    fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
-    where
-        Self: 'a;
-}
-
-impl<F> OnMouseDown for F
-where
-    F: Fn(&MouseDownEvent, &mut WindowContext) + Clone,
-{
-    fn clone_box<'a>(&self) -> Box<dyn 'a + OnMouseDown>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-impl<'a> Clone for Box<dyn 'a + OnMouseDown> {
-    fn clone(&self) -> Self {
-        (**self).clone_box()
-    }
-}
+pub trait OnMouseDown: Fn(&MouseDownEvent, &mut WindowContext) + 'static {}
+impl<F> OnMouseDown for F where F: Fn(&MouseDownEvent, &mut WindowContext) + 'static {}
 
 #[derive(Clone)]
 pub(super) struct Reaction {
     emoji: String,
     count: u16,
     me: bool,
-    on_mouse_down: Box<dyn OnMouseDown>,
+    on_mouse_down: Rc<dyn OnMouseDown>,
 }
 
 #[derive(Clone, IntoElement)]
@@ -124,7 +103,10 @@ impl RenderOnce for Reactions {
                         .font_weight(FontWeight::BOLD)
                         .child(reaction.count.to_string()),
                 )
-                .on_mouse_down(MouseButton::Left, reaction.on_mouse_down.clone())
+                .on_mouse_down(MouseButton::Left, {
+                    let f = reaction.on_mouse_down.clone();
+                    move |a, b| (f)(a, b)
+                })
         }))
     }
 }
@@ -240,9 +222,6 @@ impl Message {
 }
 
 impl ItemComponent for Message {
-    fn clone_box(&self) -> Box<dyn ItemComponent> {
-        Box::new(self.clone())
-    }
     fn render(&self, selected: bool, cx: &WindowContext) -> AnyElement {
         let theme = cx.global::<Theme>();
         let show_avatar = !self.me && self.first;
@@ -411,7 +390,7 @@ async fn sync(
                             emoji: emoji.clone(),
                             count: r.len() as u16,
                             me: r.by_sender(me).count() > 0,
-                            on_mouse_down: Box::new({
+                            on_mouse_down: Rc::new({
                                 let annotation = Annotation::new(
                                     m.event_id().unwrap().to_owned(),
                                     emoji.clone(),

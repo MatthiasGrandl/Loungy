@@ -122,9 +122,6 @@ pub struct NumbatWrapper {
 }
 
 impl ItemComponent for NumbatWrapper {
-    fn clone_box(&self) -> Box<dyn ItemComponent> {
-        Box::new(self.clone())
-    }
     fn render(&self, _selected: bool, _cx: &WindowContext) -> AnyElement {
         self.inner.clone().into_any_element()
     }

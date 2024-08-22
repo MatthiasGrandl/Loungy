@@ -798,10 +798,10 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
             Icon::Clipboard,
             Vec::<String>::new(),
             None,
-            Box::new(move |_, cx| {
+            move |_, cx| {
                 let view = view.clone();
                 StateModel::update(|this, cx| this.push(ClipboardListBuilder { view }, cx), cx);
-            }),
+            },
         )
     }
 }

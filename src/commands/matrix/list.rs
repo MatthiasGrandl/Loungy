@@ -252,7 +252,7 @@ impl RootCommandBuilder for MatrixCommandBuilder {
             Icon::MessageCircle,
             vec!["Chat", "Messages"],
             None,
-            Box::new(move |_, cx| {
+            move |_, cx| {
                 let view = view.clone();
                 let sessions = Session::all(db());
                 if sessions.count().unwrap_or_default() == 0 {
@@ -260,7 +260,7 @@ impl RootCommandBuilder for MatrixCommandBuilder {
                 } else {
                     StateModel::update(|this, cx| this.push(RoomList { view }, cx), cx);
                 };
-            }),
+            },
         )
     }
 }

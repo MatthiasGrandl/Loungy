@@ -194,9 +194,9 @@ impl RootCommandBuilder for TailscaleCommandBuilder {
             Icon::Waypoints,
             vec!["VPN"],
             None,
-            Box::new(|_, cx| {
+            |_, cx| {
                 StateModel::update(|this, cx| this.push(TailscaleListBuilder, cx), cx);
-            }),
+            },
         )
     }
 }

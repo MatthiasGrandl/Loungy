@@ -16,7 +16,6 @@ use serde::Deserialize;
 use std::{
     ops::DerefMut,
     rc::Rc,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
