@@ -668,14 +668,15 @@ impl RenderOnce for Shortcut {
     }
 }
 
-pub type ActionFn = Rc<dyn Fn(&mut Actions, &mut WindowContext)>;
+pub trait ActionFn: Fn(&mut Actions, &mut WindowContext) + 'static {}
+impl<F> ActionFn for F where F: Fn(&mut Actions, &mut WindowContext) + 'static {}
 
 #[derive(Clone, IntoElement)]
 pub struct Action {
     pub label: String,
     pub shortcut: Option<Shortcut>,
     pub image: Img,
-    pub action: ActionFn,
+    pub action: Rc<dyn ActionFn>,
     pub hide: bool,
 }
 
@@ -701,7 +702,7 @@ impl Action {
         image: Img,
         label: impl ToString,
         shortcut: Option<Shortcut>,
-        action: impl Fn(&mut Actions, &mut WindowContext) + 'static,
+        action: impl ActionFn + 'static,
         hide: bool,
     ) -> Self {
         Self {
@@ -716,7 +717,7 @@ impl Action {
         image: Img,
         label: impl ToString,
         shortcut: Option<Shortcut>,
-        action: ActionFn,
+        action: Rc<dyn ActionFn>,
         hide: bool,
     ) -> Self {
         Self {

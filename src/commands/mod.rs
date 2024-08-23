@@ -24,8 +24,7 @@ use crate::{
     },
     hotkey::HotkeyManager,
     state::{
-        Action, ActionFn, Actions, CommandTrait, Shortcut, StateModel, StateViewBuilder,
-        StateViewContext,
+        Action, ActionFn, CommandTrait, Shortcut, StateModel, StateViewBuilder, StateViewContext,
     },
 };
 
@@ -45,7 +44,7 @@ pub mod root;
 mod tailscale;
 mod theme;
 
-fn def() -> ActionFn {
+fn def() -> Rc<dyn ActionFn> {
     Rc::new(|_, _| {})
 }
 
@@ -59,7 +58,7 @@ pub struct RootCommand {
     #[serde(skip)]
     shortcut: Option<Shortcut>,
     #[serde(skip, default = "def")]
-    pub action: ActionFn,
+    pub action: Rc<dyn ActionFn>,
 }
 impl RootCommand {
     pub fn new(
@@ -69,7 +68,7 @@ impl RootCommand {
         icon: Icon,
         keywords: Vec<impl ToString>,
         shortcut: Option<Shortcut>,
-        action: impl Fn(&mut Actions, &mut WindowContext) + 'static,
+        action: impl ActionFn,
     ) -> Self {
         Self {
             id: id.to_string(),
