@@ -82,8 +82,8 @@ impl RenderOnce for Accessory {
 
 #[derive(Clone)]
 pub struct ListItem {
-    title: String,
-    subtitle: Option<String>,
+    title: SharedString,
+    subtitle: Option<SharedString>,
     img: Option<Img>,
     accessories: Vec<Accessory>,
 }
@@ -96,8 +96,8 @@ impl ListItem {
         accessories: Vec<Accessory>,
     ) -> Self {
         Self {
-            title: title.to_string(),
-            subtitle,
+            title: title.to_string().into(),
+            subtitle: subtitle.map(|s| s.into()),
             img,
             accessories,
         }
@@ -152,7 +152,7 @@ pub struct ItemBuilder {
     preview: Option<(f32, Rc<dyn Preview>)>,
     actions: Vec<Action>,
     weight: Option<u16>,
-    keywords: Vec<String>,
+    keywords: Vec<SharedString>,
     component: Rc<dyn ItemComponent>,
     preset: ItemPreset,
     meta: Option<AnyModel>,
@@ -183,7 +183,7 @@ impl ItemBuilder {
         self
     }
     pub fn keywords(mut self, keywords: Vec<impl ToString>) -> Self {
-        self.keywords = keywords.into_iter().map(|k| k.to_string()).collect();
+        self.keywords = keywords.into_iter().map(|k| k.to_string().into()).collect();
         self
     }
     pub fn actions(mut self, actions: Vec<Action>) -> Self {
@@ -227,7 +227,7 @@ pub struct Item {
     preview: Option<(f32, Rc<dyn Preview>)>,
     actions: Vec<Action>,
     weight: Option<u16>,
-    keywords: Vec<String>,
+    keywords: Vec<SharedString>,
     component: Rc<dyn ItemComponent>,
     selected: bool,
     preset: ItemPreset,
@@ -242,8 +242,8 @@ impl Item {
             .map(|v| v.read(cx))
             .cloned()
     }
-    pub fn get_keywords(&self) -> &Vec<String> {
-        self.keywords.as_ref()
+    pub fn get_keywords(&self) -> Vec<SharedString> {
+        self.keywords.clone()
     }
 }
 
@@ -388,34 +388,7 @@ impl Render for List {
                         .w(width)
                         .h_full()
                         .relative()
-                        .child(list(self.state.clone()).size_full().pr_1()), // .child(
-                                                                             //     div()
-                                                                             //         .absolute()
-                                                                             //         .neg_right_1p5()
-                                                                             //         .top_0()
-                                                                             //         .bottom_0()
-                                                                             //         .w_1()
-                                                                             //         .h_full()
-                                                                             //         .child({
-                                                                             //             let scroll = self.state.logical_scroll_top();
-                                                                             //             let count = self.state.item_count() * 100;
-                                                                             //             let top = ((scroll.item_ix * 100) as f32
-                                                                             //                 + scroll.offset_in_item.0)
-                                                                             //                 / count as f32;
-                                                                             //             let height = Pixels(32.0);
-                                                                             //             let mt = Pixels(height.0 * top * -1.0);
-                                                                             //             div()
-                                                                             //                 .top(relative(top))
-                                                                             //                 .w_full()
-                                                                             //                 .bg(theme.surface0)
-                                                                             //                 .absolute()
-                                                                             //                 .left_0()
-                                                                             //                 .right_0()
-                                                                             //                 .rounded_sm()
-                                                                             //                 .mt(mt)
-                                                                             //                 .h(height)
-                                                                             //         }),
-                                                                             // ),
+                        .child(list(self.state.clone()).size_full().pr_1()),
                 )
                 .child(preview)
         }

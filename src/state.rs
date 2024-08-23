@@ -51,17 +51,17 @@ impl<T> LazyMutex<T> {
 #[derive(Clone, PartialEq)]
 pub enum ToastState {
     Success {
-        message: String,
+        message: SharedString,
         fade_in: Instant,
         fade_out: Option<Instant>,
     },
     Error {
-        message: String,
+        message: SharedString,
         fade_in: Instant,
         fade_out: Option<Instant>,
     },
     Loading {
-        message: String,
+        message: SharedString,
         fade_in: Instant,
         fade_out: Option<Instant>,
     },
@@ -232,7 +232,7 @@ impl Toast {
     pub fn loading<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Loading {
-                message: message.to_string(),
+                message: message.to_string().into(),
                 fade_in: Instant::now(),
                 fade_out: None,
             };
@@ -242,7 +242,7 @@ impl Toast {
     pub fn success<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Success {
-                message: message.to_string(),
+                message: message.to_string().into(),
                 fade_in: Instant::now(),
                 fade_out: Some(Instant::now() + Duration::from_secs(3)),
             };
@@ -252,7 +252,7 @@ impl Toast {
     pub fn error<C: VisualContext>(&mut self, message: impl ToString, cx: &mut C) {
         self.state.update(cx, |this, cx| {
             *this = ToastState::Error {
-                message: message.to_string(),
+                message: message.to_string().into(),
                 fade_in: Instant::now(),
                 fade_out: Some(Instant::now() + Duration::from_secs(4)),
             };
@@ -289,7 +289,7 @@ impl Toast {
                 })
                 .detach();
                 cx.new_view(|_| PopupToast {
-                    message: message.to_string(),
+                    message: message.to_string().into(),
                     icon,
                 })
             },
@@ -297,7 +297,7 @@ impl Toast {
     }
 }
 pub struct PopupToast {
-    message: String,
+    message: SharedString,
     icon: Option<Icon>,
 }
 
@@ -332,7 +332,7 @@ impl Render for PopupToast {
 
 #[derive(Clone)]
 pub struct StateItem {
-    pub id: String,
+    pub id: SharedString,
     pub query: TextInput,
     pub view: AnyView,
     pub actions: View<Actions>,
@@ -397,7 +397,7 @@ impl StateItem {
         let id = view.command();
         let view = view.build(&mut context, cx);
         Self {
-            id,
+            id: id.into(),
             query,
             view,
             actions,
@@ -673,7 +673,7 @@ impl<F> ActionFn for F where F: Fn(&mut Actions, &mut WindowContext) + 'static {
 
 #[derive(Clone, IntoElement)]
 pub struct Action {
-    pub label: String,
+    pub label: SharedString,
     pub shortcut: Option<Shortcut>,
     pub image: Img,
     pub action: Rc<dyn ActionFn>,
@@ -706,7 +706,7 @@ impl Action {
         hide: bool,
     ) -> Self {
         Self {
-            label: label.to_string(),
+            label: label.to_string().into(),
             shortcut,
             action: Rc::new(action),
             image,
@@ -721,7 +721,7 @@ impl Action {
         hide: bool,
     ) -> Self {
         Self {
-            label: label.to_string(),
+            label: label.to_string().into(),
             shortcut,
             action,
             image,
