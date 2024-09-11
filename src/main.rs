@@ -21,6 +21,7 @@ mod commands;
 mod components;
 mod date;
 mod db;
+mod deno;
 mod hotkey;
 mod ipc;
 mod loader;
@@ -35,6 +36,10 @@ mod workspace;
 #[async_std::main]
 async fn main() {
     env_logger::init();
+
+    if let Err(e) = deno::deno_test() {
+        log::error!("{e:#?}");
+    };
 
     if let Ok(listener) = setup_socket().await {
         let app = App::new();

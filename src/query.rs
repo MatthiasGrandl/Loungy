@@ -289,10 +289,12 @@ impl RenderOnce for TextInput {
                                     && editor.selection.start > 0
                                 {
                                     let i = (editor.selection.start - 1).min(chars.len());
-                                    editor.text = chars[0..i].iter().collect::<String>()
-                                        + &(chars[editor.selection.end.min(chars.len())..]
+                                    editor.text = chars[0..i].iter().collect::<String>();
+                                    editor.text.push_str(
+                                        &(chars[editor.selection.end.min(chars.len())..]
                                             .iter()
-                                            .collect::<String>());
+                                            .collect::<String>()),
+                                    );
                                     editor.selection = i..i;
                                 } else {
                                     editor.text.replace_range(
