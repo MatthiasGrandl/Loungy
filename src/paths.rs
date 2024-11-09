@@ -26,7 +26,7 @@ impl Paths {
         #[cfg(target_os = "macos")]
         let user_dir = PathBuf::from("/Users").join(username.clone());
         #[cfg(target_os = "linux")]
-        let user_dir = PathBuf::from("/home").join(username);
+        let user_dir = PathBuf::from("/home").join(username.clone());
         Self {
             #[cfg(target_os = "macos")]
             path_env: format!(
