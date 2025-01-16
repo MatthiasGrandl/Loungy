@@ -1,3 +1,6 @@
+> [!NOTE]
+Loungy is currently not in active development. As a new dad, my development resources have dwindled. For another amazing launcher built in rust check [Project Gauntlet](https://github.com/project-gauntlet/gauntlet). They do basically everything Loungy does, but better. Plus they already have a working plugin system!
+
 <h1 align="center">
 	<img src="./icons/icon_512x512@2x@2x.png" width="100" alt="Logo"/><br/>
 	Loungy
