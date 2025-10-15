@@ -616,6 +616,21 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
             }
             ClipboardWatcher::init(cx);
 
+            // Spawn background task for periodic clipboard clearing
+            cx.spawn(|view, cx| async move {
+                loop {
+                    // Run every hour
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
+
+                    // Prune clipboard history, keeping entries for a week
+                    let _ = ClipboardListItem::prune(
+                        ToSpan::seconds(60 * 60 * 24 * 7),
+                        view.clone(),
+                        cx,
+                    );
+                }
+            }).detach();
+
             cx.spawn(|view, cx| async move {
                 let mut cp = Clipboard::new().unwrap();
                 let mut hash: u64 = 0;
@@ -623,21 +638,9 @@ impl RootCommandBuilder for ClipboardCommandBuilder {
                 if !cache.exists() {
                     let _ = std::fs::create_dir_all(&cache);
                 }
-                let mut now = Instant::now();
+                
                 clipboard(
                     |cx| {
-                        if Instant::now() - now > Duration::from_secs(3600) {
-                            now = Instant::now();
-                            // Prune clipboard history every hour, keeping entries for a week
-                            let _ = cx.update_window(cx.window_handle(), |_, cx| {
-                                let _ = ClipboardListItem::prune(
-                                    ToSpan::seconds(60 * 60 * 24 * 7),
-                                    view.clone(),
-                                    cx,
-                                );
-                            });
-                        }
-
                         let app = get_frontmost_application_data();
                         let condition = |app: &Option<AppData>, cx: &mut AsyncAppContext| {
                             if !ClipboardWatcher::is_enabled(cx) {
